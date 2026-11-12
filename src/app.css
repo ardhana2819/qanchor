@@ -1,3 +1,144 @@
+/* Design tokens and base styles from docs/design.md section 2 (v0.3).
+   Components use these semantic tokens only, never raw colour values. */
+
+/* Inter, Latin subset only (ADR-010). Measured: 47.1 KB woff2. */
+@font-face {
+	font-family: 'Inter Variable';
+	font-style: normal;
+	font-display: swap;
+	font-weight: 100 900;
+	src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')
+		format('woff2-variations');
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Arial resized to Inter's metrics, so text does not shift when Inter finishes loading.
+   Values computed from both font files (Inter hhea metrics, mean advance of a-z and space). */
+@font-face {
+	font-family: 'Inter Fallback';
+	src: local('Arial'), local('Liberation Sans');
+	size-adjust: 109.38%;
+	ascent-override: 88.57%;
+	descent-override: 22.05%;
+	line-gap-override: 0%;
+}
+
+:root {
+	/* Light and dark values side by side. color-scheme picks one: the system setting by
+	   default, or the stored choice through data-theme (FR-002). */
+	color-scheme: light dark;
+
+	--color-bg: light-dark(#ffffff, #0b1017);
+	--color-surface: light-dark(#f6f8fa, #131a22);
+	--color-surface-raised: light-dark(#eef1f4, #1b242e);
+	--color-border: light-dark(#d8dee4, #2a3440);
+	--color-border-strong: light-dark(#7d8590, #6b7785);
+	--color-text: light-dark(#0f172a, #e6edf3);
+	--color-text-muted: light-dark(#475569, #a9b4c0);
+	--color-text-subtle: light-dark(#5a6472, #8693a1);
+	--color-accent: light-dark(#0f766e, #2dd4bf);
+	--color-accent-hover: light-dark(#115e59, #5eead4);
+	--color-on-accent: light-dark(#ffffff, #042f2b);
+	--color-accent-subtle: light-dark(#e6f4f1, #0f2e2b);
+	--color-success: light-dark(#1a7f37, #3fb950);
+	--color-success-bg: light-dark(#e8f5ec, #12261a);
+	--color-danger: light-dark(#cf222e, #f85149);
+	--color-danger-bg: light-dark(#ffebe9, #2d1416);
+	--color-warning: light-dark(#8a5a00, #d29922);
+	--color-warning-bg: light-dark(#fff4d6, #2a2110);
+	--color-info: light-dark(#0969da, #58a6ff);
+	--color-info-bg: light-dark(#ddf4ff, #10243b);
+
+	--shadow-overlay: 0 4px 16px light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.5));
+
+	--font-sans:
+		'Inter Variable', 'Inter', 'Inter Fallback', system-ui, -apple-system, 'Segoe UI', Roboto,
+		sans-serif;
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+	/* Type scale in rem, so browser zoom and font settings apply. */
+	--text-xs: 0.8125rem; /* 13 px */
+	--leading-xs: 1.125rem; /* 18 px */
+	--text-sm: 0.875rem; /* 14 px, body */
+	--leading-sm: 1.375rem; /* 22 px */
+	--text-md: 0.9375rem; /* 15 px */
+	--leading-md: 1.375rem;
+	--text-lg: 1.125rem; /* 18 px */
+	--leading-lg: 1.625rem; /* 26 px */
+	--text-xl: 1.5rem; /* 24 px */
+	--leading-xl: 2rem; /* 32 px */
+	--text-mono: 0.84375rem; /* 13.5 px */
+	--leading-mono: 1.375rem;
+
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-6: 24px;
+	--space-8: 32px;
+	--space-12: 48px;
+
+	--control-sm: 28px;
+	--control-md: 36px;
+
+	--radius-sm: 4px;
+	--radius-md: 6px;
+	--radius-full: 9999px;
+
+	--duration-fast: 120ms;
+	--duration-base: 180ms;
+	--ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+	--sidebar-width: 248px;
+	--content-max-width: 1120px;
+}
+
+:root[data-theme='light'] {
+	color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+	color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--duration-fast: 0ms;
+		--duration-base: 0ms;
+	}
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	font-size: var(--text-sm);
+	line-height: var(--leading-sm);
+	-webkit-font-smoothing: antialiased;
+}
+
+code,
+kbd,
+samp,
+pre {
+	font-family: var(--font-mono);
+	font-size: var(--text-mono);
+}
+
+:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
 /* The wrapper around %sveltekit.body% must not affect layout. It uses a class instead of an
    inline style attribute because the CSP does not allow inline styles (ADR-007). */
 .app-root {
