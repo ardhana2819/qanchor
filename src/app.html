@@ -5,8 +5,20 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
 		%sveltekit.head%
+		<script>
+			// Applies the stored theme before first paint (FR-002 AC-1). It must stay inline and
+			// synchronous, and it must come after %sveltekit.head%: the CSP <meta> tag is emitted
+			// there and only governs content that follows it. vite.config.ts adds this script's hash
+			// to the CSP. Without storage access the theme follows the system, the default anyway.
+			try {
+				var theme = localStorage.getItem('qanchor.theme');
+				if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+			} catch (error) {
+				// Storage blocked (for example by privacy settings): keep the system theme.
+			}
+		</script>
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents">%sveltekit.body%</div>
+		<div class="app-root">%sveltekit.body%</div>
 	</body>
 </html>
