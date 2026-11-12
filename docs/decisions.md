@@ -106,6 +106,18 @@ Revised after reviewing the prototypes (design brief v0.3):
 * SvelteKit 3.2, Svelte 5.57, Vite 8.3, adapter-static 4, ESLint 10, Prettier 3.10. TypeScript pinned to `~6.0` because SvelteKit 3 requires TypeScript 6 and typescript-eslint and svelte-check do not support TypeScript 7 yet. Revisit when they do.
 * SvelteKit 3 conventions used from the start: config in `vite.config.ts`, `#lib/*` instead of `$lib`, `$app/env` instead of `$app/environment`.
 
+### 2026-11-12: CSP spike results (T-004)
+
+Verified in Chromium and Firefox with E2E tests; WebKit runs in CI.
+
+* `kit.csp` in hash mode hashes only the inline scripts SvelteKit generates. A script written into `src/app.html` is not hashed, and nonces are forbidden for prerendered pages. Decision: `vite.config.ts` reads the single inline script from `src/app.html` and adds its SHA-256 to `script-src`; the build fails if `app.html` has more or fewer than one inline script.
+* A CSP `<meta>` tag only governs content that follows it, and SvelteKit emits it at `%sveltekit.head%`. A script placed before that placeholder runs unchecked. Decision: the theme script sits after `%sveltekit.head%`; it is still synchronous and runs before `<body>` is painted. Proven with a mutation test: a wrong hash now blocks the script and fails the E2E suite.
+* SvelteKit's route announcer is created with an inline `style` attribute after hydration, which `style-src 'self'` blocks. Decision: `style-src-attr 'unsafe-inline'` (ADR-007 amended). Rejected: hashing the announcer's style string with `'unsafe-hashes'` (tied to a SvelteKit internal that can change on any upgrade); `style-src 'unsafe-inline'` (would also allow `<style>` elements).
+* The `%sveltekit.body%` wrapper uses the class `app-root` (`display: contents` in `src/app.css`) instead of an inline style attribute.
+* `404.html` carries the same CSP meta tag, and `vite preview` answers unknown URLs with status 404. Cloudflare's status code is still checked in T-024.
+* `static/_headers` sets `frame-ancestors 'none'`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`. These take effect only on Cloudflare Pages and are checked on the live site in T-024.
+* The theme pre-paint script itself (FR-002 AC-1) shipped with this spike; the theme control UI follows in T-007.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
@@ -165,6 +177,7 @@ Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010
 * Decision: `kit.csp` in hash mode emits a CSP `<meta>` tag in every prerendered page: `script-src 'self'` plus hashes (including the inline theme script), `connect-src 'self' https: http://localhost:*`. Headers a meta tag cannot set (`frame-ancestors`, `X-Content-Type-Options`, `Referrer-Policy`) go in `static/_headers` for Cloudflare.
 * Rejected: a fixed `connect-src` allowlist (breaks endpoint overrides).
 * Consequences: `connect-src` cannot block exfiltration to arbitrary https hosts; acceptable because no secret is ever stored (NFR-012) and no third-party script runs.
+* Amended by the T-004 spike (2026-11-12): `style-src-attr 'unsafe-inline'` is added, because SvelteKit's route announcer (and any Svelte template with a `style` attribute) sets inline style attributes. `<style>` elements stay `'self'`-only and scripts stay hash-only. See the T-004 entry for the verified behaviour.
 
 ### ADR-008: Hand-written validation for imports
 
