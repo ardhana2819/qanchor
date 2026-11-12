@@ -96,6 +96,127 @@ Revised after reviewing the prototypes (design brief v0.3):
 * Type and control scale raised one step: body text 14 px (was 13 px), smallest text 13 px (was 12 px), page title 24 px, default control height 36 px (was 28 px). Why: the owner found the first scale too small to read comfortably. Density stays "compact" in spirit (flat layout, tables first), but rows and controls are larger. Supersedes "body text 13 px" above.
 * Selects drop the native arrow and use a themed chevron inset from the right edge. Why: the native arrow sat flush against the border.
 
+### 2026-11-12: Implementation plan approved
+
+* `docs/plan.md` approved: Phase 1 only, 46 tasks (T-001 to T-046) in milestones M0 (walking skeleton) and M1 to M3 (slices 1a to 1c). Phases 2 to 4 get tasks once they have FR IDs.
+* Plan finding F-1 accepted: the theme preference is stored in `localStorage`, not IndexedDB (see ADR-014).
+
+## Architecture decision records
+
+Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
+
+### ADR-001: Project structure by tool
+
+* Status: Accepted
+* Context: NFR-015 and FR-001 AC-5 require crypto code and datasets to load only on the routes that use them.
+* Decision: `lib/core` (pure TypeScript domain code), `lib/tools/<tool>` (tool UI and state), `lib/ui` (shared components), plus `lib/net`, `lib/storage`, `lib/state`, `lib/workers`, `lib/config`.
+* Rejected: layer-based folders (`components/`, `crypto/`, `stores/`): one tool's code spreads across folders and route-level code splitting is easier to break by accident.
+* Consequences: `lib/core` must never import Svelte, DOM, or network code; enforced by review and an ESLint import restriction.
+
+### ADR-002: Svelte 5 runes for state
+
+* Status: Accepted
+* Context: global state is only the theme and settings; everything else is local to a page.
+* Decision: runes in `*.svelte.ts` modules. No state library.
+* Rejected: `svelte/store` (older style in Svelte 5), any external store (not needed).
+* Consequences: zero added bytes; state stays close to the component that owns it.
+
+### ADR-003: Native BigInt for exact amounts
+
+* Status: Accepted
+* Context: FR-021 AC-6 and FR-030 AC-4 require exact results up to 78 digits.
+* Decision: all amounts are `bigint` in base units; small own helpers parse and format decimal strings.
+* Rejected: big.js / decimal.js (a dependency for what integer math already does; decimal precision settings are a source of bugs).
+* Consequences: parse/format helpers need thorough unit tests, including D = 0 and D = 36 (EC-012, EC-013).
+
+### ADR-004: Native Web Workers
+
+* Status: Accepted
+* Context: NFR-005 moves bulk address and dummy-data generation off the main thread.
+* Decision: Vite's `new Worker(new URL(...), { type: 'module' })` with a small typed `{ type, payload }` message protocol.
+* Rejected: Comlink (convenient, but a dependency for two jobs).
+* Consequences: the protocol types live in `lib/workers/messages.ts`; workers run `lib/core` only.
+
+### ADR-005: Own EVM ABI decoder
+
+* Status: Accepted
+* Context: FR-050 needs static and dynamic types, arrays, and tuples, with the precise error states of FR-052.
+* Decision: write the decoder in `lib/core/abi`, using `@noble/hashes` keccak-256 for selectors.
+* Rejected: micro-eth-signer (dependency outside `CLAUDE.md`; size and audit status of its ABI module not verified).
+* Consequences: more code and tests; correctness rests on published ABI test vectors and malformed-input tests. Ships in slice 1c, after the first deploy.
+
+### ADR-006: Tron lookup via the native HTTP API
+
+* Status: Accepted
+* Context: PRD left the Tron protocol to the tech plan. Both TronGrid's HTTP API and its JSON-RPC endpoint passed a CORS check on 2026-11-12.
+* Decision: `/wallet/gettransactionbyid` and `/wallet/gettransactioninfobyid` on TronGrid (mainnet) and Nile (testnet).
+* Rejected: Ethereum-compatible JSON-RPC (loses Tron-specific data such as energy and bandwidth fees and contract types).
+* Consequences: a Tron-specific parser in `lib/core/tx`. TronGrid without an API key is rate-limited; the override setting covers users who have their own key or node.
+
+### ADR-007: CSP through SvelteKit hash mode
+
+* Status: Accepted
+* Context: NFR-017 asks for a strict CSP, but FR-041 lets users point lookups at any endpoint URL.
+* Decision: `kit.csp` in hash mode emits a CSP `<meta>` tag in every prerendered page: `script-src 'self'` plus hashes (including the inline theme script), `connect-src 'self' https: http://localhost:*`. Headers a meta tag cannot set (`frame-ancestors`, `X-Content-Type-Options`, `Referrer-Policy`) go in `static/_headers` for Cloudflare.
+* Rejected: a fixed `connect-src` allowlist (breaks endpoint overrides).
+* Consequences: `connect-src` cannot block exfiltration to arbitrary https hosts; acceptable because no secret is ever stored (NFR-012) and no third-party script runs.
+
+### ADR-008: Hand-written validation for imports
+
+* Status: Accepted
+* Context: FR-003 AC-4 requires rejecting invalid import files with a named reason. The schema has four small record types.
+* Decision: type guards in `lib/storage/validate.ts` that return a `Result` with the first problem found.
+* Rejected: zod (estimated ~13 KB gzip), valibot (estimated 1 to 2 KB); both add a dependency for four record shapes.
+* Consequences: guards must be updated with every schema version; covered by unit tests per version.
+
+### ADR-009: Own bundle-size check
+
+* Status: Accepted
+* Context: NFR-001 caps initial JS for the default route at 80 KB gzip and requires CI to enforce it.
+* Decision: `scripts/check-bundle-size.mjs` reads the build output, gzips the JS the default route loads, and fails above the limit.
+* Rejected: size-limit (a dependency stack for one number).
+* Consequences: the script must follow how SvelteKit names entry chunks; if that changes in an upgrade, the script is updated in the same PR.
+
+### ADR-010: Inter through @fontsource-variable/inter
+
+* Status: Accepted
+* Context: design brief v0.3 uses Inter as the only custom font.
+* Decision: import only the Latin subset of `@fontsource-variable/inter`; the woff2 file is self-hosted with the site.
+* Rejected: hand-subsetting a woff2 into `static/` (manual updates and licensing bookkeeping).
+* Consequences: a new dependency outside the `CLAUDE.md` list (recorded here per NFR-018). The file adds no JS, but it can affect LCP; measured in slice 1a, with the system font as the agreed fallback.
+
+### ADR-011: Prerendered routes with a 404.html fallback
+
+* Status: Accepted
+* Context: NFR-022 requires static HTML per route and a not-found state for unknown URLs.
+* Decision: `prerender = true` and `trailingSlash = 'never'` on every route; adapter-static writes a client-rendered `404.html`. Cloudflare Pages serves the nearest `404.html` for unmatched paths and does not fall back to SPA mode when one exists (Cloudflare docs, read 2026-11-12).
+* Rejected: SPA fallback to `index.html` (would hide not-found from crawlers and contradict the review 1 decision to prerender).
+* Consequences: the HTTP status Cloudflare sends with `404.html` is not documented; checked on the first preview deploy. Phase 2 record pages use query-string IDs.
+
+### ADR-012: Default endpoints from a verified list
+
+* Status: Accepted
+* Context: the PRD forbids listing a default endpoint before its browser CORS behaviour is verified.
+* Decision: the defaults in `docs/architecture.md` section 5, checked on 2026-11-12. publicnode.com for Ethereum, Polygon, and Solana mainnet; chain operators' own endpoints for BNB, Arbitrum, Base, Solana Devnet, and Tron; mempool.space for Bitcoin, pending verification.
+* Rejected: `polygon-rpc.com` (HTTP 401), `rpc-amoy.polygon.technology` (no response), `api.mainnet-beta.solana.com` (HTTP 403 from the test network).
+* Consequences: the list is re-checked before slice 1c. Bitcoin defaults stay unlisted until a check succeeds.
+
+### ADR-013: Errors as values in core and network code
+
+* Status: Accepted
+* Context: most failures in this app are expected (bad input, endpoint errors, undecodable data) and each needs specific copy (FR-042, FR-052, docs/design.md section 7).
+* Decision: `lib/core` and `lib/net` return `Result<T, E>` with a typed `code`; only bugs throw, and a single layout error boundary catches them.
+* Rejected: throwing for expected failures (callers forget to catch; error types are untyped in TypeScript).
+* Consequences: every tool keeps one map from error code to user copy.
+
+### ADR-014: IndexedDB schema v1, theme in localStorage, replace-all import
+
+* Status: Accepted (theme storage revised by the owner on 2026-11-12, plan finding F-1)
+* Context: FR-002 AC-1, FR-003, FR-070 to FR-073, NFR-016, EC-002, EC-003.
+* Decision: database `qanchor` v1 with stores `endpoints`, `wallets`, `faucets`. The theme preference lives in `localStorage` (`qanchor.theme`) because the pre-paint script must read it synchronously. Fetched balances stay in memory only. Import clears and rewrites all stores in one transaction, then writes the theme; the export file carries both.
+* Rejected: theme in IndexedDB (asynchronous, cannot run before first paint, so dark-mode users would see a light flash); persisting balances (stale on the next visit, extra migration); localStorage for all data (kickoff decision, size limit).
+* Consequences: two storage mechanisms to export and import; a schema change needs a migration step and a new export `schemaVersion`.
+
 ## Build order
 
 1. Blockchain toolkit + dummy data (slices 1a, 1b, 1c; first deploy at the end of 1a)

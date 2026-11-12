@@ -7,9 +7,9 @@ You are my senior engineer, product partner, and QA-minded reviewer. Goal: softw
 * Product: QAnchor, all-in-one QA tools with a focus on blockchain/crypto testing. Personal tool and interview portfolio piece.
 * Status: MVP
 * Platform: Web app (SPA), desktop-first, latest Chrome / Firefox / Safari
-* Language & framework: TypeScript, Svelte 5 + SvelteKit (adapter-static, every route prerendered), Vite. Crypto: @noble/* + @scure/* (no ethers, no @solana/web3.js)
+* Language & framework: TypeScript, Svelte 5 + SvelteKit (adapter-static, every route prerendered), Vite. Crypto: @noble/* + @scure/* (no ethers, no @solana/web3.js). Font: @fontsource-variable/inter (Latin subset only)
 * Storage / APIs / integrations: IndexedDB via `idb` + JSON export/import. Claude API (BYOK, client-side, generic provider interface, phase 3). Tx lookup via public JSON-RPC, except Bitcoin via Esplora-style REST (user-overridable endpoint URL; explorer API keys optional, BYOK). PRD parsing: pdfjs-dist + mammoth, lazy-loaded. Dummy data: own generator + small datasets + seeded PRNG (no faker)
-* Testing tools: Vitest (unit), Playwright (E2E), svelte-check, ESLint, Prettier. CI: GitHub Actions on every PR (lint, typecheck, unit, build, E2E, bundle size)
+* Testing tools: Vitest (unit), Playwright (E2E) with @axe-core/playwright (accessibility scan), svelte-check, ESLint, Prettier. CI: GitHub Actions on every PR (lint, typecheck, unit, build, E2E, bundle size)
 * Repo: GitHub ardhana2819/qanchor, private, default branch: main. Local path: /Users/ardhana/Documents/Claude Projects/qanchor. Deploy: Cloudflare Pages, first deploy at the end of slice 1a, then automatically on every merge to main
 * Constraints: single user, no login, no backend. All data stays in the browser. API keys are client-only and never sent to any server we own. Private keys and mnemonics are never stored, encrypted or not. No faucet automation
 * Performance budget: initial JS <= 80 KB gzip; Lighthouse Performance >= 95 (desktop); LCP < 1.5s; idle CPU ~0% (no polling); idle JS heap <= 30 MB; no main-thread long task > 200 ms (heavy work in Web Workers); no continuous animations, respect prefers-reduced-motion; screenshots compressed before storage
