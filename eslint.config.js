@@ -35,6 +35,11 @@ export default defineConfig(
 		}
 	},
 	{
+		// Build scripts report to the terminal; the app logging rule does not apply to them.
+		files: ['scripts/**'],
+		rules: { 'no-console': 'off' }
+	},
+	{
 		// lib/core is pure domain code: no Svelte, no app runtime, no UI, network, or storage (ADR-001).
 		files: ['src/lib/core/**'],
 		rules: {
