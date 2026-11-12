@@ -16,7 +16,13 @@ npm run preview   # serve the built site
 npm run check     # svelte-check type checking
 npm run lint      # Prettier check + ESLint
 npm run format    # Prettier write
+npm test          # unit tests (Vitest)
+npm run test:e2e  # E2E tests (Playwright) against the production build
 ```
+
+Before the first E2E run, install the browsers once: `npx playwright install chromium firefox webkit`.
+
+Known issue: Playwright 1.65's WebKit crashes on launch on macOS 26.0.1 (inside AppKit, before any page loads). Run `npx playwright test --project=chromium --project=firefox` locally; WebKit runs in CI on Linux.
 
 ## Documentation
 
