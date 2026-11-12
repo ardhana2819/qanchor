@@ -74,6 +74,28 @@ The questions left open after review 1 were resolved in review 2 below.
 * Tx lookup networks: mainnet plus one testnet for every chain, including Solana, Tron, and Bitcoin.
 * While Phase 1 is being built, the live site lists shipped tools only. The roadmap lives in the README.
 
+### 2026-11-12: Design brief (v0.2 approved)
+
+Decided by the owner:
+
+* Design scope: the whole app, phases 1 to 4. Phase 2 to 4 screens are outline-level proposals until those phases get FR IDs.
+* Visual direction: "Anchor". Cool neutrals, one teal accent (`#0F766E` light, `#2DD4BF` dark), Inter for UI text, system monospace for data. Why: it gives the portfolio piece an identity while staying inside "clean utilitarian". Alternatives considered: "Graphite" (monochrome, system fonts) and "Ledger" (mono-forward, amber accent).
+* Visual references stay Linear and Vercel only.
+* Avoided on request: generic purple gradient / "AI look", dark neon "web3" look.
+* Style, theme, density, and styling approach from kickoff are confirmed unchanged.
+
+Consequences:
+
+* Inter is the first and only custom font: one self-hosted variable file, Latin subset. Its size is not yet measured; it is outside the JS budget but can affect LCP. To be measured in slice 1a.
+* All colour pairs in `docs/design.md` were computed against WCAG 2.1 AA and pass.
+
+Approved as recommended (`docs/design.md` section 12): body text 13 px; switch to the system font if Inter pushes LCP above 1.5 s; no spinner, text status and determinate progress only; sidebar groups "Blockchain" then "Data"; route names as proposed, adjustable in the tech plan; skip link and inline SVG icons; Phase 2 to 4 screens as direction only; checklist detail on its own route.
+
+Revised after reviewing the prototypes (design brief v0.3):
+
+* Type and control scale raised one step: body text 14 px (was 13 px), smallest text 13 px (was 12 px), page title 24 px, default control height 36 px (was 28 px). Why: the owner found the first scale too small to read comfortably. Density stays "compact" in spirit (flat layout, tables first), but rows and controls are larger. Supersedes "body text 13 px" above.
+* Selects drop the native arrow and use a themed chevron inset from the right edge. Why: the native arrow sat flush against the border.
+
 ## Build order
 
 1. Blockchain toolkit + dummy data (slices 1a, 1b, 1c; first deploy at the end of 1a)
