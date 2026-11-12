@@ -1,6 +1,6 @@
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [
@@ -14,5 +14,11 @@ export default defineConfig({
 			// that Cloudflare Pages serves for unknown paths (ADR-011, NFR-022).
 			adapter: adapter({ fallback: '404.html' })
 		})
-	]
+	],
+	test: {
+		// Unit tests sit next to the code they test; E2E specs live in tests/e2e (architecture section 7).
+		include: ['src/**/*.test.ts'],
+		environment: 'node',
+		expect: { requireAssertions: true }
+	}
 });
