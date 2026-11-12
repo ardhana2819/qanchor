@@ -1,0 +1,8 @@
+# Cloudflare Pages response headers (ADR-007, NFR-017).
+# The main CSP is a <meta> tag in every page; a meta CSP cannot set frame-ancestors, so it is here.
+/*
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()

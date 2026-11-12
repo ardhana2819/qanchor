@@ -1,0 +1,5 @@
+/* The wrapper around %sveltekit.body% must not affect layout. It uses a class instead of an
+   inline style attribute because the CSP does not allow inline styles (ADR-007). */
+.app-root {
+	display: contents;
+}

@@ -31,7 +31,7 @@ How this plan is used:
 | T-001 | Scaffold SvelteKit (TypeScript, Svelte 5, adapter-static, `prerender = true`, `trailingSlash = 'never'`), folder skeleton from architecture section 2, `.nvmrc`, npm scripts, ESLint (incl. `no-console`, `lib/core` import restriction), Prettier, svelte-check | FR-001 (partial), NFR-022 | none | Build output has `index.html` and `404.html`; lint, format check, and typecheck pass | `npm run build`, `npm run lint`, `npm run check` | Low | done |
 | T-002 | Test harness: Vitest with one unit test (`lib/core/result.ts`); Playwright for Chromium, Firefox, WebKit against `vite preview`, with one E2E (index page shows its heading) | NFR-007 | T-001 | Both suites pass locally in all three browsers | `npm test`, `npm run test:e2e` | Low (WebKit install on CI) | done (WebKit: see task notes) |
 | T-003 | CI workflow (lint, typecheck, unit, build, bundle size, E2E) and `scripts/check-bundle-size.mjs` | NFR-001, NFR-020, ADR-009 | T-002 | PR shows all CI jobs green; the size script prints the measured gzip size and fails when the limit is lowered on purpose | GitHub Actions run; local run with a low limit | Low | done |
-| T-004 | Spike: CSP in hash mode with the inline theme script, `static/_headers`, and `404.html` fallback | FR-002 AC-1, NFR-017, NFR-022, ADR-007, ADR-011 | T-001 | Built pages carry a CSP meta tag that includes the theme script's hash; no CSP violations in the console in three browsers; findings written to `docs/decisions.md` | Inspect build output; Playwright console check | **High**: the `kit.csp` behaviour for `app.html` scripts is unverified | todo |
+| T-004 | Spike: CSP in hash mode with the inline theme script, `static/_headers`, and `404.html` fallback | FR-002 AC-1, NFR-017, NFR-022, ADR-007, ADR-011 | T-001 | Built pages carry a CSP meta tag that includes the theme script's hash; no CSP violations in the console in three browsers; findings written to `docs/decisions.md` | Inspect build output; Playwright console check | **High**: the `kit.csp` behaviour for `app.html` scripts is unverified | done |
 
 ### M1 Slice 1a
 
@@ -130,6 +130,8 @@ FRs not covered by any task: **none**. NFR-018 (dependency discipline) is a revi
   * `npm run size` (`scripts/check-bundle-size.mjs`): sums the gzip size of every script that `build/index.html` preloads or imports. First measurement: **30.48 KB** of the 80 KB budget. Verified to exit with code 1 when over the limit (limit lowered to 10 KB in a copy) and when `build/index.html` is missing.
   * `npm audit`: runtime dependencies 0 advisories; dev tooling still has 14 low/moderate advisories with no non-breaking fix. CI fails only on high or critical advisories in runtime dependencies.
   * First CI run (PR 7, run 43248758969): all four jobs green on Node 26.13.1, including **E2E in WebKit on Linux**, which closes the WebKit gap from T-002. CI measured 30.46 KB initial JS.
+
+* **T-004 (done):** findings are in `docs/decisions.md` ("CSP spike results"). In short: the theme script's hash is computed in `vite.config.ts`; the script must follow `%sveltekit.head%` to be covered by the meta CSP (proven by a mutation test); `style-src-attr 'unsafe-inline'` is needed for SvelteKit's route announcer. `tests/e2e/csp.spec.ts` adds 7 E2E tests (CSP meta, no violations on `/` and on an unknown URL, 404 status, stored theme). T-007 no longer needs to write the pre-paint script, only the theme control.
 
 ## Findings while planning
 

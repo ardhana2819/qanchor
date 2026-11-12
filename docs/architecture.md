@@ -323,7 +323,7 @@ Tooling defaults: npm as the package manager and Node 26 LTS pinned in `.nvmrc` 
 | Bitcoin endpoints unverified from the test network | Slice 1c Bitcoin lookup may need another default | Re-check from another network before slice 1c; fallback candidates are other Esplora instances |
 | Own ABI decoder gets dynamic offsets or nested tuples wrong | Wrong decoded values shown as valid | Published ABI test vectors, malformed-input tests for FR-052 AC-4; decoder ships in 1c, after the first deploy |
 | Taproot tweak (BIP-341) implemented by hand on top of noble | Invalid P2TR addresses marked valid | BIP-341 and BIP-350 vectors; generated addresses round-trip through the validator (FR-010 AC-2) |
-| Inline theme script blocked by the CSP | Theme flash or broken theme | Hash of the script added to `script-src` explicitly; E2E checks no CSP violations and no flash. Whether `kit.csp` hashes a script placed in `app.html` by itself is **[VERIFY]** in T-level work |
+| Inline theme script blocked by the CSP | Theme flash or broken theme | Resolved in T-004: `vite.config.ts` hashes the `app.html` script into `script-src`, the script sits after the CSP meta tag, and E2E fails on any CSP violation (`docs/decisions.md`, CSP spike results) |
 | Initial bundle exceeds 80 KB gzip | NFR-001 fails | Budget check in CI from the first PR; crypto and datasets only in route chunks |
 | `*.pages.dev` and the `qanchor` project name unverified from the test network | First deploy URL may differ | Checked when the Cloudflare project is created at the end of slice 1a |
 | Cloudflare 404 status code for `404.html` not documented | A not-found page might answer HTTP 200 | Checked on the first preview deploy; the user-facing behaviour (not-found state) is the same either way |
