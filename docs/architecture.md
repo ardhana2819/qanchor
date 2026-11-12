@@ -92,7 +92,7 @@ qanchor/
 │   └── _headers               # security headers that a meta CSP cannot set (ADR-007)
 ├── tests/
 │   └── e2e/                   # Playwright specs, one file per tool + cross-cutting specs
-└── (config files)             # svelte.config.js, vite.config.ts, playwright.config.ts, eslint, prettier, .nvmrc
+└── (config files)             # vite.config.ts (holds the SvelteKit config in v3), playwright.config.ts, eslint, prettier, .nvmrc
 ```
 
 Why this split (ADR-001): each route imports only its own `lib/tools/<tool>` folder, which imports only the `lib/core` modules it needs, so crypto code and datasets land in route chunks, not in the initial bundle (NFR-015, FR-001 AC-5). Unit tests (`*.test.ts`) sit next to the file they test.
@@ -282,7 +282,7 @@ Explorer URL templates (FR-043) and built-in faucet links (FR-072) are written i
 
 ### Browser-only code
 
-* Code that uses IndexedDB, Web Crypto, the clipboard, or workers runs only in `onMount` or behind `browser` from `$app/environment`, so prerendering never executes it (NFR-022).
+* Code that uses IndexedDB, Web Crypto, the clipboard, or workers runs only in `onMount` or behind `browser` from `$app/env` (renamed from `$app/environment` in SvelteKit 3), so prerendering never executes it (NFR-022).
 * Pages that read storage render a loading state in their static HTML (FR-003 AC-5, EC-026).
 
 ## 7. Testing strategy

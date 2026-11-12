@@ -1,0 +1,10 @@
+# Package managers
+package-lock.json
+
+# Hand-formatted documents and design mockups
+docs/
+prototype/
+*.md
+
+# Not part of the repository
+Claude outputs/

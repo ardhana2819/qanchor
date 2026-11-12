@@ -28,7 +28,7 @@ How this plan is used:
 
 | ID | Task | FR/US/NFR | Depends on | Definition of done | How to verify | Risk | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T-001 | Scaffold SvelteKit (TypeScript, Svelte 5, adapter-static, `prerender = true`, `trailingSlash = 'never'`), folder skeleton from architecture section 2, `.nvmrc`, npm scripts, ESLint (incl. `no-console`, `lib/core` import restriction), Prettier, svelte-check | FR-001 (partial), NFR-022 | none | Build output has `index.html` and `404.html`; lint, format check, and typecheck pass | `npm run build`, `npm run lint`, `npm run check` | Low | todo |
+| T-001 | Scaffold SvelteKit (TypeScript, Svelte 5, adapter-static, `prerender = true`, `trailingSlash = 'never'`), folder skeleton from architecture section 2, `.nvmrc`, npm scripts, ESLint (incl. `no-console`, `lib/core` import restriction), Prettier, svelte-check | FR-001 (partial), NFR-022 | none | Build output has `index.html` and `404.html`; lint, format check, and typecheck pass | `npm run build`, `npm run lint`, `npm run check` | Low | done |
 | T-002 | Test harness: Vitest with one unit test (`lib/core/result.ts`); Playwright for Chromium, Firefox, WebKit against `vite preview`, with one E2E (index page shows its heading) | NFR-007 | T-001 | Both suites pass locally in all three browsers | `npm test`, `npm run test:e2e` | Low (WebKit install on CI) | todo |
 | T-003 | CI workflow (lint, typecheck, unit, build, bundle size, E2E) and `scripts/check-bundle-size.mjs` | NFR-001, NFR-020, ADR-009 | T-002 | PR shows all CI jobs green; the size script prints the measured gzip size and fails when the limit is lowered on purpose | GitHub Actions run; local run with a low limit | Low | todo |
 | T-004 | Spike: CSP in hash mode with the inline theme script, `static/_headers`, and `404.html` fallback | FR-002 AC-1, NFR-017, NFR-022, ADR-007, ADR-011 | T-001 | Built pages carry a CSP meta tag that includes the theme script's hash; no CSP violations in the console in three browsers; findings written to `docs/decisions.md` | Inspect build output; Playwright console check | **High**: the `kit.csp` behaviour for `app.html` scripts is unverified | todo |
@@ -110,6 +110,14 @@ Every Phase 1 FR is covered by at least one task:
 | FR-080 to FR-084 | T-025 to T-031 |
 
 FRs not covered by any task: **none**. NFR-018 (dependency discipline) is a review rule on every PR rather than a task.
+
+## Task notes
+
+* **T-001 (done):**
+  * SvelteKit 3.2 (released 2026-10-01) replaced several v2 conventions, so the scaffold follows the official `sv` 1.3 template: the SvelteKit config lives in the `sveltekit()` plugin in `vite.config.ts` (`svelte.config.js` no longer exists), the `#lib/*` subpath import replaces `$lib`, `$app/environment` is now `$app/env`, and `tsconfig.json` extends `$app/tsconfig`.
+  * TypeScript is pinned to `~6.0`: SvelteKit 3 requires TypeScript 6, and `typescript-eslint` 8.72 and `svelte-check` 4.7 do not yet support TypeScript 7.
+  * Folders from architecture section 2 are created by the task that adds their first file, not as empty placeholders; the `lib/core` boundary is enforced by an ESLint rule from the start.
+  * `npm audit`: 0 vulnerabilities in runtime dependencies (there are none yet); 14 low/moderate advisories in dev tooling (for example `minimatch`, `deepmerge`), fixable only with breaking downgrades. Not part of the shipped site; re-checked in T-003.
 
 ## Findings while planning
 
