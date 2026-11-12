@@ -30,7 +30,7 @@ How this plan is used:
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T-001 | Scaffold SvelteKit (TypeScript, Svelte 5, adapter-static, `prerender = true`, `trailingSlash = 'never'`), folder skeleton from architecture section 2, `.nvmrc`, npm scripts, ESLint (incl. `no-console`, `lib/core` import restriction), Prettier, svelte-check | FR-001 (partial), NFR-022 | none | Build output has `index.html` and `404.html`; lint, format check, and typecheck pass | `npm run build`, `npm run lint`, `npm run check` | Low | done |
 | T-002 | Test harness: Vitest with one unit test (`lib/core/result.ts`); Playwright for Chromium, Firefox, WebKit against `vite preview`, with one E2E (index page shows its heading) | NFR-007 | T-001 | Both suites pass locally in all three browsers | `npm test`, `npm run test:e2e` | Low (WebKit install on CI) | done (WebKit: see task notes) |
-| T-003 | CI workflow (lint, typecheck, unit, build, bundle size, E2E) and `scripts/check-bundle-size.mjs` | NFR-001, NFR-020, ADR-009 | T-002 | PR shows all CI jobs green; the size script prints the measured gzip size and fails when the limit is lowered on purpose | GitHub Actions run; local run with a low limit | Low | in progress |
+| T-003 | CI workflow (lint, typecheck, unit, build, bundle size, E2E) and `scripts/check-bundle-size.mjs` | NFR-001, NFR-020, ADR-009 | T-002 | PR shows all CI jobs green; the size script prints the measured gzip size and fails when the limit is lowered on purpose | GitHub Actions run; local run with a low limit | Low | done |
 | T-004 | Spike: CSP in hash mode with the inline theme script, `static/_headers`, and `404.html` fallback | FR-002 AC-1, NFR-017, NFR-022, ADR-007, ADR-011 | T-001 | Built pages carry a CSP meta tag that includes the theme script's hash; no CSP violations in the console in three browsers; findings written to `docs/decisions.md` | Inspect build output; Playwright console check | **High**: the `kit.csp` behaviour for `app.html` scripts is unverified | todo |
 
 ### M1 Slice 1a
@@ -122,13 +122,14 @@ FRs not covered by any task: **none**. NFR-018 (dependency discipline) is a revi
 * **T-002 (done, with one exception):**
   * Vitest 5.1 (unit, `src/**/*.test.ts`, Node environment) and Playwright 1.65 (E2E in `tests/e2e`, against `vite build` + `vite preview`, Chromium/Firefox/WebKit projects).
   * Unit: 3 tests pass. E2E: Chromium and Firefox pass locally.
-  * **WebKit does not run locally**: Playwright's WebKit build (webkit-2388) crashes on launch on the owner's Mac (macOS 26.0.1, arm64) with `EXC_BAD_ACCESS` in `-[WKWebView _cornerConfiguration]`, inside AppKit, before any page loads. Reproduced with and without the shell sandbox, so it is not a permissions issue. WebKit is verified in CI on Linux from T-003; re-check locally after a macOS or Playwright update.
+  * **WebKit does not run locally**: Playwright's WebKit build (webkit-2388) crashes on launch on the owner's Mac (macOS 26.0.1, arm64) with `EXC_BAD_ACCESS` in `-[WKWebView _cornerConfiguration]`, inside AppKit, before any page loads. Reproduced with and without the shell sandbox, so it is not a permissions issue. WebKit passed in CI on Linux in T-003; re-check locally after a macOS or Playwright update.
   * npm 11 skipped the install script of the optional `fsevents` package (macOS file watching). Build and tests ran without it; the dev server's file watching was not checked.
 
-* **T-003 (in progress, waiting for the first CI run):**
+* **T-003 (done):**
   * `.github/workflows/ci.yml`: job `checks` (lint, typecheck, unit, build, bundle size, `npm audit --omit=dev --audit-level=high`) and job `e2e` (one matrix entry per browser). Actions pinned to their latest major versions as of 2026-11-12: checkout v7, setup-node v7, upload-artifact v7. Node comes from `.nvmrc`.
   * `npm run size` (`scripts/check-bundle-size.mjs`): sums the gzip size of every script that `build/index.html` preloads or imports. First measurement: **30.48 KB** of the 80 KB budget. Verified to exit with code 1 when over the limit (limit lowered to 10 KB in a copy) and when `build/index.html` is missing.
   * `npm audit`: runtime dependencies 0 advisories; dev tooling still has 14 low/moderate advisories with no non-breaking fix. CI fails only on high or critical advisories in runtime dependencies.
+  * First CI run (PR 7, run 43248758969): all four jobs green on Node 26.13.1, including **E2E in WebKit on Linux**, which closes the WebKit gap from T-002. CI measured 30.46 KB initial JS.
 
 ## Findings while planning
 
