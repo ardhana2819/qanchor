@@ -37,12 +37,49 @@ Not another TestRail/Qase clone. The unique value is the blockchain toolkit and 
 * Performance budget: see CLAUDE.md. Targets are not yet measured; revise with real data if unrealistic.
 * Design: clean utilitarian, light + dark (system default), compact, plain CSS + CSS variables.
 
+### 2026-11-12: PRD review 1
+
+Changes to kickoff decisions:
+
+* Deploy: first production deploy to Cloudflare Pages at the end of slice 1a, then automatic deploy on every merge to main. Phase 4 becomes demo mode only. Why: a live link is needed early for the job search; it also lets Lighthouse/LCP be measured on the real site. Supersedes "Deploy (phase 4)".
+* Rendering: prerender every route to static HTML instead of a pure SPA fallback. Why: tool pages are static, so LCP improves and deep links work without a fallback trick; bundle size is unchanged. Supersedes "SPA mode". Consequences: browser-only APIs must not run at build time; pages for user-created records (Phase 2) cannot be prerendered and need a client-rendered fallback or query-string IDs.
+* Secrets: the app stores no private keys or mnemonics, encrypted or not. The wallet tracker keeps address + label + notes. Why: passphrase encryption adds UX, crypto code, and tests for a rarely used feature, and "never stores private keys" is a stronger portfolio story. Supersedes the "testnet keys/mnemonics are client-only" constraint.
+* Bitcoin tx lookup: Esplora-style REST API (e.g. mempool.space), user-overridable URL. Why: Bitcoin has no public JSON-RPC that browsers can call. All other chains stay on JSON-RPC.
+
+New decisions:
+
+* Phase 1 slices: 1a app shell, unit converter, amount edge cases, address generator + validator, first deploy; 1b dummy data, checklists; 1c tx lookup, calldata decoder, testnet wallet tracker.
+* Address chains: EVM, Bitcoin (P2PKH, P2SH, P2WPKH, P2TR), Solana, Tron. XRP/XLM/TON later as a separate task.
+* Address generation uses the CSPRNG only, no seed. Why: a seeded key is predictable.
+* Address validator (paste an address, get chain/type/network/validity) is in Phase 1.
+* The "testnet only" check in the wallet tracker can only be enforced for Bitcoin; EVM, Solana, and Tron addresses are identical on mainnet and testnet. Accepted, since only public addresses are stored.
+* Tx lookup chains: Ethereum, BNB Smart Chain, Polygon, Arbitrum, Base, Solana, Tron, Bitcoin. Default endpoints must be verified for browser CORS before they are listed. Tron protocol (EVM-compatible JSON-RPC vs native HTTP) is chosen in the tech plan.
+* Calldata decoder: EVM-only, built-in selector table, no online signature lookup.
+* Checklists: read-only + Markdown export in Phase 1.
+* Dummy data: "identifier realism" setting (realistic by default, non-colliding as an option) for NIK and phone; NPWP in both 15-digit and 16-digit formats; address dataset covers provinces and kabupaten/kota plus a sample of kecamatan/kelurahan; SQL export as generic INSERT with PostgreSQL or MySQL identifier quoting; presets include "duplicate NIK across rows".
+* JSON import replaces all data (no merge). Unit converter rejects a comma with a hint.
+* Limits: 500 addresses and 10,000 dummy rows per generation, 10 s endpoint timeout, decimals 0 to 36.
+* UI language: English. Default route: toolkit index. No offline/service worker in Phase 1.
+* Performance measurement: Lighthouse, LCP, and idle heap are measured on the live site.
+
+The questions left open after review 1 were resolved in review 2 below.
+
+### 2026-11-12: PRD review 2 (PRD v0.3 approved)
+
+* PRD status: approved at v0.3. All remaining proposals and assumptions in the PRD were approved as a block. Factual details that still need a primary source are tagged [VERIFY] and listed in docs/prd.md section 9.3; approval does not make them true.
+* Deploy mechanism: Cloudflare Pages Git integration. Cloudflare builds and deploys every push to main and builds a preview for every PR. Why: nothing to store in GitHub and no deploy workflow to maintain. Known gap: Cloudflare does not wait for GitHub Actions, and GitHub Free cannot enforce required status checks on a private repo, so "merge only when CI is green" is a manual rule. A PR merged while red would be deployed.
+* Cloudflare Pages project name: qanchor. No custom domain. Public PR preview deployments are acceptable.
+* Private keys are never displayed: FR-013 (opt-in private key display) is dropped and its ID retired. Why: "this app never shows or stores a private key" is a stronger and simpler claim, and it removes a warning panel and a test. Supersedes the review 1 answer that keys could be shown on opt-in.
+* On-demand balance in the wallet tracker (FR-073) is in Phase 1, slice 1c.
+* Tx lookup networks: mainnet plus one testnet for every chain, including Solana, Tron, and Bitcoin.
+* While Phase 1 is being built, the live site lists shipped tools only. The roadmap lives in the README.
+
 ## Build order
 
-1. Blockchain toolkit + dummy data
+1. Blockchain toolkit + dummy data (slices 1a, 1b, 1c; first deploy at the end of 1a)
 2. Test cases, test runs, bug reports
 3. PRD generator
-4. Demo mode + deploy
+4. Demo mode
 
 ## Out of scope (for now)
 

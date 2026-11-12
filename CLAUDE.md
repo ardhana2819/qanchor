@@ -7,15 +7,15 @@ You are my senior engineer, product partner, and QA-minded reviewer. Goal: softw
 * Product: QAnchor, all-in-one QA tools with a focus on blockchain/crypto testing. Personal tool and interview portfolio piece.
 * Status: MVP
 * Platform: Web app (SPA), desktop-first, latest Chrome / Firefox / Safari
-* Language & framework: TypeScript, Svelte 5 + SvelteKit (adapter-static, SPA mode), Vite. Crypto: @noble/* + @scure/* (no ethers, no @solana/web3.js)
-* Storage / APIs / integrations: IndexedDB via `idb` + JSON export/import. Claude API (BYOK, client-side, generic provider interface, phase 3). Tx lookup via public JSON-RPC (user-overridable RPC URL; explorer API keys optional, BYOK). PRD parsing: pdfjs-dist + mammoth, lazy-loaded. Dummy data: own generator + small datasets + seeded PRNG (no faker)
+* Language & framework: TypeScript, Svelte 5 + SvelteKit (adapter-static, every route prerendered), Vite. Crypto: @noble/* + @scure/* (no ethers, no @solana/web3.js)
+* Storage / APIs / integrations: IndexedDB via `idb` + JSON export/import. Claude API (BYOK, client-side, generic provider interface, phase 3). Tx lookup via public JSON-RPC, except Bitcoin via Esplora-style REST (user-overridable endpoint URL; explorer API keys optional, BYOK). PRD parsing: pdfjs-dist + mammoth, lazy-loaded. Dummy data: own generator + small datasets + seeded PRNG (no faker)
 * Testing tools: Vitest (unit), Playwright (E2E), svelte-check, ESLint, Prettier. CI: GitHub Actions on every PR (lint, typecheck, unit, build, E2E, bundle size)
-* Repo: GitHub ardhana2819/qanchor, private, default branch: main. Local path: /Users/ardhana/Documents/Claude Projects/qanchor. Deploy (phase 4): Cloudflare Pages
-* Constraints: single user, no login, no backend. All data stays in the browser. API keys and testnet keys/mnemonics are client-only, labeled TESTNET ONLY, never sent to any server we own. No faucet automation
+* Repo: GitHub ardhana2819/qanchor, private, default branch: main. Local path: /Users/ardhana/Documents/Claude Projects/qanchor. Deploy: Cloudflare Pages, first deploy at the end of slice 1a, then automatically on every merge to main
+* Constraints: single user, no login, no backend. All data stays in the browser. API keys are client-only and never sent to any server we own. Private keys and mnemonics are never stored, encrypted or not. No faucet automation
 * Performance budget: initial JS <= 80 KB gzip; Lighthouse Performance >= 95 (desktop); LCP < 1.5s; idle CPU ~0% (no polling); idle JS heap <= 30 MB; no main-thread long task > 200 ms (heavy work in Web Workers); no continuous animations, respect prefers-reduced-motion; screenshots compressed before storage
 * Design: clean utilitarian (Linear/Vercel-like), light + dark (default follows system), compact density, plain CSS + CSS variables as design tokens (no Tailwind)
 * Definition of done (per feature): acceptance criteria pass; unit + E2E green in CI; performance budget met; keyboard-only usable; loading/empty/error states complete; README updated. MVP = phases 1 to 4 done and deployed
-* Build order: 1) blockchain toolkit + dummy data, 2) test cases, test runs, bug reports, 3) PRD generator, 4) demo mode + deploy
+* Build order: 1) blockchain toolkit + dummy data (slices 1a, 1b, 1c), 2) test cases, test runs, bug reports, 3) PRD generator, 4) demo mode
 * Response language: Bahasa Indonesia (technical terms in English)
 * Code, comments, commits, docs in repo: English
 * Key docs: docs/prd.md, docs/design.md, docs/architecture.md, docs/decisions.md, docs/plan.md
