@@ -161,6 +161,7 @@ Route names are [PROPOSAL] and are confirmed in the tech plan.
 | S-09 | Dummy data | `/dummy-data` | Configure, generate, preview, export | FR-080 to FR-084 |
 | S-10 | Settings | `/settings` | Theme, endpoint overrides, export/import | FR-002, FR-003, FR-041 |
 | S-11 | Not found | fallback | Not-found state with a link home | FR-001 AC-3, NFR-022 |
+| S-12 | Components | `/components` | Reference page with every primitive from section 6 in its states; not in the navigation. Host for the component E2E, axe, and performance tests (owner, 2026-11-13) | NFR-008, NFR-009, NFR-006 |
 
 Slice mapping: 1a = S-00, S-01, S-02, S-03, S-04, S-10 (theme and export/import), S-11. 1b = S-07, S-09. 1c = S-05, S-06, S-08, S-10 (endpoints).
 
@@ -303,7 +304,7 @@ All components use native elements first (`<button>`, `<select>`, `<dialog>`, `<
 
 | Component | Variants | Notes |
 | --- | --- | --- |
-| Button | primary (accent fill), secondary (outline), ghost (text only), danger; sizes sm 24 px, md 28 px | One primary per view |
+| Button | primary (accent fill), secondary (outline), ghost (text only), danger; sizes sm 28 px (`--control-sm`), md 36 px (`--control-md`, default) | One primary per view. Heights match the inputs beside them; the earlier 24/28 px values contradicted the control tokens (corrected in T-008a) |
 | Copy button | icon-only with accessible name "Copy <thing>"; text variant "Copy all" | Confirms through the live region (FR-004 AC-1) |
 | Text input / Textarea | sans, mono; with unit suffix | Mono for addresses, hashes, amounts, calldata |
 | Number input | text input with `inputmode="numeric"` | No spinner arrows: counts and decimals are validated as text (FR-010 AC-3) |

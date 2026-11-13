@@ -22,6 +22,8 @@ npm run test:e2e  # E2E tests (Playwright) against the production build
 
 Before the first E2E run, install the browsers once: `npx playwright install chromium firefox webkit`.
 
+The shared UI components are shown in every state at `/components` (not linked from the navigation); open it on the preview server to review them.
+
 Known issue: Playwright 1.65's WebKit crashes on launch on macOS 26.0.1 (inside AppKit, before any page loads). Run `npx playwright test --project=chromium --project=firefox` locally; WebKit runs in CI on Linux.
 
 ## Documentation
