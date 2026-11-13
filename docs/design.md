@@ -419,7 +419,7 @@ Keyboard and focus:
 * Focus order follows the visual order: skip link, sidebar, page header, form, output toolbar, output.
 * Every action is a native button or link; nothing depends on hover.
 * Tabs and segmented controls use arrow keys within the group and Tab to leave it.
-* Dialogs trap focus, close on Escape, and return focus to the trigger.
+* Dialogs are native modal dialogs: the page behind is inert, Escape closes them, and focus returns to the trigger. Tab cycles through the dialog and may pass through the browser's own UI, but never reaches the page (T-008b).
 * After Generate, focus stays on the button and the result count is announced; after an error, focus moves to the first invalid field or to the error callout (FR-042 AC-6).
 * Minimum pointer target is 24 x 24 px.
 
