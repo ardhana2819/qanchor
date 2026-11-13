@@ -39,7 +39,7 @@ How this plan is used:
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T-005 | Design tokens and base CSS from `docs/design.md` section 2; Inter Latin subset; `prefers-reduced-motion` | NFR-006, NFR-009, ADR-010 | T-001 | `app.css` tokens match the design brief for both themes; font file size recorded in this plan | Visual check against `prototype/`; file size from build output | Low | done |
 | T-006 | App shell: sidebar with shipped tools only, skip link, landmarks, footer commit ID, toolkit index, not-found page, small-screen top bar | FR-001 AC-1 to AC-4, AC-6, AC-7; NFR-021; US-010 | T-005 | Every route's static HTML contains heading and navigation; unknown URL shows the not-found state; nav works by keyboard | E2E: deep-link reload, unknown URL, Tab through nav; inspect built HTML | Low | done |
-| T-007 | Theme control (System / Light / Dark), pre-paint script, follows OS changes, persisted | FR-002, US-011 | T-004, T-006 | No light flash in dark mode on any prerendered page; choice survives reload (stored in `localStorage`, finding F-1); System follows OS changes live | E2E with `colorScheme` emulation in three browsers | Medium | todo |
+| T-007 | Theme control (System / Light / Dark), pre-paint script, follows OS changes, persisted | FR-002, US-011 | T-004, T-006 | No light flash in dark mode on any prerendered page; choice survives reload (stored in `localStorage`, finding F-1); System follows OS changes live | E2E with `colorScheme` emulation in three browsers | Medium | done |
 | T-008 | UI primitives from design section 6: Button, IconButton, Field, Text/Number input, Select, Checkbox group, Segmented control, Tabs, Badge, Callout, Toast + live region, Empty state, Data table, Dialog | NFR-008, NFR-009, NFR-010 | T-005 | Each component has its states from design section 6; focus ring visible; screen-reader names present | E2E on the first pages that use them; axe scan | Low | todo |
 | T-009 | Output actions: Copy, Copy all, Download (CSV/JSON), clipboard-denied fallback | FR-004, EC-023 | T-008 | Copy puts the exact value on the clipboard and announces it; denied clipboard shows the error and keeps the value selectable | E2E with clipboard permissions granted and denied | Medium (clipboard APIs differ per browser) | todo |
 | T-010 | Storage layer: `idb` schema v1, migration runner, unavailable detection + banner, quota errors, `versionchange` handling | NFR-016, EC-001, EC-002, EC-003, ADR-014 | T-006 | Unit tests for migrations; banner appears when IndexedDB is blocked; a quota error leaves existing data intact | Vitest for migration transforms; real-browser E2E for IndexedDB behaviour (note N-1), including blocked storage | Medium | todo |
@@ -144,6 +144,11 @@ FRs not covered by any task: **none**. NFR-018 (dependency discipline) is a revi
   * Footer shows `Build <7-char commit>` from `CF_PAGES_COMMIT_SHA` via Vite `define`, or `Build dev` locally (NFR-021).
   * Tool icons in the nav come with the first tool entry; only the product mark exists now.
   * Initial JS for `/`: 34.57 KB gzip (was 31.02 KB; adds `$app/state`, `$app/navigation`, `$app/paths`).
+* **T-007 (done):**
+  * Theme state in `src/lib/state/theme.svelte.ts`; the control in `src/lib/ui/ThemeControl.svelte` (a radio-based segmented control) sits at the bottom of the sidebar, outside the `nav` landmark. Below 640 px it wraps onto its own row of the top bar. T-011 reuses the same state on the Settings page; T-008's generic Segmented control can replace the component's markup.
+  * "System" removes `data-theme` and the stored key, so CSS `light-dark()` follows the OS live with no JS listener (AC-3). Light and Dark are written to `localStorage` (`qanchor.theme`, ADR-014); if storage is blocked the choice still applies for the visit.
+  * AC-1 is checked on `/` and the 404 fallback by reading the body colour the moment `<body>` is inserted, before any module script runs. Mutation-tested: with the pre-paint script disabled, both tests fail.
+  * `tests/e2e/theme.spec.ts`: 9 tests. Initial JS for `/`: 35.39 KB gzip.
 
 ## Findings while planning
 
