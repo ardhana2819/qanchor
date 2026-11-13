@@ -151,6 +151,16 @@ pre {
 	outline-offset: 2px;
 }
 
+/* Read by screen readers, not shown: live regions, table captions shown elsewhere. */
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
 /* Box shared by TextInput and Select (design section 6, States table). */
 .control {
 	width: 100%;

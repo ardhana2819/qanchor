@@ -7,6 +7,7 @@
 	import { page } from '$app/state';
 	import { groupTools, tools } from '#lib/config/tools.ts';
 	import ThemeControl from '#lib/ui/ThemeControl.svelte';
+	import Toaster from '#lib/ui/Toaster.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -77,6 +78,8 @@
 		<footer>Build {__COMMIT_ID__}</footer>
 	</div>
 </div>
+
+<Toaster />
 
 <style>
 	.skip-link {
