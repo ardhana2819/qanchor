@@ -2,6 +2,12 @@
 	import { clipboard } from '#lib/state/clipboard.svelte.ts';
 	import Button from './Button.svelte';
 	import Dialog from './Dialog.svelte';
+
+	// Selected on the next task: Safari places the caret at the start after the focus event,
+	// which would undo a select() made inside the handler.
+	function selectAll(field: HTMLTextAreaElement): void {
+		setTimeout(() => field.select(), 0);
+	}
 </script>
 
 <Dialog
@@ -16,7 +22,7 @@
 		autofocus
 		rows={Math.min(8, clipboard.value.split('\n').length)}
 		value={clipboard.value}
-		onfocus={(event) => event.currentTarget.select()}></textarea>
+		onfocus={(event) => selectAll(event.currentTarget)}></textarea>
 	{#snippet actions()}
 		<Button onclick={() => clipboard.dismiss()}>Close</Button>
 	{/snippet}

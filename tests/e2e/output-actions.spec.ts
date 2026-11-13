@@ -174,12 +174,10 @@ for (const mode of ['denied', 'missing'] as const) {
 		await expect(field).toHaveValue(
 			'0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060'
 		);
-		const selection = await field.evaluate((el: HTMLTextAreaElement) => [
-			el.selectionStart,
-			el.selectionEnd,
-			el.value.length
-		]);
-		expect(selection).toEqual([0, selection[2], selection[2]]);
+		const value = '0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060';
+		await expect
+			.poll(() => field.evaluate((el: HTMLTextAreaElement) => [el.selectionStart, el.selectionEnd]))
+			.toEqual([0, value.length]);
 		await expect(page.locator('.toast')).toBeHidden();
 
 		await dialog.getByRole('button', { name: 'Close' }).click();
