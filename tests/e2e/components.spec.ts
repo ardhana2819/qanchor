@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { hydrated } from './helpers.ts';
 
 // The UI primitives (T-008) on their reference page, /components.
 
@@ -11,15 +12,6 @@ const tab = (page: Page, name: string) =>
 
 async function left(locator: Locator): Promise<number> {
 	return Math.round((await locator.boundingBox())!.x);
-}
-
-/**
- * Waits until the page has hydrated. Typing into a prerendered input before that can race with
- * hydration (WebKit turned "12" into "1212"). The tab indicator is only rendered by an effect,
- * so its presence means the components are live.
- */
-async function hydrated(page: Page): Promise<void> {
-	await expect(page.locator('.indicator')).toBeAttached();
 }
 
 test.beforeEach(async ({ page }) => {
@@ -160,7 +152,7 @@ test('the form panel shows its focus halo while a control inside has focus', asy
 });
 
 test('a pressed button scales down', async ({ page }) => {
-	const button = page.getByRole('button', { name: 'Download' });
+	const button = page.getByRole('button', { name: 'Secondary' });
 	const box = (await button.boundingBox())!;
 
 	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
