@@ -39,3 +39,12 @@ export interface QAnchorDB extends DBSchema {
 }
 
 export type StoreName = 'endpoints' | 'wallets' | 'faucets';
+
+export const STORE_NAMES: readonly StoreName[] = ['endpoints', 'wallets', 'faucets'];
+
+/** Every record in the database, store by store: what a backup carries besides the theme. */
+export interface StoredRecords {
+	endpoints: EndpointOverride[];
+	wallets: Wallet[];
+	faucets: Faucet[];
+}
