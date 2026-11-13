@@ -5,6 +5,9 @@ declare global {
 		// interface PageData {}
 		// interface PageState {}
 	}
+
+	/** Short commit ID of this build, or "dev" outside Cloudflare Pages (vite.config.ts). */
+	const __COMMIT_ID__: string;
 }
 
 export {};

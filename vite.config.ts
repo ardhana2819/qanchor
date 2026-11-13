@@ -17,7 +17,12 @@ function appHtmlScriptHash(): `sha256-${string}` {
 	return `sha256-${createHash('sha256').update(scripts[0][1]).digest('base64')}`;
 }
 
+// Shown in the footer so the deployed commit is identifiable (NFR-021). Cloudflare Pages sets
+// CF_PAGES_COMMIT_SHA during its build; every other build is labelled "dev".
+const commitId = process.env.CF_PAGES_COMMIT_SHA?.slice(0, 7) || 'dev';
+
 export default defineConfig({
+	define: { __COMMIT_ID__: JSON.stringify(commitId) },
 	plugins: [
 		sveltekit({
 			compilerOptions: {
