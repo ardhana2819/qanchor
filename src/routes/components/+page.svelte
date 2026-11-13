@@ -3,6 +3,9 @@
 	import Badge from '#lib/ui/Badge.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import Callout from '#lib/ui/Callout.svelte';
+	import DataTable, { type Column } from '#lib/ui/DataTable.svelte';
+	import Dialog from '#lib/ui/Dialog.svelte';
+	import { notify } from '#lib/state/notify.svelte.ts';
 	import CheckboxGroup from '#lib/ui/CheckboxGroup.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import Field from '#lib/ui/Field.svelte';
@@ -49,6 +52,45 @@
 	let mode: (typeof modes)[number]['id'] = $state('generate');
 	let generating = $state(false);
 
+	interface ExampleRow {
+		id: string;
+		index: number;
+		address: string;
+		variant: string;
+	}
+
+	const columns: Column<ExampleRow>[] = [
+		{ key: 'index', label: '#', value: (row) => String(row.index), numeric: true },
+		{ key: 'address', label: 'Address', value: (row) => row.address, mono: true },
+		{ key: 'variant', label: 'Variant', value: (row) => row.variant }
+	];
+	let rows: ExampleRow[] = $state([]);
+	let run = 0;
+	let detail: ExampleRow | undefined = $state();
+	let detailOpen = $state(false);
+	let deleteOpen = $state(false);
+
+	// Random hex that looks like an EVM address. Display data only: not a key, not derived from one.
+	function exampleRows(total: number): ExampleRow[] {
+		run += 1;
+		const labels = variants.filter((v) => selectedVariants.includes(v.value)).map((v) => v.label);
+		return Array.from({ length: total }, (_, i) => {
+			const bytes = crypto.getRandomValues(new Uint8Array(20));
+			const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+			return {
+				id: `${run}-${i}`,
+				index: i + 1,
+				address: `0x${hex}`,
+				variant: labels[i % labels.length]
+			};
+		});
+	}
+
+	function showDetail(row: ExampleRow): void {
+		detail = row;
+		detailOpen = true;
+	}
+
 	const countError = $derived(
 		/^\d+$/.test(count) && Number(count) >= 1 && Number(count) <= 500
 			? undefined
@@ -63,7 +105,11 @@
 	function generate(): void {
 		if (countError || variantError) return;
 		generating = true;
-		timer = setTimeout(() => (generating = false), 1200);
+		timer = setTimeout(() => {
+			generating = false;
+			rows = exampleRows(Number(count));
+			notify.announce(`${rows.length} ${rows.length === 1 ? 'row' : 'rows'} generated`);
+		}, 1200);
 	}
 	onDestroy(() => clearTimeout(timer));
 </script>
@@ -83,7 +129,7 @@
 		<Button variant="primary">Generate</Button>
 		<Button>Download</Button>
 		<Button variant="ghost">Clear</Button>
-		<Button variant="danger">Delete wallet</Button>
+		<Button variant="danger" onclick={() => (deleteOpen = true)}>Delete wallet</Button>
 		<Button variant="primary" disabled>Generate</Button>
 		<Button variant="primary" loading>Looking up…</Button>
 	</div>
@@ -151,6 +197,24 @@
 			</Button>
 		{/snippet}
 	</FormPanel>
+
+	<div class="results-header">
+		<h3>Results</h3>
+		{#if rows.length > 0}<Badge variant="neutral">{rows.length} rows</Badge>{/if}
+	</div>
+	{#if rows.length > 0}
+		<DataTable caption="Generated example rows" {columns} {rows} rowKey={(row) => row.id}>
+			{#snippet actions(row)}
+				<IconButton label="Details of row {row.index}" size="sm" onclick={() => showDetail(row)}>
+					<Icon name="info" />
+				</IconButton>
+			{/snippet}
+		</DataTable>
+	{:else}
+		<EmptyState>
+			Pick a chain and a count, then generate. Add invalid variants for negative tests.
+		</EmptyState>
+	{/if}
 </section>
 
 <section aria-labelledby="selection">
@@ -200,12 +264,26 @@
 	</div>
 </section>
 
-<section aria-labelledby="empty">
-	<h2 id="empty">Empty state</h2>
-	<EmptyState>
-		Pick a chain and a count, then generate. Add invalid variants for negative tests.
-	</EmptyState>
-</section>
+<Dialog bind:open={detailOpen} title="Row {detail?.index ?? ''}">
+	<p class="address">{detail?.address}</p>
+	{#snippet actions()}
+		<Button onclick={() => (detailOpen = false)}>Close</Button>
+	{/snippet}
+</Dialog>
+
+<Dialog bind:open={deleteOpen} title="Delete wallet?" destructive>
+	<p>This removes the wallet and its notes. This cannot be undone.</p>
+	{#snippet actions()}
+		<Button onclick={() => (deleteOpen = false)}>Cancel</Button>
+		<Button
+			variant="danger"
+			onclick={() => {
+				deleteOpen = false;
+				notify.showToast('Example only: no wallet was deleted');
+			}}>Delete</Button
+		>
+	{/snippet}
+</Dialog>
 
 <style>
 	.page-header {
@@ -264,6 +342,26 @@
 	.segmented {
 		max-width: 320px;
 		margin-bottom: var(--space-6);
+	}
+
+	.results-header {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin: var(--space-8) 0 var(--space-3);
+	}
+
+	h3 {
+		margin: 0;
+		font-size: var(--text-md);
+		font-weight: 600;
+		line-height: var(--leading-md);
+	}
+
+	.address {
+		font-family: var(--font-mono);
+		font-size: var(--text-mono);
+		overflow-wrap: anywhere;
 	}
 
 	.stack {

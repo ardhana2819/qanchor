@@ -28,7 +28,7 @@
 </script>
 
 <fieldset class="segmented">
-	<legend>{legend}</legend>
+	<legend class="visually-hidden">{legend}</legend>
 	<div class="track" class:animated style:--count={options.length} style:--index={index}>
 		<span class="thumb" aria-hidden="true"></span>
 		{#each options as option (option.value)}
@@ -52,15 +52,6 @@
 		margin: 0;
 		padding: 0;
 		border: 0;
-	}
-
-	legend {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
 	}
 
 	.track {
