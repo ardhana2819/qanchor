@@ -6,6 +6,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { groupTools, tools } from '#lib/config/tools.ts';
+	import ClipboardFallback from '#lib/ui/ClipboardFallback.svelte';
 	import ThemeControl from '#lib/ui/ThemeControl.svelte';
 	import Toaster from '#lib/ui/Toaster.svelte';
 	import type { LayoutProps } from './$types';
@@ -80,6 +81,7 @@
 </div>
 
 <Toaster />
+<ClipboardFallback />
 
 <style>
 	.skip-link {

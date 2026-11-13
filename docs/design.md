@@ -376,7 +376,7 @@ Shared copy:
 * Fake-data note (FR-081 AC-8): "Generated data is fake and for testing only."
 * Storage banner (EC-001): "Storage is unavailable in this browser session. Tools still work, but nothing will be saved."
 * Notes hint (FR-071 AC-1): "Do not paste private keys or mnemonics here. Notes are stored and exported as typed."
-* Clipboard failure (FR-004 AC-3): "Could not copy. Select the value and copy it manually."
+* Clipboard failure (FR-004 AC-3): a dialog titled "Could not copy" with "Select the value and copy it manually." and the value in a read-only field that is focused and fully selected, so Ctrl/Cmd+C copies it. One dialog in the shell serves every Copy and Copy all (T-009).
 * Import confirmation (FR-003 AC-3): "Importing replaces all existing data. This cannot be undone."
 
 Copy rules: sentence case, no exclamation marks, say what happened and what to do next, never blame the user.

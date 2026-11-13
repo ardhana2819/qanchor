@@ -4,7 +4,9 @@
 	import Button from '#lib/ui/Button.svelte';
 	import Callout from '#lib/ui/Callout.svelte';
 	import DataTable, { type Column } from '#lib/ui/DataTable.svelte';
+	import CopyButton from '#lib/ui/CopyButton.svelte';
 	import Dialog from '#lib/ui/Dialog.svelte';
+	import OutputToolbar from '#lib/ui/OutputToolbar.svelte';
 	import { notify } from '#lib/state/notify.svelte.ts';
 	import CheckboxGroup from '#lib/ui/CheckboxGroup.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
@@ -65,6 +67,8 @@
 		{ key: 'variant', label: 'Variant', value: (row) => row.variant }
 	];
 	let rows: ExampleRow[] = $state([]);
+	// A fixed example value for the stand-alone copy button.
+	const exampleHash = '0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060';
 	let run = 0;
 	let detail: ExampleRow | undefined = $state();
 	let detailOpen = $state(false);
@@ -127,19 +131,38 @@
 	<h2 id="buttons">Buttons</h2>
 	<div class="row">
 		<Button variant="primary">Generate</Button>
-		<Button>Download</Button>
-		<Button variant="ghost">Clear</Button>
+		<Button>Secondary</Button>
+		<Button variant="ghost">Ghost</Button>
 		<Button variant="danger" onclick={() => (deleteOpen = true)}>Delete wallet</Button>
 		<Button variant="primary" disabled>Generate</Button>
 		<Button variant="primary" loading>Looking up…</Button>
 	</div>
 	<div class="row">
-		<Button size="sm">Copy all</Button>
-		<Button size="sm" variant="ghost">Reset</Button>
-		<IconButton label="Copy address 1"><Icon name="check" /></IconButton>
-		<IconButton label="Copy address 2" outline><Icon name="check" /></IconButton>
-		<IconButton label="Copy address 3" size="sm"><Icon name="check" /></IconButton>
-		<IconButton label="Copy address 4" disabled><Icon name="check" /></IconButton>
+		<Button size="sm">Small</Button>
+		<Button size="sm" variant="ghost">Small ghost</Button>
+	</div>
+	<!-- Icon buttons: the caption names the variant on screen; the button keeps its own name. -->
+	<div class="row samples">
+		<div class="sample">
+			<IconButton label="Icon button example"><Icon name="info" /></IconButton>
+			<span class="caption" aria-hidden="true">Default</span>
+		</div>
+		<div class="sample">
+			<IconButton label="Outlined icon button example" outline><Icon name="info" /></IconButton>
+			<span class="caption" aria-hidden="true">Outline</span>
+		</div>
+		<div class="sample">
+			<IconButton label="Small icon button example" size="sm"><Icon name="info" /></IconButton>
+			<span class="caption" aria-hidden="true">Small</span>
+		</div>
+		<div class="sample">
+			<IconButton label="Disabled icon button example" disabled><Icon name="info" /></IconButton>
+			<span class="caption" aria-hidden="true">Disabled</span>
+		</div>
+		<div class="sample">
+			<CopyButton label="Copy example hash" value={exampleHash} />
+			<span class="caption" aria-hidden="true">Copy</span>
+		</div>
 	</div>
 </section>
 
@@ -198,13 +221,23 @@
 		{/snippet}
 	</FormPanel>
 
-	<div class="results-header">
-		<h3>Results</h3>
-		{#if rows.length > 0}<Badge variant="neutral">{rows.length} rows</Badge>{/if}
-	</div>
+	<h3>Results</h3>
+	<OutputToolbar
+		summary={rows.length === 0
+			? 'No rows yet'
+			: `${rows.length} ${rows.length === 1 ? 'row' : 'rows'}`}
+		records={rows.map((row) => ({
+			index: String(row.index),
+			address: row.address,
+			variant: row.variant
+		}))}
+		fields={['index', 'address', 'variant']}
+		filename="example-rows"
+	/>
 	{#if rows.length > 0}
 		<DataTable caption="Generated example rows" {columns} {rows} rowKey={(row) => row.id}>
 			{#snippet actions(row)}
+				<CopyButton label="Copy address {row.index}" value={row.address} size="sm" />
 				<IconButton label="Details of row {row.index}" size="sm" onclick={() => showDetail(row)}>
 					<Icon name="info" />
 				</IconButton>
@@ -321,6 +354,25 @@
 		gap: var(--space-3);
 	}
 
+	.samples {
+		align-items: flex-start;
+		gap: var(--space-4);
+	}
+
+	.sample {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-1);
+		min-width: 56px;
+	}
+
+	.caption {
+		color: var(--color-text-subtle);
+		font-size: var(--text-xs);
+		line-height: var(--leading-xs);
+	}
+
 	.row + .row {
 		margin-top: var(--space-4);
 	}
@@ -344,15 +396,8 @@
 		margin-bottom: var(--space-6);
 	}
 
-	.results-header {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-		margin: var(--space-8) 0 var(--space-3);
-	}
-
 	h3 {
-		margin: 0;
+		margin: var(--space-8) 0 var(--space-2);
 		font-size: var(--text-md);
 		font-weight: 600;
 		line-height: var(--leading-md);

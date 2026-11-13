@@ -6,7 +6,8 @@
 		warning: 'M8 2.5l6 11H2zM8 6.5v3M8 11.5v.01',
 		info: 'M8 14.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM8 7.5v4M8 5v.01',
 		dot: 'M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
-		chevron: 'M4 6l4 4 4-4'
+		chevron: 'M4 6l4 4 4-4',
+		copy: 'M5.5 5.5v-2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M3.5 5.5h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z'
 	} as const;
 
 	export type IconName = keyof typeof PATHS;
