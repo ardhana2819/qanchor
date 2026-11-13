@@ -6,6 +6,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { groupTools, tools } from '#lib/config/tools.ts';
+	import ThemeControl from '#lib/ui/ThemeControl.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -26,41 +27,47 @@
 <a class="skip-link" href="#main">Skip to content</a>
 
 <div class="shell">
-	<nav class="sidebar" aria-label="Main">
-		<a class="brand" href={resolve('/')}>
-			<svg class="brand-mark" viewBox="0 0 16 16" aria-hidden="true">
-				<circle cx="8" cy="3.5" r="1.5" />
-				<path d="M8 5v9M5 7.5h6M2.5 9.5a5.5 5 0 0 0 11 0" />
-			</svg>
-			QAnchor
-		</a>
+	<div class="sidebar">
+		<nav aria-label="Main">
+			<a class="brand" href={resolve('/')}>
+				<svg class="brand-mark" viewBox="0 0 16 16" aria-hidden="true">
+					<circle cx="8" cy="3.5" r="1.5" />
+					<path d="M8 5v9M5 7.5h6M2.5 9.5a5.5 5 0 0 0 11 0" />
+				</svg>
+				QAnchor
+			</a>
 
-		{#if groups.length > 0}
-			<details class="menu" bind:open={menuOpen}>
-				<summary>Menu</summary>
-				<div class="menu-panel">
-					{#each groups as { group, entries } (group)}
-						<section class="nav-group" aria-labelledby="nav-{group}">
-							<h2 id="nav-{group}">{group}</h2>
-							<ul>
-								{#each entries as entry (entry.route)}
-									<li>
-										<a
-											class="nav-item"
-											href={resolve(entry.route)}
-											aria-current={page.url.pathname === entry.route ? 'page' : undefined}
-										>
-											{entry.name}
-										</a>
-									</li>
-								{/each}
-							</ul>
-						</section>
-					{/each}
-				</div>
-			</details>
-		{/if}
-	</nav>
+			{#if groups.length > 0}
+				<details class="menu" bind:open={menuOpen}>
+					<summary>Menu</summary>
+					<div class="menu-panel">
+						{#each groups as { group, entries } (group)}
+							<section class="nav-group" aria-labelledby="nav-{group}">
+								<h2 id="nav-{group}">{group}</h2>
+								<ul>
+									{#each entries as entry (entry.route)}
+										<li>
+											<a
+												class="nav-item"
+												href={resolve(entry.route)}
+												aria-current={page.url.pathname === entry.route ? 'page' : undefined}
+											>
+												{entry.name}
+											</a>
+										</li>
+									{/each}
+								</ul>
+							</section>
+						{/each}
+					</div>
+				</details>
+			{/if}
+		</nav>
+
+		<div class="theme">
+			<ThemeControl />
+		</div>
+	</div>
 
 	<div class="column">
 		<main id="main" tabindex="-1">
@@ -105,6 +112,16 @@
 		padding: var(--space-4) var(--space-3);
 		border-right: 1px solid var(--color-border);
 		background: var(--color-surface);
+	}
+
+	nav {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-6);
+	}
+
+	.theme {
+		margin-top: auto;
 	}
 
 	.brand {
@@ -236,9 +253,23 @@
 			gap: var(--space-4);
 			height: auto;
 			overflow: visible;
+			flex-wrap: wrap;
 			padding: var(--space-2) var(--space-4);
 			border-right: 0;
 			border-bottom: 1px solid var(--color-border);
+		}
+
+		nav {
+			flex-direction: row;
+			align-items: center;
+			justify-content: space-between;
+			gap: var(--space-4);
+			flex: 1;
+		}
+
+		/* On narrow screens it wraps onto its own row instead of squeezing the menu button. */
+		.theme {
+			margin: 0 0 0 auto;
 		}
 
 		.menu summary {
