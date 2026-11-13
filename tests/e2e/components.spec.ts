@@ -13,14 +13,25 @@ async function left(locator: Locator): Promise<number> {
 	return Math.round((await locator.boundingBox())!.x);
 }
 
+/**
+ * Waits until the page has hydrated. Typing into a prerendered input before that can race with
+ * hydration (WebKit turned "12" into "1212"). The tab indicator is only rendered by an effect,
+ * so its presence means the components are live.
+ */
+async function hydrated(page: Page): Promise<void> {
+	await expect(page.locator('.indicator')).toBeAttached();
+}
+
 test.beforeEach(async ({ page }) => {
 	await page.goto('/components');
+	await hydrated(page);
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {
 	test(`no WCAG 2.1 AA violations in ${colorScheme} mode (NFR-009)`, async ({ page }) => {
 		await page.emulateMedia({ colorScheme });
 		await page.reload();
+		await hydrated(page);
 
 		const results = await new AxeBuilder({ page })
 			.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -129,6 +140,7 @@ test('the segmented thumb ends under the chosen option, also by keyboard', async
 test('the theme thumb jumps to a stored choice on load instead of sliding', async ({ page }) => {
 	await page.addInitScript(() => localStorage.setItem('qanchor.theme', 'dark'));
 	await page.reload();
+	await hydrated(page);
 	const thumb = page.getByRole('group', { name: 'Theme' }).locator('.thumb');
 
 	await expect(page.getByRole('radio', { name: 'Dark' })).toBeChecked();
@@ -183,6 +195,7 @@ test('nothing transitions layout or shadow properties (60 fps rule, design 2.3)'
 test('reduced motion makes every transition instant (NFR-006)', async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await page.reload();
+	await hydrated(page);
 	await tab(page, 'Validate').click();
 
 	const durations = await page.evaluate(() =>
@@ -218,6 +231,7 @@ test('the result count is announced through the live region, without a toast', a
 test('a toast confirms an action, is read out once, and leaves after 4 s', async ({ page }) => {
 	await page.clock.install();
 	await page.goto('/components');
+	await hydrated(page);
 
 	await page.getByRole('button', { name: 'Delete wallet' }).click();
 	await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
@@ -350,6 +364,7 @@ test('an open dialog has no WCAG 2.1 AA violations', async ({ page }) => {
 test('reduced motion removes the stagger and the enter animation (NFR-006)', async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await page.reload();
+	await hydrated(page);
 	await generateRows(page, 30);
 
 	const timings = await page.evaluate(() =>
