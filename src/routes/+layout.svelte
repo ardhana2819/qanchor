@@ -7,6 +7,7 @@
 	import { page } from '$app/state';
 	import { groupTools, tools } from '#lib/config/tools.ts';
 	import ClipboardFallback from '#lib/ui/ClipboardFallback.svelte';
+	import StorageBanner from '#lib/ui/StorageBanner.svelte';
 	import ThemeControl from '#lib/ui/ThemeControl.svelte';
 	import Toaster from '#lib/ui/Toaster.svelte';
 	import type { LayoutProps } from './$types';
@@ -73,6 +74,7 @@
 
 	<div class="column">
 		<main id="main" tabindex="-1">
+			<StorageBanner />
 			{@render children()}
 		</main>
 
