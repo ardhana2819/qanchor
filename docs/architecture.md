@@ -63,6 +63,7 @@ qanchor/
 │   │   │   ├── abi/           #   ABI type parser, decoder, built-in selector table
 │   │   │   ├── tx/            #   response parsers per protocol → common TxResult
 │   │   │   ├── dummy/         #   seeded PRNG, NIK/NPWP/phone/bank rules, presets
+│   │   │   ├── export/        #   CSV (RFC 4180) and JSON writers for output actions (FR-004, FR-083)
 │   │   │   └── result.ts      #   Result<T, E> helper (ADR-013)
 │   │   ├── config/
 │   │   │   └── networks.ts    #   chains, networks, chain IDs, default endpoints, explorers, faucets
