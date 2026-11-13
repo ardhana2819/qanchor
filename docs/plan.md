@@ -37,7 +37,7 @@ How this plan is used:
 
 | ID | Task | FR/US/NFR | Depends on | Definition of done | How to verify | Risk | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T-005 | Design tokens and base CSS from `docs/design.md` section 2; Inter Latin subset; `prefers-reduced-motion` | NFR-006, NFR-009, ADR-010 | T-001 | `app.css` tokens match the design brief for both themes; font file size recorded in this plan | Visual check against `prototype/`; file size from build output | Low | todo |
+| T-005 | Design tokens and base CSS from `docs/design.md` section 2; Inter Latin subset; `prefers-reduced-motion` | NFR-006, NFR-009, ADR-010 | T-001 | `app.css` tokens match the design brief for both themes; font file size recorded in this plan | Visual check against `prototype/`; file size from build output | Low | done |
 | T-006 | App shell: sidebar with shipped tools only, skip link, landmarks, footer commit ID, toolkit index, not-found page, small-screen top bar | FR-001 AC-1 to AC-4, AC-6, AC-7; NFR-021; US-010 | T-005 | Every route's static HTML contains heading and navigation; unknown URL shows the not-found state; nav works by keyboard | E2E: deep-link reload, unknown URL, Tab through nav; inspect built HTML | Low | todo |
 | T-007 | Theme control (System / Light / Dark), pre-paint script, follows OS changes, persisted | FR-002, US-011 | T-004, T-006 | No light flash in dark mode on any prerendered page; choice survives reload (stored in `localStorage`, finding F-1); System follows OS changes live | E2E with `colorScheme` emulation in three browsers | Medium | todo |
 | T-008 | UI primitives from design section 6: Button, IconButton, Field, Text/Number input, Select, Checkbox group, Segmented control, Tabs, Badge, Callout, Toast + live region, Empty state, Data table, Dialog | NFR-008, NFR-009, NFR-010 | T-005 | Each component has its states from design section 6; focus ring visible; screen-reader names present | E2E on the first pages that use them; axe scan | Low | todo |
@@ -132,6 +132,12 @@ FRs not covered by any task: **none**. NFR-018 (dependency discipline) is a revi
   * First CI run (PR 7, run 43248758969): all four jobs green on Node 26.13.1, including **E2E in WebKit on Linux**, which closes the WebKit gap from T-002. CI measured 30.46 KB initial JS.
 
 * **T-004 (done):** findings are in `docs/decisions.md` ("CSP spike results"). In short: the theme script's hash is computed in `vite.config.ts`; the script must follow `%sveltekit.head%` to be covered by the meta CSP (proven by a mutation test); `style-src-attr 'unsafe-inline'` is needed for SvelteKit's route announcer. `tests/e2e/csp.spec.ts` adds 7 E2E tests (CSP meta, no violations on `/` and on an unknown URL, 404 status, stored theme). T-007 no longer needs to write the pre-paint script, only the theme control.
+
+* **T-005 (done):**
+  * Inter Latin variable font: **47.1 KB** (48,256 bytes woff2), self-hosted, preloaded, `font-display: swap`, one emitted file shared by the `@font-face` and the preload link.
+  * Size-adjusted `Inter Fallback` (Arial / Liberation Sans) computed from the two font files with fonttools in a throwaway virtualenv, not a project dependency.
+  * Light and dark values use CSS `light-dark()` with `color-scheme`, so each token is defined once; `data-theme` switches `color-scheme`. The Vite 8 CSS minifier (lightningcss) also emits a fallback for browsers without `light-dark()`, and rewrites `0ms` as `0s`.
+  * `tests/e2e/design-tokens.spec.ts`: 6 E2E tests (system light/dark, stored theme overrides system both ways, reduced motion zeroes durations, Inter loads from the same origin). Initial JS 31.02 KB.
 
 ## Findings while planning
 

@@ -79,11 +79,12 @@ Contrast was computed with the WCAG 2.1 formula for every text/background pair i
 
 | Token | Value |
 | --- | --- |
-| `--font-sans` | `"Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` |
+| `--font-sans` | `"Inter Variable", "Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` |
 | `--font-mono` | `ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace` |
 
 * Inter is the only custom font: one variable file, self-hosted, Latin subset, `font-display: swap`, preloaded, with a size-adjusted system fallback so the swap does not shift layout. Why Inter: it is the typeface of the Linear reference and stays legible at small sizes, which compact tables need.
-* Size impact: **[VERIFY]** the subset file is expected to be in the range of tens of KB up to about 100 KB (woff2). It does not count against the 80 KB JS budget (NFR-001) but it can affect LCP (NFR-002). It is measured in slice 1a; if LCP on the live site exceeds 1.5 s because of it, the fallback is the system stack (0 KB) with no other design change.
+* Size impact: measured in T-005, the Latin variable file is **47.1 KB** (48,256 bytes, woff2). It does not count against the 80 KB JS budget (NFR-001) but it can affect LCP (NFR-002), which is measured on the live site in T-024; if LCP exceeds 1.5 s because of it, the fallback is the system stack (0 KB) with no other design change.
+* `Inter Fallback` is Arial (or Liberation Sans) with `size-adjust: 109.38%`, `ascent-override: 88.57%`, `descent-override: 22.05%`, `line-gap-override: 0%`, computed from both font files so the swap to Inter does not shift text.
 * Monospace uses system fonts (0 KB). Why: every OS ships a mono face that separates `0/O` and `1/l/I`, which is the property that matters for addresses and hashes.
 
 Type scale (root 16 px, sizes in `rem`, so browser zoom and user font settings are respected):
