@@ -197,3 +197,166 @@ test('reduced motion makes every transition instant (NFR-006)', async ({ page })
 
 	expect(durations.filter((d) => d > 0)).toEqual([]);
 });
+
+// T-008b: toast and live region, data table, dialog.
+
+async function generateRows(page: Page, total: number): Promise<void> {
+	await count(page).fill(String(total));
+	await submit(page).click();
+	await expect(page.getByRole('region', { name: 'Generated example rows' })).toBeVisible();
+}
+
+const liveRegion = (page: Page) => page.locator('[aria-live="polite"]');
+
+test('the result count is announced through the live region, without a toast', async ({ page }) => {
+	await generateRows(page, 12);
+
+	await expect(liveRegion(page)).toHaveText('12 rows generated');
+	await expect(page.locator('.toast')).toBeHidden();
+});
+
+test('a toast confirms an action, is read out once, and leaves after 4 s', async ({ page }) => {
+	await page.clock.install();
+	await page.goto('/components');
+
+	await page.getByRole('button', { name: 'Delete wallet' }).click();
+	await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+
+	const toast = page.locator('.toast');
+	await expect(toast).toBeVisible();
+	await expect(toast).toHaveText('Example only: no wallet was deleted');
+	await expect(liveRegion(page)).toHaveText('Example only: no wallet was deleted');
+	// The toast is not a live region itself, so the message is not read twice.
+	await expect(toast).not.toHaveAttribute('aria-live');
+
+	await page.clock.runFor(3900);
+	await expect(toast).toBeVisible();
+	await page.clock.runFor(1000);
+	await expect(toast).toBeHidden();
+});
+
+test('a data table has a caption, column headers, and mono data cells', async ({ page }) => {
+	await generateRows(page, 12);
+	const table = page.getByRole('table', { name: 'Generated example rows' });
+
+	await expect(table.getByRole('columnheader')).toHaveText(['#', 'Address', 'Variant', 'Actions']);
+	await expect(table.locator('tbody tr')).toHaveCount(12);
+	const address = table.getByRole('cell').nth(1);
+	await expect(address).toHaveText(/^0x[0-9a-f]{40}$/);
+	expect(await address.evaluate((el) => getComputedStyle(el).fontFamily)).toContain('monospace');
+	await expect(table.getByRole('button', { name: 'Details of row 3' })).toBeVisible();
+});
+
+test('results enter staggered over the first 12 rows; later rows come with the 12th', async ({
+	page
+}) => {
+	await generateRows(page, 30);
+	const delays = await page.evaluate(() =>
+		[...document.querySelectorAll('.enter')].map((el) => getComputedStyle(el).animationDelay)
+	);
+
+	// 12 rows on their own, then one block with every later row: 13 animated elements.
+	expect(delays).toHaveLength(13);
+	expect(delays.slice(0, 3)).toEqual(['0s', '0.028s', '0.056s']);
+	expect(delays[11]).toBe('0.308s');
+	expect(delays[12]).toBe('0.308s');
+	await expect(page.locator('tbody').nth(1).locator('tr')).toHaveCount(18);
+});
+
+test('the table header stays visible while the table scrolls', async ({ page }) => {
+	await generateRows(page, 100);
+	const region = page.getByRole('region', { name: 'Generated example rows' });
+	const header = region.getByRole('columnheader', { name: 'Address' });
+	const top = (await region.boundingBox())!.y;
+
+	await region.evaluate((el) => el.scrollTo(0, 2000));
+
+	await expect
+		.poll(async () => Math.round((await header.boundingBox())!.y))
+		.toBe(Math.round(top + 1));
+});
+
+test('a wide table scrolls inside its own box at 375 px', async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 800 });
+	await generateRows(page, 12);
+
+	const pageOverflow = await page.evaluate(
+		() => document.documentElement.scrollWidth > document.documentElement.clientWidth
+	);
+	expect(pageOverflow).toBe(false);
+	const region = page.getByRole('region', { name: 'Generated example rows' });
+	expect(await region.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+});
+
+test('a dialog keeps focus off the page behind it, closes on Escape, and returns focus', async ({
+	page
+}) => {
+	const trigger = page.getByRole('button', { name: 'Delete wallet' });
+	await trigger.click();
+	const dialog = page.getByRole('dialog', { name: 'Delete wallet?' });
+	await expect(dialog).toBeVisible();
+
+	// A native modal dialog makes the page inert. Tab cycles through the dialog and may pass
+	// through the browser's own UI (document.body here), but never reaches the page behind.
+	const stops: string[] = [];
+	for (let i = 0; i < 6; i++) {
+		await page.keyboard.press('Tab');
+		const where = await dialog.evaluate((el) =>
+			el.contains(document.activeElement)
+				? 'dialog'
+				: document.activeElement === document.body
+					? 'browser'
+					: 'page'
+		);
+		stops.push(where);
+	}
+	expect(stops).not.toContain('page');
+	expect(stops.filter((stop) => stop === 'dialog').length).toBeGreaterThanOrEqual(4);
+
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeHidden();
+	await expect(trigger).toBeFocused();
+});
+
+test('closing a dialog with its own button returns focus to the trigger', async ({ page }) => {
+	await generateRows(page, 12);
+	const trigger = page.getByRole('button', { name: 'Details of row 4' });
+
+	await trigger.click();
+	const dialog = page.getByRole('dialog', { name: 'Row 4' });
+	await expect(dialog).toContainText(/0x[0-9a-f]{40}/);
+	await dialog.getByRole('button', { name: 'Close' }).click();
+
+	await expect(dialog).toBeHidden();
+	await expect(trigger).toBeFocused();
+});
+
+test('an open dialog has no WCAG 2.1 AA violations', async ({ page }) => {
+	await page.getByRole('button', { name: 'Delete wallet' }).click();
+	const dialog = page.getByRole('dialog');
+	await expect(dialog).toBeVisible();
+	// Let the open fade finish, so contrast is measured on the final colours.
+	await dialog.evaluate((el) =>
+		Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished))
+	);
+
+	const results = await new AxeBuilder({ page })
+		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+		.analyze();
+
+	expect(results.violations.map((v) => `${v.id}: ${v.nodes[0].target}`)).toEqual([]);
+});
+
+test('reduced motion removes the stagger and the enter animation (NFR-006)', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await page.reload();
+	await generateRows(page, 30);
+
+	const timings = await page.evaluate(() =>
+		[...document.querySelectorAll('.enter')].map((el) => {
+			const style = getComputedStyle(el);
+			return parseFloat(style.animationDelay) + parseFloat(style.animationDuration);
+		})
+	);
+	expect(timings.filter((t) => t > 0)).toEqual([]);
+});
