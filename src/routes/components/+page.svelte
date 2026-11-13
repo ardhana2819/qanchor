@@ -1,0 +1,286 @@
+<script lang="ts">
+	import { onDestroy } from 'svelte';
+	import Badge from '#lib/ui/Badge.svelte';
+	import Button from '#lib/ui/Button.svelte';
+	import Callout from '#lib/ui/Callout.svelte';
+	import CheckboxGroup from '#lib/ui/CheckboxGroup.svelte';
+	import EmptyState from '#lib/ui/EmptyState.svelte';
+	import Field from '#lib/ui/Field.svelte';
+	import FormPanel from '#lib/ui/FormPanel.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
+	import IconButton from '#lib/ui/IconButton.svelte';
+	import SegmentedControl from '#lib/ui/SegmentedControl.svelte';
+	import Select from '#lib/ui/Select.svelte';
+	import Tabs from '#lib/ui/Tabs.svelte';
+	import TextInput from '#lib/ui/TextInput.svelte';
+
+	// A living reference for docs/design.md section 6 and the page the component E2E tests run
+	// against (T-008). It is not listed in the navigation.
+
+	const chains = [
+		{ value: 'evm', label: 'EVM' },
+		{ value: 'bitcoin', label: 'Bitcoin' },
+		{ value: 'solana', label: 'Solana' },
+		{ value: 'tron', label: 'Tron' }
+	];
+	const variants = [
+		{ value: 'checksum', label: 'Wrong checksum' },
+		{ value: 'length', label: 'Wrong length' },
+		{ value: 'network', label: 'Wrong network prefix' },
+		{ value: 'lookalike', label: 'Look-alike from another chain' },
+		{ value: 'whitespace', label: 'Leading whitespace', disabled: true }
+	];
+	const families = [
+		{ value: 'ether', label: 'Ether' },
+		{ value: 'btc', label: 'BTC' },
+		{ value: 'sol', label: 'SOL' },
+		{ value: 'trx', label: 'TRX' }
+	] as const;
+	const modes = [
+		{ id: 'generate', label: 'Generate' },
+		{ id: 'validate', label: 'Validate' }
+	] as const;
+
+	let chain = $state('evm');
+	let count = $state('12');
+	let fee = $state('');
+	let selectedVariants = $state(['checksum']);
+	let family: (typeof families)[number]['value'] = $state('ether');
+	let mode: (typeof modes)[number]['id'] = $state('generate');
+	let generating = $state(false);
+
+	const countError = $derived(
+		/^\d+$/.test(count) && Number(count) >= 1 && Number(count) <= 500
+			? undefined
+			: 'Enter a whole number from 1 to 500.'
+	);
+	const variantError = $derived(
+		selectedVariants.length === 0 ? 'Select at least one variant.' : undefined
+	);
+
+	// Shows the loading state long enough to see; real tools end it when their work finishes.
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	function generate(): void {
+		if (countError || variantError) return;
+		generating = true;
+		timer = setTimeout(() => (generating = false), 1200);
+	}
+	onDestroy(() => clearTimeout(timer));
+</script>
+
+<svelte:head>
+	<title>Components · QAnchor</title>
+</svelte:head>
+
+<header class="page-header">
+	<h1>Components</h1>
+	<p>The UI primitives from the design system, in each of their states.</p>
+</header>
+
+<section aria-labelledby="buttons">
+	<h2 id="buttons">Buttons</h2>
+	<div class="row">
+		<Button variant="primary">Generate</Button>
+		<Button>Download</Button>
+		<Button variant="ghost">Clear</Button>
+		<Button variant="danger">Delete wallet</Button>
+		<Button variant="primary" disabled>Generate</Button>
+		<Button variant="primary" loading>Looking up…</Button>
+	</div>
+	<div class="row">
+		<Button size="sm">Copy all</Button>
+		<Button size="sm" variant="ghost">Reset</Button>
+		<IconButton label="Copy address 1"><Icon name="check" /></IconButton>
+		<IconButton label="Copy address 2" outline><Icon name="check" /></IconButton>
+		<IconButton label="Copy address 3" size="sm"><Icon name="check" /></IconButton>
+		<IconButton label="Copy address 4" disabled><Icon name="check" /></IconButton>
+	</div>
+</section>
+
+<section aria-labelledby="form">
+	<h2 id="form">Form panel</h2>
+	<FormPanel aria-label="Example form" onsubmit={(event) => (event.preventDefault(), generate())}>
+		<div class="grid">
+			<Field label="Chain" hint="Address family to generate.">
+				{#snippet children(control)}
+					<Select {...control} options={chains} bind:value={chain} />
+				{/snippet}
+			</Field>
+			<Field label="Count" hint="1 to 500 per generation." error={countError}>
+				{#snippet children(control)}
+					<TextInput {...control} inputmode="numeric" bind:value={count} />
+				{/snippet}
+			</Field>
+			<Field label="Fee (gwei)">
+				{#snippet children(control)}
+					<TextInput {...control} mono suffix="gwei" placeholder="0.0" bind:value={fee} />
+				{/snippet}
+			</Field>
+			<Field label="Network" hint="Only mainnet for this chain.">
+				{#snippet children(control)}
+					<Select
+						{...control}
+						disabled
+						options={[{ value: 'mainnet', label: 'Mainnet' }]}
+						value="mainnet"
+					/>
+				{/snippet}
+			</Field>
+		</div>
+		<div class="checks">
+			<CheckboxGroup
+				legend="Invalid variants"
+				options={variants}
+				columns={2}
+				error={variantError}
+				bind:group={selectedVariants}
+			/>
+		</div>
+		{#snippet footer()}
+			<span class="summary"
+				>{selectedVariants.length}
+				{selectedVariants.length === 1 ? 'variant' : 'variants'} selected</span
+			>
+			<Button
+				type="submit"
+				variant="primary"
+				loading={generating}
+				disabled={Boolean(countError || variantError)}
+			>
+				{generating ? 'Generating…' : 'Generate'}
+			</Button>
+		{/snippet}
+	</FormPanel>
+</section>
+
+<section aria-labelledby="selection">
+	<h2 id="selection">Segmented control and tabs</h2>
+	<div class="segmented">
+		<SegmentedControl
+			legend="Unit family"
+			options={families}
+			value={family}
+			onchange={(next) => (family = next)}
+		/>
+	</div>
+	<Tabs label="Mode" tabs={modes} bind:value={mode}>
+		{#snippet panel(id)}
+			<p class="muted">
+				{id === 'generate'
+					? 'Generate tab: the form and the results table.'
+					: 'Validate tab: paste one address to check it.'}
+			</p>
+		{/snippet}
+	</Tabs>
+</section>
+
+<section aria-labelledby="status">
+	<h2 id="status">Status</h2>
+	<div class="row">
+		<Badge variant="success">Valid</Badge>
+		<Badge variant="danger">Invalid</Badge>
+		<Badge variant="warning">Risky</Badge>
+		<Badge variant="neutral">Pending</Badge>
+	</div>
+	<div class="stack">
+		<Callout variant="info">
+			<p>Generated data is fake and for testing only.</p>
+		</Callout>
+		<Callout variant="warning" title="Valid but risky">
+			<p>This address is valid on Ethereum and on BNB Smart Chain.</p>
+		</Callout>
+		<Callout variant="danger" title="Could not reach rpc.example.org">
+			<p>
+				The request did not complete, so this says nothing about whether the transaction exists.
+			</p>
+			{#snippet action()}
+				<Button size="sm">Retry</Button>
+			{/snippet}
+		</Callout>
+	</div>
+</section>
+
+<section aria-labelledby="empty">
+	<h2 id="empty">Empty state</h2>
+	<EmptyState>
+		Pick a chain and a count, then generate. Add invalid variants for negative tests.
+	</EmptyState>
+</section>
+
+<style>
+	.page-header {
+		margin-bottom: var(--space-8);
+	}
+
+	h1 {
+		margin: 0;
+		font-size: var(--text-xl);
+		font-weight: 600;
+		line-height: var(--leading-xl);
+	}
+
+	.page-header p,
+	.muted {
+		margin: var(--space-1) 0 0;
+		color: var(--color-text-muted);
+	}
+
+	section + section {
+		margin-top: var(--space-12);
+	}
+
+	h2 {
+		margin: 0 0 var(--space-4);
+		font-size: var(--text-md);
+		font-weight: 600;
+		line-height: var(--leading-md);
+	}
+
+	.row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-3);
+	}
+
+	.row + .row {
+		margin-top: var(--space-4);
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: var(--space-4);
+	}
+
+	.checks {
+		margin-top: var(--space-6);
+	}
+
+	.summary {
+		color: var(--color-text-muted);
+	}
+
+	.segmented {
+		max-width: 320px;
+		margin-bottom: var(--space-6);
+	}
+
+	.stack {
+		display: grid;
+		gap: var(--space-3);
+		margin-top: var(--space-4);
+	}
+
+	@media (max-width: 1023px) {
+		.grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (max-width: 639px) {
+		.grid {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+</style>
