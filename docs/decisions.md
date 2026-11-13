@@ -150,6 +150,11 @@ Visual direction (redone Phase 1), chosen by the owner:
 * The primitives are tested on a prerendered `/components` page that lists each one in its states, is not linked from the navigation, and is screen S-12 in `docs/design.md`. Why: no tool page exists yet, and E2E, the axe scan, and the 60 fps trace all need a real page; it also shows the design system to an interviewer. Rejected: Vitest browser mode (a second test environment and new dependencies, and the trace would still need a page); deferring all checks to the first tool pages (the components would ship unverified).
 * `@axe-core/playwright` is added as a dev dependency for the accessibility scan already listed in `CLAUDE.md`. It is not shipped.
 
+### 2026-11-13: Storage layer dependencies (T-010)
+
+* `idb` 8.0 is added as the IndexedDB wrapper named at kickoff. It loads on demand with the storage code (1.8 KB gzip chunk together), not in the initial bundle.
+* `fake-indexeddb` is added as a dev dependency, revising plan note N-1. Why: the rules that matter most (a quota error or a bad record rolls back the whole batch; a schema upgrade in another tab closes this connection) cannot be triggered on demand in a real browser. `fake-indexeddb` implements the IndexedDB spec in Node, including transaction rollback, so `db.ts` runs unchanged in Vitest. Browser-specific failures (blocked or missing IndexedDB) stay in Playwright. Rejected: exposing test hooks in the production build to drive writes from E2E.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
