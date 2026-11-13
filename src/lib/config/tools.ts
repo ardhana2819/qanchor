@@ -1,0 +1,30 @@
+import type { RouteId } from '$app/types';
+
+export type ToolGroup = 'Blockchain' | 'Data';
+
+export interface ToolEntry {
+	route: RouteId;
+	name: string;
+	/** One line, shown on the toolkit index (FR-001 AC-7). */
+	description: string;
+	group: ToolGroup;
+}
+
+// Sidebar and index order (docs/design.md S-00).
+const GROUP_ORDER: readonly ToolGroup[] = ['Blockchain', 'Data'];
+
+/**
+ * Shipped tools only (FR-001 AC-1): each tool task adds its entry in the same change that adds
+ * its route. Navigation and the toolkit index both read this list.
+ */
+export const tools: readonly ToolEntry[] = [];
+
+/** Groups in sidebar order, skipping groups with no entries. */
+export function groupTools(
+	entries: readonly ToolEntry[]
+): { group: ToolGroup; entries: ToolEntry[] }[] {
+	return GROUP_ORDER.map((group) => ({
+		group,
+		entries: entries.filter((entry) => entry.group === group)
+	})).filter(({ entries: inGroup }) => inGroup.length > 0);
+}

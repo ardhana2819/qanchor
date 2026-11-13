@@ -38,7 +38,7 @@ How this plan is used:
 | ID | Task | FR/US/NFR | Depends on | Definition of done | How to verify | Risk | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T-005 | Design tokens and base CSS from `docs/design.md` section 2; Inter Latin subset; `prefers-reduced-motion` | NFR-006, NFR-009, ADR-010 | T-001 | `app.css` tokens match the design brief for both themes; font file size recorded in this plan | Visual check against `prototype/`; file size from build output | Low | done |
-| T-006 | App shell: sidebar with shipped tools only, skip link, landmarks, footer commit ID, toolkit index, not-found page, small-screen top bar | FR-001 AC-1 to AC-4, AC-6, AC-7; NFR-021; US-010 | T-005 | Every route's static HTML contains heading and navigation; unknown URL shows the not-found state; nav works by keyboard | E2E: deep-link reload, unknown URL, Tab through nav; inspect built HTML | Low | todo |
+| T-006 | App shell: sidebar with shipped tools only, skip link, landmarks, footer commit ID, toolkit index, not-found page, small-screen top bar | FR-001 AC-1 to AC-4, AC-6, AC-7; NFR-021; US-010 | T-005 | Every route's static HTML contains heading and navigation; unknown URL shows the not-found state; nav works by keyboard | E2E: deep-link reload, unknown URL, Tab through nav; inspect built HTML | Low | done |
 | T-007 | Theme control (System / Light / Dark), pre-paint script, follows OS changes, persisted | FR-002, US-011 | T-004, T-006 | No light flash in dark mode on any prerendered page; choice survives reload (stored in `localStorage`, finding F-1); System follows OS changes live | E2E with `colorScheme` emulation in three browsers | Medium | todo |
 | T-008 | UI primitives from design section 6: Button, IconButton, Field, Text/Number input, Select, Checkbox group, Segmented control, Tabs, Badge, Callout, Toast + live region, Empty state, Data table, Dialog | NFR-008, NFR-009, NFR-010 | T-005 | Each component has its states from design section 6; focus ring visible; screen-reader names present | E2E on the first pages that use them; axe scan | Low | todo |
 | T-009 | Output actions: Copy, Copy all, Download (CSV/JSON), clipboard-denied fallback | FR-004, EC-023 | T-008 | Copy puts the exact value on the clipboard and announces it; denied clipboard shows the error and keeps the value selectable | E2E with clipboard permissions granted and denied | Medium (clipboard APIs differ per browser) | todo |
@@ -138,6 +138,12 @@ FRs not covered by any task: **none**. NFR-018 (dependency discipline) is a revi
   * Size-adjusted `Inter Fallback` (Arial / Liberation Sans) computed from the two font files with fonttools in a throwaway virtualenv, not a project dependency.
   * Light and dark values use CSS `light-dark()` with `color-scheme`, so each token is defined once; `data-theme` switches `color-scheme`. The Vite 8 CSS minifier (lightningcss) also emits a fallback for browsers without `light-dark()`, and rewrites `0ms` as `0s`.
   * `tests/e2e/design-tokens.spec.ts`: 6 E2E tests (system light/dark, stored theme overrides system both ways, reduced motion zeroes durations, Inter loads from the same origin). Initial JS 31.02 KB.
+* **T-006 (done):**
+  * Shipped tools are listed in `src/lib/config/tools.ts`; the sidebar and the toolkit index both read it. The list is empty until the first tool ships, so the index shows "No tools have shipped yet." Each tool task adds its entry in the same change as its route, and T-011 adds the Settings link with the Settings route, so the nav never links to a missing page.
+  * Small-screen menu: a native `<details>`. On wide screens `::details-content` is forced visible and the toggle hidden; below 1024 px the browser's own open/closed behaviour applies, and the menu closes after each navigation. Checked with temporary entries in Chromium and Firefox (closed by default, opens on click, closes after navigation). The E2E menu test is added with the first tool entry (T-013), because the menu is not rendered while the list is empty.
+  * Footer shows `Build <7-char commit>` from `CF_PAGES_COMMIT_SHA` via Vite `define`, or `Build dev` locally (NFR-021).
+  * Tool icons in the nav come with the first tool entry; only the product mark exists now.
+  * Initial JS for `/`: 34.57 KB gzip (was 31.02 KB; adds `$app/state`, `$app/navigation`, `$app/paths`).
 
 ## Findings while planning
 
