@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QAnchor · Visual directions (polish round)</title>
+    <!-- Prototype only: fonts from Google Fonts for comparison. The app self-hosts every font. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400..600&family=JetBrains+Mono:wght@400..500&family=Geist:wght@400..600&family=Geist+Mono:wght@400..500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --page-bg: light-dark(#eceff3, #05080c);
+        --page-text: light-dark(#0f172a, #e6edf3);
+        --page-muted: light-dark(#475569, #a9b4c0);
+      }
+      :root[data-theme='light'] { color-scheme: light; }
+      :root[data-theme='dark'] { color-scheme: dark; }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 32px 24px 64px;
+        background: var(--page-bg);
+        color: var(--page-text);
+        font: 14px/22px Inter, system-ui, sans-serif;
+      }
+      .intro { max-width: 1240px; margin: 0 auto 24px; display: flex; gap: 24px; align-items: end; justify-content: space-between; flex-wrap: wrap; }
+      .intro h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 600; }
+      .intro p { margin: 4px 0 0; color: var(--page-muted); max-width: 720px; }
+      .theme-switch { display: flex; gap: 4px; padding: 3px; border-radius: 8px; background: light-dark(#dfe4ea, #121821); }
+      .theme-switch button { border: 0; padding: 6px 12px; border-radius: 6px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+      .theme-switch button[aria-pressed='true'] { background: light-dark(#fff, #222c38); box-shadow: 0 1px 2px rgb(0 0 0 / 0.15); }
+
+      .grid { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; }
+
+      .direction { display: flex; flex-direction: column; gap: 12px; }
+      .direction header h2 { margin: 0; font-size: 18px; line-height: 26px; font-weight: 600; }
+      .direction header h2 small { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: #0f766e; color: #fff; font-size: 12px; font-weight: 500; vertical-align: 2px; }
+      .direction header p { margin: 2px 0 0; color: var(--page-muted); }
+      .facts { margin: 0; padding-left: 18px; color: var(--page-muted); font-size: 13px; line-height: 20px; }
+      .facts b { color: var(--page-text); font-weight: 500; }
+
+      /* ---------- Shared mini app, styled by each direction's tokens ---------- */
+      .app {
+        display: grid;
+        grid-template-columns: 152px 1fr;
+        min-height: 400px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--frame-radius);
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        box-shadow: var(--frame-shadow);
+      }
+      .side { padding: 12px 8px; border-right: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 12px; }
+      .brand { display: flex; align-items: center; gap: 6px; padding: 0 6px; font-weight: 600; font-size: 13px; }
+      .mark { width: 20px; height: 20px; border-radius: 5px; background: var(--accent); display: grid; place-items: center; }
+      .mark svg { width: 12px; height: 12px; fill: none; stroke: var(--on-accent); stroke-width: 1.8; stroke-linecap: round; }
+      .side h3 { margin: 0; padding: 0 6px; font-size: 11px; font-weight: 500; color: var(--subtle); }
+      .side a { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-radius: var(--radius-sm); color: var(--muted); text-decoration: none; font-size: 12.5px; position: relative; transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease); }
+      .side a:hover { background: var(--raised); color: var(--text); }
+      .side a[aria-current] { background: var(--accent-subtle); color: var(--accent); font-weight: 500; }
+      .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dot, transparent); flex: none; }
+
+      .main { padding: 16px 18px; min-width: 0; }
+      .main h4 { margin: 0; font-size: 17px; line-height: 24px; font-weight: 600; }
+      .main .lede { margin: 2px 0 12px; color: var(--muted); font-size: 12.5px; line-height: 18px; }
+
+      .tabs { position: relative; display: flex; gap: 2px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+      .tabs button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; padding: 6px 10px; cursor: pointer; }
+      .tabs button[aria-selected='true'] { color: var(--text); font-weight: 500; }
+      .tab-ink { position: absolute; bottom: -1px; left: 0; height: 2px; width: 70px; background: var(--accent); border-radius: 2px; transform-origin: left; transition: transform var(--base) var(--ease); }
+
+      .panel { padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel-bg); box-shadow: var(--panel-shadow); transition: box-shadow var(--base) var(--ease), border-color var(--base) var(--ease); }
+      .panel:focus-within { border-color: var(--panel-focus-border); box-shadow: var(--panel-focus-shadow); }
+      .form { display: flex; gap: 8px; align-items: end; }
+      .field { flex: 1; display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--muted); }
+      .field select { height: 30px; padding: 0 8px; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font: inherit; font-size: 12.5px; transition: box-shadow var(--fast) var(--ease); }
+      .field select:focus-visible, .btn:focus-visible, .copy:focus-visible { outline: none; box-shadow: var(--ring); }
+      .btn { height: 30px; padding: 0 12px; border: 0; border-radius: var(--radius-sm); background: var(--accent); color: var(--on-accent); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: transform var(--fast) var(--ease), background-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease); box-shadow: var(--btn-shadow); }
+      .btn:hover { background: var(--accent-hover); }
+      .btn:active { transform: scale(0.97); }
+
+      .results { margin: 12px 0 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+      .results li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 6px 8px; border-top: 1px solid var(--border); font-size: 12px; }
+      .results li:first-child { border-top: 0; }
+      .results.enter li { animation: row-in var(--base) var(--ease) both; animation-delay: calc(var(--i) * 28ms); }
+      @keyframes row-in { from { opacity: 0; transform: translateY(4px); } }
+      .addr { font-family: var(--mono); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .side a { white-space: nowrap; }
+      .badge { padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 500; }
+      .badge.ok { background: var(--ok-bg); color: var(--ok); }
+      .badge.bad { background: var(--bad-bg); color: var(--bad); }
+      .copy { position: relative; width: 24px; height: 24px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--subtle); cursor: pointer; display: grid; place-items: center; transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease); }
+      .copy:hover { background: var(--raised); color: var(--text); }
+      .copy svg { position: absolute; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: opacity var(--fast) var(--ease), transform var(--base) var(--ease-spring); }
+      .copy .i-check { opacity: 0; transform: scale(0.5); color: var(--ok); }
+      .copy.done .i-copy { opacity: 0; transform: scale(0.5); }
+      .copy.done .i-check { opacity: 1; transform: none; }
+      .toast { margin-top: 10px; font-size: 11.5px; color: var(--muted); height: 18px; opacity: 0; transform: translateY(3px); transition: opacity var(--base) var(--ease), transform var(--base) var(--ease); }
+      .toast.show { opacity: 1; transform: none; }
+
+      /* ---------- Direction A: Anchor, refined ---------- */
+      .dir-a {
+        --sans: Inter, system-ui, sans-serif;
+        --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+        --bg: light-dark(#ffffff, #0b1017);
+        --surface: light-dark(#f6f8fa, #131a22);
+        --raised: light-dark(#eef1f4, #1b242e);
+        --panel-bg: light-dark(#ffffff, #10161e);
+        --border: light-dark(#d8dee4, #2a3440);
+        --control-border: light-dark(#7d8590, #6b7785);
+        --text: light-dark(#0f172a, #e6edf3);
+        --muted: light-dark(#475569, #a9b4c0);
+        --subtle: light-dark(#5a6472, #8693a1);
+        --accent: light-dark(#0f766e, #2dd4bf);
+        --accent-hover: light-dark(#115e59, #5eead4);
+        --on-accent: light-dark(#ffffff, #042f2b);
+        --accent-subtle: light-dark(#e6f4f1, #0f2e2b);
+        --ok: light-dark(#1a7f37, #3fb950); --ok-bg: light-dark(#e8f5ec, #12261a);
+        --bad: light-dark(#cf222e, #f85149); --bad-bg: light-dark(#ffebe9, #2d1416);
+        --radius-sm: 4px; --radius: 6px; --frame-radius: 10px;
+        --frame-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 8px 24px light-dark(rgb(15 23 42 / 0.08), rgb(0 0 0 / 0.4));
+        --panel-shadow: inset 0 1px 0 light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.04)), 0 1px 2px light-dark(rgb(15 23 42 / 0.05), rgb(0 0 0 / 0.3));
+        --panel-focus-border: light-dark(#9fcfc8, #1f5f57);
+        --panel-focus-shadow: var(--panel-shadow), 0 0 0 3px light-dark(rgb(15 118 110 / 0.08), rgb(45 212 191 / 0.08));
+        --btn-shadow: inset 0 1px 0 rgb(255 255 255 / 0.15), 0 1px 2px rgb(0 0 0 / 0.15);
+        --ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+        --fast: 120ms; --base: 180ms;
+        --ease: cubic-bezier(0.2, 0, 0, 1); --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+      }
+
+      /* ---------- Direction B: Tidewater ---------- */
+      .dir-b {
+        --sans: Inter, system-ui, sans-serif;
+        --mono: 'JetBrains Mono', ui-monospace, monospace;
+        --bg: light-dark(#ffffff, #0a0f17);
+        --surface: light-dark(#f3f6f9, #0f1520);
+        --raised: light-dark(#e7edf3, #1a2331);
+        --panel-bg: light-dark(#ffffff, #141c27);
+        --border: light-dark(#d5dde6, #233042);
+        --control-border: light-dark(#7a8899, #63748a);
+        --text: light-dark(#0b1220, #e8eef5);
+        --muted: light-dark(#4a5568, #9fb0c3);
+        --subtle: light-dark(#5b6676, #8394a8);
+        --accent: light-dark(#0e7490, #5eead4);
+        --accent-hover: light-dark(#155e75, #99f6e4);
+        --on-accent: light-dark(#ffffff, #03201c);
+        --accent-subtle: light-dark(#e0f2f6, #0d2a2c);
+        --ok: light-dark(#15803d, #4ade80); --ok-bg: light-dark(#e7f6ec, #10261a);
+        --bad: light-dark(#c2410c, #fb923c); --bad-bg: light-dark(#fff1e8, #2b1810);
+        --radius-sm: 6px; --radius: 10px; --frame-radius: 14px;
+        --frame-shadow: 0 1px 0 light-dark(rgb(255 255 255 / 0.6), rgb(255 255 255 / 0.05)) inset, 0 12px 40px light-dark(rgb(11 18 32 / 0.12), rgb(0 0 0 / 0.55));
+        --panel-shadow: 0 1px 0 light-dark(rgb(255 255 255 / 1), rgb(255 255 255 / 0.05)) inset, 0 2px 8px light-dark(rgb(11 18 32 / 0.06), rgb(0 0 0 / 0.35));
+        --panel-focus-border: light-dark(#7cc4d4, #2b6c68);
+        --panel-focus-shadow: var(--panel-shadow), 0 6px 20px light-dark(rgb(14 116 144 / 0.12), rgb(94 234 212 / 0.08));
+        --btn-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 2px 6px light-dark(rgb(14 116 144 / 0.3), rgb(94 234 212 / 0.15));
+        --ring: 0 0 0 3px light-dark(rgb(14 116 144 / 0.3), rgb(94 234 212 / 0.35));
+        --fast: 140ms; --base: 220ms;
+        --ease: cubic-bezier(0.2, 0, 0, 1); --ease-spring: cubic-bezier(0.34, 1.5, 0.64, 1);
+      }
+
+      /* ---------- Direction C: Ledger ink ---------- */
+      .dir-c {
+        --sans: Geist, Inter, system-ui, sans-serif;
+        --mono: 'Geist Mono', ui-monospace, monospace;
+        --bg: light-dark(#faf9f7, #151412);
+        --surface: light-dark(#f2f0ec, #1c1a18);
+        --raised: light-dark(#e9e6e1, #26231f);
+        --panel-bg: light-dark(#ffffff, #1a1816);
+        --border: light-dark(#e2ded8, #2f2b27);
+        --control-border: light-dark(#8a847c, #777069);
+        --text: light-dark(#1c1917, #edeae6);
+        --muted: light-dark(#57534e, #a8a29e);
+        --subtle: light-dark(#6b655e, #948d86);
+        --accent: light-dark(#1d4ed8, #8ab4ff);
+        --accent-hover: light-dark(#1e40af, #b3cdff);
+        --on-accent: light-dark(#ffffff, #0b1b3f);
+        --accent-subtle: light-dark(#e8eefc, #1a2340);
+        --ok: light-dark(#166534, #6ee7a0); --ok-bg: light-dark(#e6f4ea, #13261b);
+        --bad: light-dark(#b91c1c, #fca5a5); --bad-bg: light-dark(#fdecec, #2e1616);
+        --radius-sm: 5px; --radius: 8px; --frame-radius: 12px;
+        --frame-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 30px light-dark(rgb(28 25 23 / 0.08), rgb(0 0 0 / 0.45));
+        --panel-shadow: 0 1px 2px light-dark(rgb(28 25 23 / 0.06), rgb(0 0 0 / 0.3));
+        --panel-focus-border: light-dark(#9db4ef, #3a4f86);
+        --panel-focus-shadow: var(--panel-shadow), 0 0 0 3px light-dark(rgb(29 78 216 / 0.08), rgb(138 180 255 / 0.1));
+        --btn-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+        --ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+        --fast: 120ms; --base: 200ms;
+        --ease: cubic-bezier(0.2, 0, 0, 1); --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+      }
+      .dir-c .side a.cat-chain { --dot: light-dark(#0f766e, #2dd4bf); }
+      .dir-c .side a.cat-data { --dot: light-dark(#b45309, #fbbf24); }
+
+      @media (prefers-reduced-motion: reduce) {
+        .app { --fast: 0ms; --base: 0ms; }
+        .results.enter li { animation: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="intro">
+      <div>
+        <h1>Visual directions, polish round</h1>
+        <p>Three directions inside "utilitarian + polish". Each panel is live: press Generate (results stagger in), copy a row (icon morphs into a check), switch tabs (indicator slides), focus the form (panel lifts). Reduced motion turns every transition off.</p>
+      </div>
+      <div class="theme-switch" role="group" aria-label="Theme">
+        <button type="button" data-set-theme="system" aria-pressed="true">System</button>
+        <button type="button" data-set-theme="light" aria-pressed="false">Light</button>
+        <button type="button" data-set-theme="dark" aria-pressed="false">Dark</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="direction">
+        <header>
+          <h2>A · Anchor, refined<small>Chosen</small></h2>
+          <p>The approved v0.3 look, plus a polish layer.</p>
+        </header>
+        <div class="app dir-a" data-app></div>
+        <ul class="facts">
+          <li><b>Mood:</b> calm, precise, quietly crafted. Depth from 1 px highlights and soft elevation, not colour.</li>
+          <li><b>Principles:</b> data first, motion explains a change, one accent.</li>
+          <li><b>Palette:</b> cool neutrals, teal #0F766E / #2DD4BF (unchanged).</li>
+          <li><b>Fonts:</b> Inter + system mono. <b>+0 KB</b>; tokens from T-005 stay.</li>
+          <li><b>Like:</b> Linear, Vercel dashboard.</li>
+          <li><b>Why:</b> keeps every approved decision and finished task; the new rules are met through motion and depth only.</li>
+        </ul>
+      </section>
+
+      <section class="direction">
+        <header>
+          <h2>B · Tidewater</h2>
+          <p>Deeper, softer, Raycast-like panels.</p>
+        </header>
+        <div class="app dir-b" data-app></div>
+        <ul class="facts">
+          <li><b>Mood:</b> immersive, tactile. Larger radii, layered shadows, panels that lift on focus.</li>
+          <li><b>Principles:</b> panels as objects, tactile feedback, mono gives data its identity.</li>
+          <li><b>Palette:</b> blue-slate neutrals, cyan-teal #0E7490 / #5EEAD4, orange for errors.</li>
+          <li><b>Fonts:</b> Inter + JetBrains Mono. <b>About +40 KB woff2</b> (estimate, to be measured), off the critical path.</li>
+          <li><b>Like:</b> Raycast, Linear (dark).</li>
+          <li><b>Why:</b> the strongest "delightful" feel for interviewers. Costs: new tokens, a second font, and T-005 rework.</li>
+        </ul>
+      </section>
+
+      <section class="direction">
+        <header>
+          <h2>C · Ledger ink</h2>
+          <p>Warm paper, ink-blue accent, Arc-like colour coding.</p>
+        </header>
+        <div class="app dir-c" data-app></div>
+        <ul class="facts">
+          <li><b>Mood:</b> editorial, warm, human. Category colour dots help you find tools.</li>
+          <li><b>Principles:</b> warmth over chrome, colour encodes category, typography carries hierarchy.</li>
+          <li><b>Palette:</b> warm stone neutrals, ink blue #1D4ED8 / #8AB4FF, teal and amber category dots.</li>
+          <li><b>Fonts:</b> Geist + Geist Mono, replacing Inter. <b>About +25 KB net</b> (estimate, to be measured).</li>
+          <li><b>Like:</b> Arc, Vercel (Geist).</li>
+          <li><b>Why:</b> most distinctive among QA tools. Costs: a palette and font switch, T-005 rework, and blue that is less ownable than teal.</li>
+        </ul>
+      </section>
+    </div>
+
+    <template id="app-template">
+      <aside class="side">
+        <div class="brand"><span class="mark"><svg viewBox="0 0 16 16"><circle cx="8" cy="3.5" r="1.5" /><path d="M8 5v9M5 7.5h6M2.5 9.5a5.5 5 0 0 0 11 0" /></svg></span>QAnchor</div>
+        <div>
+          <h3>Blockchain</h3>
+          <a href="#" class="cat-chain" aria-current="page"><span class="chip-dot"></span>Address generator</a>
+          <a href="#" class="cat-chain"><span class="chip-dot"></span>Unit converter</a>
+        </div>
+        <div>
+          <h3>Data</h3>
+          <a href="#" class="cat-data"><span class="chip-dot"></span>Dummy data</a>
+        </div>
+      </aside>
+      <div class="main">
+        <h4>Address generator</h4>
+        <p class="lede">Valid and deliberately invalid addresses for testing.</p>
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true">Generate</button>
+          <button role="tab" aria-selected="false">Validate</button>
+          <span class="tab-ink"></span>
+        </div>
+        <div class="panel">
+          <div class="form">
+            <label class="field">Chain<select><option>EVM</option><option>Bitcoin</option><option>Solana</option></select></label>
+            <label class="field">Count<select><option>4</option></select></label>
+            <button class="btn" type="button" data-generate>Generate</button>
+          </div>
+        </div>
+        <ul class="results"></ul>
+        <div class="toast" role="status"></div>
+      </div>
+    </template>
+
+    <script>
+      const rows = [
+        ['0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed', 'ok', 'Valid'],
+        ['0x5aaeb6053F3E94C9b9A09f33669435E7Ef1BeAed', 'bad', 'Bad checksum'],
+        ['0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeA', 'bad', 'Too short'],
+        ['0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359', 'ok', 'Valid']
+      ];
+      const copyIcons =
+        '<svg class="i-copy" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-1.5a1 1 0 0 0-1-1h-5.5a1 1 0 0 0-1 1v5.5a1 1 0 0 0 1 1h1.5"/></svg>' +
+        '<svg class="i-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+
+      function render(list, shuffle) {
+        const order = shuffle ? [...rows].sort(() => Math.random() - 0.5) : rows;
+        list.classList.remove('enter');
+        list.innerHTML = order
+          .map(([addr, kind, label], i) =>
+            `<li style="--i:${i}"><span class="addr">${addr}</span><span class="badge ${kind}">${label}</span>` +
+            `<button class="copy" type="button" aria-label="Copy address ${i + 1}">${copyIcons}</button></li>`)
+          .join('');
+        void list.offsetWidth; // restart the entry animation
+        list.classList.add('enter');
+      }
+
+      for (const app of document.querySelectorAll('[data-app]')) {
+        app.append(document.getElementById('app-template').content.cloneNode(true));
+        const list = app.querySelector('.results');
+        const toast = app.querySelector('.toast');
+        let toastTimer;
+        render(list, false);
+
+        app.querySelector('[data-generate]').addEventListener('click', () => render(list, true));
+
+        list.addEventListener('click', (event) => {
+          const button = event.target.closest('.copy');
+          if (!button) return;
+          button.classList.add('done');
+          toast.textContent = 'Copied';
+          toast.classList.add('show');
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => {
+            button.classList.remove('done');
+            toast.classList.remove('show');
+          }, 1400);
+        });
+
+        const tabs = [...app.querySelectorAll('[role="tab"]')];
+        const ink = app.querySelector('.tab-ink');
+        const placeInk = (tab) => {
+          ink.style.width = tab.offsetWidth + 'px';
+          ink.style.transform = `translateX(${tab.offsetLeft}px)`;
+        };
+        tabs.forEach((tab) =>
+          tab.addEventListener('click', () => {
+            tabs.forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
+            placeInk(tab);
+          })
+        );
+        requestAnimationFrame(() => placeInk(tabs[0]));
+      }
+
+      for (const button of document.querySelectorAll('[data-set-theme]')) {
+        button.addEventListener('click', () => {
+          const value = button.dataset.setTheme;
+          if (value === 'system') delete document.documentElement.dataset.theme;
+          else document.documentElement.dataset.theme = value;
+          document.querySelectorAll('[data-set-theme]').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+        });
+      }
+    </script>
+  </body>
+</html>
