@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
+import { appOpened } from './helpers.ts';
 
 // Storage layer in real browsers (T-010, EC-001, EC-003). Data rules (migrations, rollback on a
 // quota error) are unit-tested in src/lib/storage/db.test.ts.
@@ -25,16 +26,6 @@ function rawOpen(page: Page, version?: number) {
 			}),
 		version
 	);
-}
-
-/**
- * Waits until the app has created the database. Opening it from the test first would create an
- * empty v1 database and hide whether the app's own upgrade ran.
- */
-async function appOpened(page: Page): Promise<void> {
-	await expect
-		.poll(() => page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name)))
-		.toContain('qanchor');
 }
 
 test('a normal visit opens schema v1 and shows no banner', async ({ page }) => {

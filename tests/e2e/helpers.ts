@@ -8,3 +8,13 @@ import { expect, type Page } from '@playwright/test';
 export async function hydrated(page: Page): Promise<void> {
 	await expect(page.locator('.indicator')).toBeAttached();
 }
+
+/**
+ * Waits until the app has created its IndexedDB database. Opening it from a test first would
+ * create an empty v1 database and hide whether the app's own upgrade ran.
+ */
+export async function appOpened(page: Page): Promise<void> {
+	await expect
+		.poll(() => page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name)))
+		.toContain('qanchor');
+}
