@@ -118,6 +118,32 @@ Verified in Chromium and Firefox with E2E tests; WebKit runs in CI.
 * `static/_headers` sets `frame-ancestors 'none'`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`. These take effect only on Cloudflare Pages and are checked on the live site in T-024.
 * The theme pre-paint script itself (FR-002 AC-1) shipped with this spike; the theme control UI follows in T-007.
 
+### 2026-11-13: Project rules move from "lightweight" to "polished & optimized"
+
+Decided by the owner, following an update to the owner's global rules (`~/.claude/skills/kickoff/template.md`):
+
+* `CLAUDE.md` section 3 "LIGHTWEIGHT & SIMPLE BY DEFAULT" is replaced by "POLISHED & OPTIMIZED". Visual quality becomes a primary goal; performance is a budget to stay within, not a number to minimize at the cost of the experience. Purposeful animation and micro-interactions are encouraged; custom fonts, icons, and visual effects are allowed when they strengthen the product's identity, with their size impact stated. A performance concern that would noticeably reduce visual quality is raised as a trade-off for the owner to decide, never applied silently.
+* Goal line: "lightweight" becomes "polished, efficient".
+* Performance budget gains "animations at 60fps". Every existing number stays: initial JS <= 80 KB gzip, Lighthouse Performance >= 95 (desktop), LCP < 1.5 s, idle CPU ~0%, idle JS heap <= 30 MB, no long task > 200 ms, no continuous animations, reduced motion respected, screenshots compressed.
+* Unchanged: everything in section 3 about event-driven runtime, lazy loading, cleanup, code simplicity, and measuring instead of guessing.
+
+Consequences:
+
+* The design brief's Phase 1 (visual direction) is redone under the new rules. Until the owner picks a direction, `docs/design.md` v0.3 and the tokens already built in T-005 stay in force; a new direction that changes tokens, fonts, or motion is applied as its own task after approval.
+* Reports for changes that add animation also report the measured frame rate.
+
+Design inputs for the redone Phase 1, chosen by the owner:
+
+* Style: "utilitarian + polish". The layout stays tool-first and information-dense; a polish layer adds subtle depth, purposeful motion, and distinctive details. `CLAUDE.md` Design line updated accordingly. Alternatives considered: "more expressive" (bolder colour, custom illustration, roomier layout) and "unchanged".
+* Motion: "subtle and purposeful". 120 to 240 ms CSS transitions for feedback and continuity (staggered results, copy confirmation, tab and menu movement); near-zero added JS. Alternatives considered: "rich" (View Transitions between pages, animated counters) and "minimal" (hover and focus only).
+* References: Linear and Vercel, plus Raycast and Arc.
+* Still avoided: generic purple gradient / "AI look", dark neon "web3" look.
+
+Visual direction (redone Phase 1), chosen by the owner:
+
+* **A "Anchor, refined"**: the approved v0.3 colours, type, and layout stay; a polish layer adds subtle depth on form panels and the primary button, and a motion catalogue of event-driven micro-interactions (`docs/design.md` v0.4, sections 2.3 and 2.4). Font cost: +0 KB. Why: it meets the new rules without discarding approved decisions or merged work (T-005 tokens stay). Alternatives considered (`prototype/directions.html`): "Tidewater" (deeper Raycast-like panels, JetBrains Mono, about +40 KB, T-005 rework) and "Ledger ink" (warm palette, Geist fonts, about +25 KB net, T-005 rework).
+* Design brief v0.4 approved with its four new decisions, all as recommended: stagger capped at the first 12 result rows; depth on form panels and the primary button only; theme changes are instant; the polish layer is built in T-008, and the small-screen menu animation in T-013.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

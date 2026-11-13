@@ -1,10 +1,12 @@
 # QAnchor: Design Brief
 
-* Status: APPROVED (owner, 2026-11-12)
-* Version: 0.3
-* Date: 2026-11-12
+* Status: APPROVED (owner; v0.3 on 2026-11-12, v0.4 polish layer on 2026-11-13)
+* Version: 0.4
+* Date: 2026-11-13
 * Sources: `CLAUDE.md` (project context), `docs/prd.md` v0.3, `docs/decisions.md`
-* Visual direction: **B "Anchor"**, chosen by the owner on 2026-11-12
+* Visual direction: **B "Anchor"**, chosen by the owner on 2026-11-12; refined as **A "Anchor, refined"** (polish layer) on 2026-11-13 after the project rules moved to "polished & optimized" (`docs/decisions.md`)
+
+Changes in v0.4: references add Raycast and Arc; principle 2 allows subtle depth; new depth tokens and a `--duration-slow` / `--ease-spring` pair (section 2.3); a motion catalogue (section 2.4); button press and panel focus states (section 6); new owner decisions (section 12). Colours, type, spacing, layout, screens, flows, and copy are unchanged.
 
 Conventions:
 
@@ -19,9 +21,9 @@ Conventions:
 | Field | Value | Source |
 | --- | --- | --- |
 | Scope | Whole app, phases 1 to 4 | Owner, 2026-11-12 |
-| Visual references | Linear, Vercel | `CLAUDE.md`, confirmed |
+| Visual references | Linear, Vercel, Raycast, Arc | `CLAUDE.md`, owner 2026-11-13 |
 | Disliked | Generic purple gradient / "AI look"; dark neon "web3" look | Owner, 2026-11-12 |
-| Style | Clean utilitarian | `CLAUDE.md` |
+| Style | Clean utilitarian with a polish layer: tool-first and information-dense, subtle depth, purposeful motion | `CLAUDE.md`, owner 2026-11-13 |
 | Theme | Light + dark, default follows the system | `CLAUDE.md`, FR-002 |
 | Density | Compact, with a larger type and control scale than the first draft (owner, 2026-11-12) | `CLAUDE.md`, owner |
 | Styling approach | Plain CSS + CSS variables as design tokens, no Tailwind | `CLAUDE.md` |
@@ -31,14 +33,14 @@ Deliberately avoided:
 * Purple gradients, glow, hero sections (owner).
 * Near-black backgrounds with neon accents (owner). The dark theme is a blue-tinted charcoal, and teal is used as a flat colour, never as a glow.
 * [PROPOSAL] Backdrop blur and translucent panels: they lower text contrast (NFR-009) and cost GPU time.
-* Continuous or decorative animation (NFR-006).
+* Continuous or decorative animation (NFR-006): no parallax, particles, looping loaders, or motion without a job.
 * Fonts, scripts, or icons from third-party hosts (NFR-011).
 * Status shown by colour alone (NFR-009).
 
 ## 1. Design principles
 
 1. **One accent, used for action and focus only.** Teal marks the primary action, links, the active navigation entry, and the focus ring. Status colours (success, danger, warning) are reserved for meaning. Why: the user scans rows of valid, invalid, and valid-but-risky samples (FR-011 AC-5); if the accent also decorated things, those states would be harder to read.
-2. **Hierarchy through type weight and size, not boxes.** Pages are flat: 1px borders separate regions, and shadows appear only on overlays. Why: compact density (`CLAUDE.md`) leaves no room for nested cards, and flat pages are cheaper to render (NFR-002).
+2. **Hierarchy through type; depth and motion only explain.** Regions are separated by 1 px borders and type, never by nested cards. Depth is reserved for things you act on: a form panel and a primary button carry a 1 px top highlight and a hairline shadow, overlays carry a real shadow, and everything else stays flat. Motion is used only to show what changed (results arrived, value copied, tab moved), never to decorate. Why: compact density (`CLAUDE.md`) leaves no room for nested cards; the "polished" rules ask for craft, and subtle depth plus feedback motion adds it without slowing the scan of long result tables (FR-011 AC-5, NFR-002).
 3. **Fixed sidebar, one wide content column, data in monospace.** Every tool page has the same skeleton: header, form, output. Every value the user may copy is monospace. Why: outputs are long strings (a Taproot address is 62 characters) that need width, and monospace keeps `0/O` and `1/l/I` distinguishable when the user compares addresses (US-001, US-002, US-012).
 
 ## 2. Design tokens
@@ -107,15 +109,37 @@ Body is 14 px and 13 px is the floor; nothing is smaller. The first draft used 1
 | Spacing (4 px base) | `--space-1` 4, `--space-2` 8, `--space-3` 12, `--space-4` 16, `--space-6` 24, `--space-8` 32, `--space-12` 48 |
 | Control height | `--control-sm` 28 px, `--control-md` 36 px (default), table header 40 px, table row about 54 px for two-line cells; checkboxes 16 px; icons 18 px |
 | Radius | `--radius-sm` 4 px (controls, badges), `--radius-md` 6 px (panels, dialogs), `--radius-full` 9999 px (status dot) |
-| Shadow | `--shadow-overlay`: `0 4px 16px rgb(0 0 0 / 0.12)` light, `0 4px 16px rgb(0 0 0 / 0.5)` dark. Overlays only (dialog, toast). Nothing else has a shadow. |
-| Motion | `--duration-fast` 120 ms (hover, focus, press), `--duration-base` 180 ms (dialog and toast enter/leave), `--ease-out` `cubic-bezier(0.2, 0, 0, 1)` |
+| Shadow | `--shadow-overlay`: `0 4px 16px rgb(0 0 0 / 0.12)` light, `0 4px 16px rgb(0 0 0 / 0.5)` dark. Overlays (dialog, toast, small-screen menu). |
+| Depth (v0.4) | `--shadow-panel`: light `inset 0 1px 0 rgb(255 255 255 / 0.9), 0 1px 2px rgb(15 23 42 / 0.05)`; dark `inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 2px rgb(0 0 0 / 0.3)`. Form panels only. `--shadow-button`: `inset 0 1px 0 rgb(255 255 255 / 0.15), 0 1px 2px rgb(0 0 0 / 0.15)`. Primary button only. `--color-focus-glow`: light `rgb(15 118 110 / 0.08)`, dark `rgb(45 212 191 / 0.08)`, a 3 px halo around a form panel while a control inside it has focus. |
+| Motion | `--duration-fast` 120 ms (hover, focus, press), `--duration-base` 180 ms (enter/leave, copy confirmation, tab indicator), `--duration-slow` 240 ms (menu and dialog open) (v0.4), `--ease-out` `cubic-bezier(0.2, 0, 0, 1)`, `--ease-spring` `cubic-bezier(0.34, 1.4, 0.64, 1)` (small overshoot, icons only) (v0.4), `--stagger-step` 28 ms (v0.4) |
 | Layout | Sidebar 248 px, content max-width 1120 px centred in the remaining space, content padding 32 px top and 40 px sides |
 
-Motion rules (NFR-006, NFR-003):
+Motion rules (NFR-006, NFR-003, `CLAUDE.md` 60 fps budget):
 
-* Only `opacity` and `transform` are animated.
-* Nothing animates while the app is idle. There is no spinner: in-flight work shows a text status, plus a determinate progress bar when progress is known (FR-080 AC-3). [PROPOSAL]
-* Under `prefers-reduced-motion: reduce`, both durations are 0 ms.
+* Movement uses `opacity` and `transform` only, so it runs on the compositor. Colour changes on hover and focus (`background-color`, `color`, `border-color`) may transition at `--duration-fast` on single small elements; `box-shadow`, `width`, `height`, `top`, and `left` are never transitioned. The panel focus glow fades a pseudo-element's `opacity` instead of animating the shadow.
+* Every animation runs once in response to an event and ends. Nothing animates while the app is idle. There is no spinner: in-flight work shows a text status, plus a determinate progress bar when progress is known (FR-080 AC-3).
+* Under `prefers-reduced-motion: reduce`, all durations and `--stagger-step` are 0, so every state change is instant.
+* 60 fps is verified, not assumed: a change that adds an animation reports the frame rate from a Chrome performance trace, measured on the heaviest case (500 generated addresses, 10,000 dummy rows).
+
+### 2.4 Motion catalogue (v0.4)
+
+Each interaction has one job. Anything not listed here does not animate.
+
+| Interaction | Job | What moves | Duration / easing | Where |
+| --- | --- | --- | --- | --- |
+| Results enter | Show that new output arrived and where it starts | Each row: `opacity` 0 to 1, `translateY` 4 px to 0, delayed by `--stagger-step` × row index; only the first 12 rows are staggered, later rows appear with the 12th | base, ease-out | Data tables after Generate / Decode / Look up (S-02, S-03, S-05, S-06, S-09) |
+| Copy confirmation | Confirm the copy at the pointer, not only in the toast | Copy icon fades and scales to 0.5 while a check fades and scales from 0.5 to 1; reverts after 1.4 s | base, ease-spring | Copy buttons (FR-004) |
+| Tab indicator | Show which tab is active and where focus went | Accent underline: `translateX` and `scaleX` to the new tab | base, ease-out | Tabs (S-02) |
+| Segmented control thumb | Same as tabs | Selected background: `translateX` | base, ease-out | Theme control, unit family (S-04, S-10) |
+| Button press | Tactile acknowledgement | `scale(0.97)` while pressed | fast, ease-out | All buttons |
+| Panel focus | Show which form is being edited | Focus glow pseudo-element `opacity` 0 to 1 | base, ease-out | Form panels |
+| Menu open | Continuity from the Menu button | `opacity` 0 to 1, `translateY` -4 px to 0 | slow, ease-out | Small-screen menu (S-00) |
+| Dialog open / close | Continuity, focus moves into it | Dialog `opacity` and `scale` 0.98 to 1; backdrop `opacity` | slow open, base close, ease-out | Dialogs (S-08, S-10) |
+| Toast enter / leave | Non-blocking confirmation | `opacity`, `translateY` 4 px | base, ease-out | Toast |
+| Verdict change | Show that the verdict was recomputed | Verdict panel crossfade (`opacity`) | fast, ease-out | Validate tab (S-02) |
+| Theme change | none | No transition: switching themes repaints the whole page, so it is instant | n/a | Theme control |
+
+Why these and no more: each one answers "did my action work, and where is the result?", which matters most when the user generates and copies dozens of samples in a row (J-1). Page-to-page transitions (View Transitions API) were offered and not chosen (owner, 2026-11-13).
 
 ## 3. Screen inventory
 
@@ -308,12 +332,14 @@ Icons [PROPOSAL]: a small set of inline SVGs (copy, check, cross, warning, exter
 | Default | accent fill, on-accent text | `--color-bg`, border-strong | `--color-bg` | muted text |
 | Hover | accent-hover fill | border `--color-text-muted` | surface-raised | surface-raised |
 | Focus (keyboard) | 2 px accent ring, 2 px offset | 2 px accent ring, 2 px offset | ring on the focused control inside | 2 px accent ring |
-| Active / pressed | accent-hover fill, 1 px translate | n/a | n/a | accent-subtle + accent text (current page) |
+| Active / pressed | accent-hover fill, `scale(0.97)` (v0.4) | n/a | n/a | accent-subtle + accent text (current page) |
 | Disabled | surface-raised fill, subtle text, `disabled` attribute | surface background, subtle text | n/a | n/a |
 | Loading | label changes to the action in progress ("Looking up…"), `aria-busy`, disabled | n/a | n/a | n/a |
 | Error | n/a | danger border + error text with icon below | n/a | n/a |
 
 The focus ring uses `:focus-visible`, so it shows for keyboard users and not on mouse click.
+
+Form panel (v0.4): default `--color-surface` with `--shadow-panel`; while any control inside has focus (`:focus-within`), the 3 px `--color-focus-glow` halo fades in. The control's own focus ring is unchanged, so the halo is extra context, never the only focus indicator (NFR-008).
 
 ## 7. Screen states and copy
 
@@ -420,6 +446,7 @@ Static HTML mockups, for looking at only. They contain sample data, generate not
 
 * `prototype/address-generator.html`: app shell + Address generator with valid, invalid, and valid-but-risky rows.
 * `prototype/unit-converter.html`: app shell + Unit converter with an error state.
+* `prototype/directions.html` (v0.4): the three polish-round directions side by side, live. Direction A is the one chosen; its panel demonstrates the motion catalogue (staggered results, copy confirmation, tab indicator, panel focus). It loads fonts from Google Fonts for the comparison only; the app self-hosts every font (NFR-011).
 
 Each file is self-contained: the tokens and components from this document are in its own `<style>` block, so it opens correctly from disk or in a preview pane. The duplicated CSS is acceptable for throwaway mockups; the app gets one token file.
 
@@ -437,5 +464,14 @@ All eight items below were approved by the owner on 2026-11-12, as recommended.
 6. **Skip link and inline SVG icons** (sections 5 and 6).
 7. **Phase 2 to 4 screens** (section 3) are a direction only; detailed design waits for each phase's FR IDs.
 8. **Checklist detail as its own route** (`/checklists/<topic>`).
+
+### v0.4 decisions
+
+All four items below were approved by the owner on 2026-11-13, as recommended.
+
+9. **Stagger cap**: only the first 12 result rows are staggered (12 × 28 ms = 336 ms total); later rows appear with the 12th. Recommended, because 500 staggered rows would take 14 s and delay copying. Alternative: no cap.
+10. **Where depth appears**: form panels and the primary button only; tables, sidebar, and page stay flat. Recommended, because depth on dense tables competes with status colours. Alternative: also on tables and the output toolbar.
+11. **Theme change is instant**, no cross-fade. Recommended, because a full-page transition repaints every element and can drop frames on long tables. Alternative: 180 ms cross-fade.
+12. **Where the polish layer is built**: tokens and motion as part of T-008 (UI primitives), which builds the components the catalogue applies to; the small-screen menu animation comes with the first tool (T-013), when the menu first renders. Recommended, because no new task and no rework of merged work is needed. Alternative: a separate task right after T-006.
 
 No design decision is open.
