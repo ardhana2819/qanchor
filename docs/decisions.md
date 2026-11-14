@@ -188,6 +188,11 @@ Finding for the owner: USDT on BNB Smart Chain is not issued by Tether. Tether's
 
 * Rendering 500 generated addresses is one main-thread task of 50 to 54 ms at normal CPU speed and 200 to 214 ms under a 4x CPU throttle, at or just over the 200 ms long-task budget. The owner chose to keep the single render. Why: the budget holds at normal speed, and rendering in batches would make the rows appear in steps. Revisit if the live-site measurement in T-024 shows long tasks on real hardware.
 
+### 2026-11-14: Firefox E2E retries once in CI (T-023)
+
+* Playwright's Firefox page crashes during an axe scan in two known cases: right after an auto-retrying `toBeEnabled()` / `toBeVisible()` assertion (reproducible locally, found in T-023), and occasionally on `/components` in CI (seen on PR 28). A crash kills the page, so the test cannot catch and redo the scan itself.
+* [PROPOSAL] The Firefox project sets `retries: 1` in CI only. Chromium and WebKit keep no retries, and nothing is retried locally. A test that passes on its retry is reported as flaky in the run summary, so a pattern stays visible; a real failure fails twice and stays red. Rejected: skipping axe in Firefox (it would weaken the accessibility checks) and retrying every browser (it would hide real flakes elsewhere).
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
