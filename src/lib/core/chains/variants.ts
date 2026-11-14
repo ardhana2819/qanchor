@@ -4,47 +4,23 @@ import { decodeSegwitAddress } from '../encoding/bech32.ts';
 import { PREFIX, VERSION, type BitcoinNetwork } from './bitcoin.ts';
 import { generateEvmAddress } from './evm.ts';
 import { solanaRiskySamples } from './solana.ts';
-import { CHAIN_NAMES, generateAddress, type AddressTarget } from './targets.ts';
+import {
+	CHAIN_NAMES,
+	describeTargetName,
+	encodingOf,
+	lookAlikeSource,
+	variantOption,
+	type AddressTarget,
+	type RiskyId,
+	type VariantId,
+	type VariantRow
+} from './catalog.ts';
+import { generateAddress } from './dispatch.ts';
 import type { ChainId } from './types.ts';
 
-// Invalid variants and valid-but-risky samples per target (FR-011). Each one is built from a
-// fresh valid address, so it differs from a real address in exactly the way its reason says.
-
-export type VariantId =
-	| 'wrong-checksum'
-	| 'invalid-character'
-	| 'wrong-length'
-	| 'bad-checksum'
-	| 'wrong-network'
-	| 'wrong-encoding'
-	| 'mixed-case'
-	| 'missing-prefix'
-	| 'look-alike'
-	| 'whitespace'
-	| 'zero-width'
-	| 'empty';
-
-export type RiskyId = 'all-lowercase' | 'zero-address' | 'off-curve';
-
-export interface VariantRow {
-	address: string;
-	validity: 'invalid' | 'risky';
-	/** Stable across releases, e.g. "evm.wrong-checksum" (FR-011, FR-012 AC-1). */
-	variantId: string;
-	label: string;
-	reason: string;
-	/** Look-alike only: the chain the address is valid on (FR-011 AC-3). */
-	sourceChain?: ChainId;
-}
-
-type Encoding = 'eip55' | 'base58check' | 'base58' | 'segwit';
-
-function encodingOf(target: AddressTarget): Encoding {
-	if (target.chain !== 'bitcoin') {
-		return target.chain === 'evm' ? 'eip55' : target.chain === 'solana' ? 'base58' : 'base58check';
-	}
-	return target.type === 'p2pkh' || target.type === 'p2sh' ? 'base58check' : 'segwit';
-}
+// Builds invalid variants and valid-but-risky samples (FR-011); catalog.ts says which apply. Each
+// one starts from a fresh valid address, so it differs from a real address in exactly the way its
+// reason says.
 
 interface Built {
 	address: string;
@@ -54,8 +30,6 @@ interface Built {
 
 interface Spec<Id extends string> {
 	id: Id;
-	label: string;
-	applies: (target: AddressTarget) => boolean;
 	build: (target: AddressTarget) => Built;
 }
 
@@ -91,38 +65,9 @@ function rawSegwit(
 	return coder.encode(prefix, [version, ...coder.toWords(program)]);
 }
 
-function describe(target: AddressTarget): string {
-	if (target.chain === 'bitcoin') {
-		return `a Bitcoin ${target.type.toUpperCase()} ${target.network} address`;
-	}
-	return `${target.chain === 'evm' ? 'an' : 'a'} ${CHAIN_NAMES[target.chain]} address`;
-}
-
-/** Which other chain's address to offer as a look-alike (FR-011 AC-3). */
-export function lookAlikeSource(target: AddressTarget): AddressTarget {
-	switch (target.chain) {
-		case 'evm':
-		case 'solana':
-			return { chain: 'tron' };
-		case 'tron':
-			return { chain: 'evm' };
-		case 'bitcoin':
-			// Base58Check against Base58Check, Bech32 against a hex address.
-			return encodingOf(target) === 'base58check' ? { chain: 'tron' } : { chain: 'evm' };
-	}
-}
-
-const every = () => true;
-const isEncoding =
-	(...encodings: Encoding[]) =>
-	(t: AddressTarget) =>
-		encodings.includes(encodingOf(t));
-
 const VARIANTS: readonly Spec<VariantId>[] = [
 	{
 		id: 'wrong-checksum',
-		label: 'Wrong EIP-55 checksum',
-		applies: isEncoding('eip55'),
 		build: () => {
 			for (;;) {
 				const address = generateEvmAddress();
@@ -139,8 +84,6 @@ const VARIANTS: readonly Spec<VariantId>[] = [
 	},
 	{
 		id: 'invalid-character',
-		label: 'Invalid character',
-		applies: every,
 		build: (target) => {
 			const address = generateAddress(target);
 			const encoding = encodingOf(target);
@@ -165,8 +108,6 @@ const VARIANTS: readonly Spec<VariantId>[] = [
 	},
 	{
 		id: 'wrong-length',
-		label: 'Wrong length',
-		applies: every,
 		build: (target) => {
 			const address = generateAddress(target);
 			switch (encodingOf(target)) {
@@ -194,8 +135,6 @@ const VARIANTS: readonly Spec<VariantId>[] = [
 	},
 	{
 		id: 'bad-checksum',
-		label: 'Corrupted checksum',
-		applies: isEncoding('base58check', 'segwit'),
 		build: (target) => {
 			const address = generateAddress(target);
 			const last = address.at(-1)!;
@@ -214,8 +153,6 @@ const VARIANTS: readonly Spec<VariantId>[] = [
 	},
 	{
 		id: 'wrong-network',
-		label: 'Wrong network prefix',
-		applies: (t) => t.chain === 'bitcoin',
 		build: (target) => {
 			if (target.chain !== 'bitcoin') throw new Error('Bitcoin only');
 			const other: BitcoinNetwork = target.network === 'mainnet' ? 'testnet' : 'mainnet';
@@ -237,8 +174,6 @@ const VARIANTS: readonly Spec<VariantId>[] = [
 	},
 	{
 		id: 'wrong-encoding',
-		label: 'Bech32/Bech32m mix-up',
-		applies: isEncoding('segwit'),
 		build: (target) => {
 			const { prefix, version, program } = segwitParts(generateAddress(target));
 			const [used, required] = version === 0 ? [bech32m, 'Bech32'] : [bech32, 'Bech32m'];
@@ -250,8 +185,6 @@ const VARIANTS: readonly Spec<VariantId>[] = [
 	},
 	{
 		id: 'mixed-case',
-		label: 'Mixed-case Bech32',
-		applies: isEncoding('segwit'),
 		build: (target) => {
 			const address = generateAddress(target);
 			const data = address.lastIndexOf('1') + 1;
@@ -264,8 +197,6 @@ const VARIANTS: readonly Spec<VariantId>[] = [
 	},
 	{
 		id: 'missing-prefix',
-		label: 'Missing 0x prefix',
-		applies: isEncoding('eip55'),
 		build: () => ({
 			address: generateEvmAddress().slice(2),
 			reason: '40 hex characters without the 0x prefix.'
@@ -273,21 +204,17 @@ const VARIANTS: readonly Spec<VariantId>[] = [
 	},
 	{
 		id: 'look-alike',
-		label: 'Look-alike from another chain',
-		applies: every,
 		build: (target) => {
 			const source = lookAlikeSource(target);
 			return {
 				address: generateAddress(source),
-				reason: `Source chain: ${CHAIN_NAMES[source.chain]}. Valid there, not ${describe(target)}.`,
+				reason: `Source chain: ${CHAIN_NAMES[source.chain]}. Valid there, not ${describeTargetName(target)}.`,
 				sourceChain: source.chain
 			};
 		}
 	},
 	{
 		id: 'whitespace',
-		label: 'Leading/trailing whitespace',
-		applies: every,
 		build: (target) => ({
 			address: ` ${generateAddress(target)} `,
 			reason: 'A space before and after the address.'
@@ -295,8 +222,6 @@ const VARIANTS: readonly Spec<VariantId>[] = [
 	},
 	{
 		id: 'zero-width',
-		label: 'Zero-width character',
-		applies: every,
 		build: (target) => {
 			const address = generateAddress(target);
 			return {
@@ -307,8 +232,6 @@ const VARIANTS: readonly Spec<VariantId>[] = [
 	},
 	{
 		id: 'empty',
-		label: 'Empty string',
-		applies: every,
 		build: () => ({ address: '', reason: 'No characters at all.' })
 	}
 ];
@@ -316,8 +239,6 @@ const VARIANTS: readonly Spec<VariantId>[] = [
 const RISKY: readonly Spec<RiskyId>[] = [
 	{
 		id: 'all-lowercase',
-		label: 'All-lowercase',
-		applies: (t) => t.chain === 'evm',
 		build: () => ({
 			address: generateEvmAddress().toLowerCase(),
 			reason: 'Valid, but carries no checksum, so a typo cannot be detected.'
@@ -325,8 +246,6 @@ const RISKY: readonly Spec<RiskyId>[] = [
 	},
 	{
 		id: 'zero-address',
-		label: 'Zero address',
-		applies: (t) => t.chain === 'evm',
 		build: () => ({
 			address: `0x${'0'.repeat(40)}`,
 			reason: 'Valid format, but funds sent here are lost.'
@@ -334,8 +253,6 @@ const RISKY: readonly Spec<RiskyId>[] = [
 	},
 	{
 		id: 'off-curve',
-		label: 'Off-curve address',
-		applies: (t) => t.chain === 'solana',
 		build: () => ({
 			address: solanaRiskySamples()[0].address,
 			reason:
@@ -344,32 +261,9 @@ const RISKY: readonly Spec<RiskyId>[] = [
 	}
 ];
 
-export interface VariantOption<Id extends string> {
-	id: Id;
-	label: string;
-}
-
-/** The invalid variants that apply to a target; others are not offered (FR-011 AC-4). */
-export function invalidVariantsFor(target: AddressTarget): VariantOption<VariantId>[] {
-	return VARIANTS.filter((v) => v.applies(target)).map(({ id, label }) => ({ id, label }));
-}
-
-/** The valid-but-risky samples for a target, a separate group (FR-011 AC-5). */
-export function riskySamplesFor(target: AddressTarget): VariantOption<RiskyId>[] {
-	return RISKY.filter((v) => v.applies(target)).map(({ id, label }) => ({ id, label }));
-}
-
 export function buildVariant(target: AddressTarget, id: VariantId | RiskyId): VariantRow {
-	const invalid = VARIANTS.find((v) => v.id === id);
-	const spec = invalid ?? RISKY.find((v) => v.id === id);
-	if (!spec || !spec.applies(target)) {
-		throw new RangeError(`variant ${id} does not apply to ${target.chain}`);
-	}
-	const built = spec.build(target);
-	return {
-		...built,
-		validity: invalid ? 'invalid' : 'risky',
-		variantId: `${target.chain}.${id}`,
-		label: spec.label
-	};
+	const option = variantOption(target, id);
+	const spec = [...VARIANTS, ...RISKY].find((v) => v.id === id);
+	if (!option || !spec) throw new RangeError(`variant ${id} does not apply to ${target.chain}`);
+	return { ...spec.build(target), variantId: `${target.chain}.${id}`, ...option };
 }

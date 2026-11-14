@@ -19,7 +19,7 @@ async function family(page: Page, name: string): Promise<void> {
 	await page.getByRole('radio', { name }).check();
 }
 
-test('the converter is the first tool in the navigation and on the index (FR-001 AC-1, AC-7)', async ({
+test('the converter is in the navigation and on the index (FR-001 AC-1, AC-7)', async ({
 	page
 }) => {
 	await page.goto('/');

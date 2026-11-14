@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import type { Snippet } from 'svelte';
+
 	export interface Column<Row> {
 		key: string;
 		label: string;
@@ -7,6 +9,8 @@
 		mono?: boolean;
 		/** Right-aligned with tabular figures. */
 		numeric?: boolean;
+		/** Custom cell content, e.g. a status badge; `value` stays the plain-text form. */
+		cell?: Snippet<[Row]>;
 	}
 
 	/** Rows staggered one by one when results arrive; later rows appear with the last of them. */
@@ -14,8 +18,6 @@
 </script>
 
 <script lang="ts" generics="Row">
-	import type { Snippet } from 'svelte';
-
 	interface Props {
 		/** Names the table for screen readers (design section 9); visually hidden. */
 		caption: string;
@@ -40,7 +42,9 @@
 	<!-- --i drives the stagger delay; a style attribute is allowed by the CSP (ADR-007). -->
 	<tr class:enter={staggered} style:--i={staggered ? index : undefined}>
 		{#each columns as column (column.key)}
-			<td class:mono={column.mono} class:numeric={column.numeric}>{column.value(item)}</td>
+			<td class:mono={column.mono} class:numeric={column.numeric}>
+				{#if column.cell}{@render column.cell(item)}{:else}{column.value(item)}{/if}
+			</td>
 		{/each}
 		{#if actions}<td class="actions">{@render actions(item, index)}</td>{/if}
 	</tr>
