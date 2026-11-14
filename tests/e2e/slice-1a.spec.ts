@@ -34,6 +34,22 @@ async function tabTo(page: Page, target: Locator, limit = 60, key = 'Tab'): Prom
 }
 
 /**
+ * Fills a field until `settled` passes. After the first page of a test, appOpened() no longer
+ * proves hydration (the database already exists), and typing before hydration is lost; WebKit
+ * hung on a disabled Generate this way. Retrying the fill is Playwright's usual answer.
+ */
+async function fillUntil(
+	field: Locator,
+	value: string,
+	settled: () => Promise<void>
+): Promise<void> {
+	await expect(async () => {
+		await field.fill(value);
+		await settled();
+	}).toPass({ timeout: 15_000 });
+}
+
+/**
  * Generates through the Generate tab with the current chain choice and every variant ticked, and
  * waits for all rows. It waits on the row count on purpose: a toBeEnabled() or toBeVisible()
  * assertion before an axe scan crashes the Firefox page every time (found in T-023).
@@ -81,12 +97,19 @@ test('every request while using each tool goes to this origin only (NFR-011)', a
 	await expect(page.getByRole('status', { name: 'Verdict' })).not.toBeEmpty();
 
 	await page.goto('/amounts');
-	await page.getByRole('textbox', { name: 'Decimals' }).fill('18');
+	await fillUntil(page.getByRole('textbox', { name: 'Decimals' }), '18', () =>
+		expect(page.getByRole('button', { name: 'Generate' })).toBeEnabled({ timeout: 1000 })
+	);
 	await page.getByRole('button', { name: 'Generate' }).click();
 	await expect(page.getByRole('table', { name: 'Edge-case amounts' })).toBeVisible();
 
 	await page.goto('/units');
-	await page.getByRole('textbox', { name: 'ether', exact: true }).fill('1.5');
+	await fillUntil(page.getByRole('textbox', { name: 'ether', exact: true }), '1.5', () =>
+		expect(page.getByRole('textbox', { name: 'wei', exact: true })).toHaveValue(
+			'1500000000000000000',
+			{ timeout: 1000 }
+		)
+	);
 
 	await page.goto('/settings');
 	await appOpened(page);
@@ -260,7 +283,9 @@ test.describe('motion (NFR-006)', () => {
 		await appOpened(page);
 		await generateAll(page, '20');
 		await page.goto('/amounts');
-		await page.getByRole('textbox', { name: 'Decimals' }).fill('6');
+		await fillUntil(page.getByRole('textbox', { name: 'Decimals' }), '6', () =>
+			expect(page.getByRole('button', { name: 'Generate' })).toBeEnabled({ timeout: 1000 })
+		);
 		await page.getByRole('button', { name: 'Generate' }).click();
 		await expect(page.getByRole('table', { name: 'Edge-case amounts' })).toBeVisible();
 	}
