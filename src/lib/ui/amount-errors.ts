@@ -1,6 +1,6 @@
 import type { AmountError } from '#lib/core/amount/decimal.ts';
 
-// Field errors for the unit converter (design section 7, S-04). Each says what to type instead.
+// Field errors for amount inputs (design section 7, S-03 and S-04). Each says what to type instead.
 
 export const DECIMALS_ERROR = 'Decimals must be a whole number from 0 to 36.';
 
@@ -25,4 +25,15 @@ export function describeAmountError(error: AmountError, unit: string): string {
 		case 'not-a-number':
 			return 'Enter a number, for example 1.5.';
 	}
+}
+
+/**
+ * An amount parameter such as Balance or Minimum, checked against the token's decimals
+ * (FR-020 AC-5): "Balance has more than 6 decimal places."
+ */
+export function describeParameterError(error: AmountError, label: string): string {
+	if (error.code !== 'too-precise') return describeAmountError(error, label);
+	return error.maxDecimals === 0
+		? `${label} cannot have decimal places with 0 decimals.`
+		: `${label} has more than ${error.maxDecimals} decimal ${error.maxDecimals === 1 ? 'place' : 'places'}.`;
 }

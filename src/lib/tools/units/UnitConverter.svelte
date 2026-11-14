@@ -14,7 +14,7 @@
 	import SegmentedControl from '#lib/ui/SegmentedControl.svelte';
 	import Select from '#lib/ui/Select.svelte';
 	import TextInput from '#lib/ui/TextInput.svelte';
-	import { DECIMALS_ERROR, describeAmountError } from './messages.ts';
+	import { DECIMALS_ERROR, describeAmountError } from '#lib/ui/amount-errors.ts';
 
 	// Live, exact conversion (FR-030 to FR-032, design S-04). The field being typed in keeps the
 	// text as typed; every other field shows the converted value.
