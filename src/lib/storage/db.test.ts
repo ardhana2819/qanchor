@@ -127,4 +127,65 @@ describe('Storage', () => {
 		expect(onClosed).toHaveBeenCalledWith('outdated');
 		expect(await storage.readAll('wallets')).toEqual({ ok: false, error: 'closed' });
 	});
+
+	it('readRecords returns every store', async () => {
+		const storage = await open();
+		await storage.putAll('wallets', [wallet('1')]);
+		await storage.putAll('endpoints', [
+			{ networkId: 'eth-sepolia', url: 'https://rpc.example.dev' }
+		]);
+
+		const read = await storage.readRecords();
+
+		expect(read.ok && read.value).toEqual({
+			endpoints: [{ networkId: 'eth-sepolia', url: 'https://rpc.example.dev' }],
+			wallets: [wallet('1')],
+			faucets: []
+		});
+	});
+
+	it('replaceRecords replaces every store, including stores the file leaves empty (FR-003 AC-3)', async () => {
+		const storage = await open();
+		await storage.putAll('wallets', [wallet('1'), wallet('2')]);
+		await storage.putAll('faucets', [
+			{ id: 'f', networkId: 'n', label: 'Drip', url: 'https://f.dev' }
+		]);
+
+		const result = await storage.replaceRecords({
+			endpoints: [],
+			wallets: [wallet('9')],
+			faucets: []
+		});
+
+		expect(result.ok).toBe(true);
+		const read = await storage.readRecords();
+		expect(read.ok && read.value).toEqual({ endpoints: [], wallets: [wallet('9')], faucets: [] });
+	});
+
+	it('a quota error during replaceRecords leaves the old data in every store (EC-002)', async () => {
+		const storage = await open();
+		await storage.putAll('wallets', [wallet('1')]);
+		await storage.putAll('faucets', [
+			{ id: 'f', networkId: 'n', label: 'Drip', url: 'https://f.dev' }
+		]);
+		const before = await storage.readRecords();
+		const put = IDBObjectStore.prototype.put;
+		vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (
+			this: IDBObjectStore,
+			...args
+		) {
+			if (this.name === 'wallets') throw new DOMException('Quota exceeded.', 'QuotaExceededError');
+			return put.apply(this, args);
+		});
+
+		const result = await storage.replaceRecords({
+			endpoints: [],
+			wallets: [wallet('9')],
+			faucets: []
+		});
+
+		expect(result).toEqual({ ok: false, error: 'quota' });
+		vi.restoreAllMocks();
+		expect(await storage.readRecords()).toEqual(before);
+	});
 });

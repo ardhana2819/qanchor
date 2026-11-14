@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Settings · QAnchor prototype</title>
+		<style>
+			/* QAnchor PROTOTYPE for flow J-6 (back up and restore, FR-003) on S-10 Settings.
+			   Tokens and components copied from docs/design.md v0.4 and src/app.css.
+			   Not app code: data is fake, import validation is simplified, nothing is stored. */
+
+			:root {
+				color-scheme: light dark;
+				--color-bg: light-dark(#ffffff, #0b1017);
+				--color-surface: light-dark(#f6f8fa, #131a22);
+				--color-surface-raised: light-dark(#eef1f4, #1b242e);
+				--color-border: light-dark(#d8dee4, #2a3440);
+				--color-border-strong: light-dark(#7d8590, #6b7785);
+				--color-text: light-dark(#0f172a, #e6edf3);
+				--color-text-muted: light-dark(#475569, #a9b4c0);
+				--color-text-subtle: light-dark(#5a6472, #8693a1);
+				--color-accent: light-dark(#0f766e, #2dd4bf);
+				--color-accent-hover: light-dark(#115e59, #5eead4);
+				--color-on-accent: light-dark(#ffffff, #042f2b);
+				--color-accent-subtle: light-dark(#e6f4f1, #0f2e2b);
+				--color-success: light-dark(#1a7f37, #3fb950);
+				--color-success-bg: light-dark(#e8f5ec, #12261a);
+				--color-danger: light-dark(#cf222e, #f85149);
+				--color-danger-bg: light-dark(#ffebe9, #2d1416);
+				--color-warning: light-dark(#8a5a00, #d29922);
+				--color-warning-bg: light-dark(#fff4d6, #2a2110);
+				--color-info: light-dark(#0969da, #58a6ff);
+				--color-info-bg: light-dark(#ddf4ff, #10243b);
+				--shadow-overlay: 0 4px 16px light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.5));
+				--shadow-panel:
+					inset 0 1px 0 light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.04)),
+					0 1px 2px light-dark(rgb(15 23 42 / 0.05), rgb(0 0 0 / 0.3));
+				--font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+				--font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+				--space-1: 4px;
+				--space-2: 8px;
+				--space-3: 12px;
+				--space-4: 16px;
+				--space-6: 24px;
+				--space-8: 32px;
+				--space-12: 48px;
+				--radius-sm: 4px;
+				--radius-md: 6px;
+				--control-sm: 28px;
+				--control-md: 36px;
+				--duration-fast: 120ms;
+				--duration-base: 180ms;
+				--duration-slow: 240ms;
+				--ease-out: cubic-bezier(0.2, 0, 0, 1);
+			}
+
+			:root[data-theme='light'] {
+				color-scheme: light;
+			}
+
+			:root[data-theme='dark'] {
+				color-scheme: dark;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				:root {
+					--duration-fast: 0ms;
+					--duration-base: 0ms;
+					--duration-slow: 0ms;
+				}
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			[hidden] {
+				display: none !important;
+			}
+
+			body {
+				margin: 0;
+				background: var(--color-bg);
+				color: var(--color-text);
+				font: 400 0.875rem/1.375rem var(--font-sans);
+				-webkit-font-smoothing: antialiased;
+			}
+
+			h1,
+			h2,
+			h3,
+			p {
+				margin: 0;
+			}
+
+			:focus-visible {
+				outline: 2px solid var(--color-accent);
+				outline-offset: 2px;
+			}
+
+			.mono {
+				font-family: var(--font-mono);
+				font-size: 0.84375rem;
+			}
+
+			.visually-hidden {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				overflow: hidden;
+				clip-path: inset(50%);
+				white-space: nowrap;
+			}
+
+			.icon {
+				width: 16px;
+				height: 16px;
+				flex: none;
+			}
+
+			/* Prototype label: on screen at all times, so nobody mistakes this for the app. */
+			.proto-badge {
+				position: fixed;
+				top: var(--space-3);
+				right: var(--space-3);
+				z-index: 30;
+				padding: 2px var(--space-2);
+				border-radius: var(--radius-sm);
+				background: var(--color-warning-bg);
+				color: var(--color-warning);
+				font-size: 0.75rem;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+			}
+
+			/* Shell (S-00) */
+
+			.shell {
+				display: grid;
+				grid-template-columns: 248px minmax(0, 1fr);
+				min-height: 100vh;
+			}
+
+			.sidebar {
+				position: sticky;
+				top: 0;
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-6);
+				height: 100vh;
+				padding: var(--space-4) var(--space-3);
+				border-right: 1px solid var(--color-border);
+				background: var(--color-surface);
+			}
+
+			.brand {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: 0 var(--space-2);
+				color: var(--color-text);
+				font-size: 0.9375rem;
+				font-weight: 600;
+				text-decoration: none;
+			}
+
+			.brand-mark {
+				display: grid;
+				place-items: center;
+				width: 26px;
+				height: 26px;
+				border-radius: var(--radius-sm);
+				background: var(--color-accent);
+				color: var(--color-on-accent);
+			}
+
+			.nav-group h2 {
+				margin-bottom: var(--space-1);
+				padding: 0 var(--space-2);
+				color: var(--color-text-subtle);
+				font-size: 0.8125rem;
+				font-weight: 500;
+				line-height: 1.125rem;
+			}
+
+			.nav-group ul {
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+				margin: 0;
+				padding: 0;
+				list-style: none;
+			}
+
+			.nav-item {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				height: 34px;
+				padding: 0 10px;
+				border-radius: var(--radius-sm);
+				color: var(--color-text-muted);
+				text-decoration: none;
+			}
+
+			.nav-item:hover {
+				background: var(--color-surface-raised);
+				color: var(--color-text);
+			}
+
+			.nav-item[aria-current='page'] {
+				background: var(--color-accent-subtle);
+				color: var(--color-accent);
+				font-weight: 500;
+			}
+
+			.sidebar-footer {
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-2);
+				margin-top: auto;
+			}
+
+			.main {
+				padding: var(--space-8) 40px var(--space-12);
+			}
+
+			.content {
+				max-width: 820px;
+			}
+
+			.page-header {
+				margin-bottom: var(--space-8);
+			}
+
+			.page-header h1 {
+				font-size: 1.5rem;
+				font-weight: 600;
+				line-height: 2rem;
+			}
+
+			.page-header p,
+			.muted {
+				color: var(--color-text-muted);
+			}
+
+			.page-header p {
+				margin-top: var(--space-1);
+			}
+
+			footer {
+				margin-top: var(--space-12);
+				color: var(--color-text-subtle);
+				font-size: 0.8125rem;
+			}
+
+			/* Sections */
+
+			.section + .section {
+				margin-top: var(--space-8);
+				padding-top: var(--space-8);
+				border-top: 1px solid var(--color-border);
+			}
+
+			.section h2 {
+				font-size: 0.9375rem;
+				font-weight: 600;
+				line-height: 1.375rem;
+			}
+
+			.section > p {
+				margin-top: var(--space-1);
+				max-width: 64ch;
+			}
+
+			.row {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: var(--space-3);
+				margin-top: var(--space-4);
+			}
+
+			.label {
+				color: var(--color-text-muted);
+				font-size: 0.8125rem;
+				font-weight: 500;
+			}
+
+			.hint {
+				color: var(--color-text-subtle);
+				font-size: 0.8125rem;
+			}
+
+			/* Segmented control */
+
+			.segmented {
+				position: relative;
+				display: inline-grid;
+				grid-auto-columns: minmax(0, 1fr);
+				grid-auto-flow: column;
+				gap: 2px;
+				margin: 0;
+				padding: 2px;
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-md);
+				background: var(--color-surface-raised);
+			}
+
+			.sidebar .segmented {
+				display: grid;
+			}
+
+			.segmented label {
+				position: relative;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				min-height: var(--control-sm);
+				padding: 0 var(--space-3);
+				border-radius: var(--radius-sm);
+				color: var(--color-text-muted);
+				font-size: 0.8125rem;
+				font-weight: 500;
+				cursor: pointer;
+			}
+
+			.segmented label:has(input:checked) {
+				background: var(--color-bg);
+				color: var(--color-text);
+				box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+			}
+
+			.segmented label:has(input:focus-visible) {
+				outline: 2px solid var(--color-accent);
+				outline-offset: 1px;
+			}
+
+			.segmented input {
+				position: absolute;
+				inset: 0;
+				margin: 0;
+				opacity: 0;
+				cursor: pointer;
+			}
+
+			/* Buttons */
+
+			.button {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+				height: var(--control-md);
+				padding: 0 var(--space-3);
+				border: 1px solid var(--color-border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--color-bg);
+				color: var(--color-text);
+				font: 500 0.875rem/1 var(--font-sans);
+				white-space: nowrap;
+				cursor: pointer;
+				transition:
+					background-color var(--duration-fast) var(--ease-out),
+					transform var(--duration-fast) var(--ease-out);
+			}
+
+			.button:hover:not(:disabled) {
+				background: var(--color-surface-raised);
+			}
+
+			.button:active:not(:disabled) {
+				transform: scale(0.97);
+			}
+
+			.button:disabled {
+				border-color: var(--color-border);
+				background: var(--color-surface-raised);
+				color: var(--color-text-subtle);
+				cursor: not-allowed;
+			}
+
+			.button.danger-fill {
+				border-color: var(--color-danger);
+				background: var(--color-danger);
+				color: #ffffff;
+			}
+
+			.button.danger-fill:hover:not(:disabled) {
+				background: light-dark(#a40e26, #da3633);
+			}
+
+			.button.sm {
+				height: var(--control-sm);
+				padding: 0 var(--space-2);
+				font-size: 0.8125rem;
+			}
+
+			/* Stored-now summary [PROPOSAL] */
+
+			.stored {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--space-1) var(--space-4);
+				margin-top: var(--space-4);
+				padding: var(--space-3) var(--space-4);
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-md);
+				background: var(--color-surface);
+				box-shadow: var(--shadow-panel);
+			}
+
+			.stored strong {
+				font-variant-numeric: tabular-nums;
+			}
+
+			.proposal-tag {
+				margin-left: var(--space-2);
+				color: var(--color-warning);
+				font-size: 0.75rem;
+				font-weight: 600;
+			}
+
+			/* Callouts */
+
+			.callout {
+				display: flex;
+				align-items: flex-start;
+				gap: var(--space-3);
+				margin-top: var(--space-4);
+				padding: var(--space-3) var(--space-4);
+				border: 1px solid;
+				border-radius: var(--radius-md);
+			}
+
+			.callout .icon {
+				margin-top: 3px;
+			}
+
+			.callout-title {
+				font-weight: 600;
+			}
+
+			.callout.info {
+				border-color: var(--color-info);
+				background: var(--color-info-bg);
+			}
+
+			.callout.info .icon {
+				color: var(--color-info);
+			}
+
+			.callout.danger {
+				border-color: var(--color-danger);
+				background: var(--color-danger-bg);
+			}
+
+			.callout.danger .icon {
+				color: var(--color-danger);
+			}
+
+			.callout.success {
+				border-color: var(--color-success);
+				background: var(--color-success-bg);
+			}
+
+			.callout.success .icon {
+				color: var(--color-success);
+			}
+
+			.callout:focus {
+				outline: none;
+			}
+
+			.callout:focus-visible {
+				outline: 2px solid var(--color-accent);
+			}
+
+			.status-text {
+				margin-top: var(--space-4);
+				color: var(--color-text-muted);
+			}
+
+			/* Dialog */
+
+			dialog {
+				width: min(520px, calc(100vw - 32px));
+				padding: 0;
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-md);
+				background: var(--color-bg);
+				box-shadow: var(--shadow-overlay);
+				color: var(--color-text);
+			}
+
+			dialog::backdrop {
+				background: rgb(0 0 0 / 0.4);
+			}
+
+			dialog,
+			dialog::backdrop {
+				opacity: 0;
+				transition:
+					opacity var(--duration-base) var(--ease-out),
+					transform var(--duration-base) var(--ease-out),
+					overlay var(--duration-base) allow-discrete,
+					display var(--duration-base) allow-discrete;
+			}
+
+			dialog {
+				transform: scale(0.98);
+			}
+
+			dialog[open],
+			dialog[open]::backdrop {
+				opacity: 1;
+				transition-duration: var(--duration-slow);
+			}
+
+			dialog[open] {
+				transform: none;
+			}
+
+			@starting-style {
+				dialog[open],
+				dialog[open]::backdrop {
+					opacity: 0;
+				}
+
+				dialog[open] {
+					transform: scale(0.98);
+				}
+			}
+
+			.dialog-body {
+				padding: var(--space-4) var(--space-6) var(--space-6);
+			}
+
+			.dialog-body h2 {
+				color: var(--color-danger);
+				font-size: 1.125rem;
+				font-weight: 600;
+				line-height: 1.625rem;
+			}
+
+			.dialog-body > p {
+				margin-top: var(--space-2);
+				color: var(--color-text-muted);
+			}
+
+			.file-name {
+				overflow-wrap: anywhere;
+			}
+
+			.counts {
+				width: 100%;
+				margin-top: var(--space-4);
+				border-collapse: collapse;
+			}
+
+			.counts th,
+			.counts td {
+				padding: var(--space-2) 0;
+				border-bottom: 1px solid var(--color-border);
+				text-align: left;
+			}
+
+			.counts th {
+				color: var(--color-text-muted);
+				font-size: 0.8125rem;
+				font-weight: 500;
+			}
+
+			.counts td.num,
+			.counts th.num {
+				padding-left: var(--space-4);
+				font-variant-numeric: tabular-nums;
+				text-align: right;
+			}
+
+			.counts .loss {
+				color: var(--color-danger);
+				font-weight: 600;
+			}
+
+			.warning-line {
+				display: flex;
+				gap: var(--space-2);
+				margin-top: var(--space-4);
+				color: var(--color-danger);
+				font-weight: 500;
+			}
+
+			.warning-line .icon {
+				margin-top: 3px;
+			}
+
+			.dialog-actions {
+				display: flex;
+				justify-content: flex-end;
+				gap: var(--space-2);
+				padding: var(--space-3) var(--space-6);
+				border-top: 1px solid var(--color-border);
+				border-radius: 0 0 var(--radius-md) var(--radius-md);
+				background: var(--color-surface);
+			}
+
+			/* Toast */
+
+			.toast {
+				position: fixed;
+				right: var(--space-6);
+				bottom: var(--space-6);
+				z-index: 20;
+				padding: var(--space-2) var(--space-4);
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-md);
+				background: var(--color-surface-raised);
+				box-shadow: var(--shadow-overlay);
+				font-weight: 500;
+				opacity: 0;
+				transform: translateY(4px);
+				visibility: hidden;
+				transition:
+					opacity var(--duration-base) var(--ease-out),
+					transform var(--duration-base) var(--ease-out),
+					visibility 0s linear var(--duration-base);
+			}
+
+			.toast.visible {
+				opacity: 1;
+				transform: none;
+				visibility: visible;
+				transition-delay: 0s;
+			}
+
+			/* Prototype panel: state switches for the tester, not part of the design. */
+
+			.proto-panel {
+				position: fixed;
+				right: var(--space-3);
+				bottom: var(--space-3);
+				z-index: 25;
+				width: 300px;
+				max-height: calc(100vh - 64px);
+				overflow: auto;
+				border: 2px dashed var(--color-warning);
+				border-radius: var(--radius-md);
+				background: var(--color-bg);
+				box-shadow: var(--shadow-overlay);
+				font-size: 0.8125rem;
+			}
+
+			.proto-panel summary {
+				padding: var(--space-2) var(--space-3);
+				color: var(--color-warning);
+				font-weight: 600;
+				cursor: pointer;
+			}
+
+			.proto-panel .inner {
+				display: grid;
+				gap: var(--space-3);
+				padding: 0 var(--space-3) var(--space-3);
+			}
+
+			.proto-panel fieldset {
+				margin: 0;
+				padding: 0;
+				border: 0;
+			}
+
+			.proto-panel legend {
+				margin-bottom: var(--space-1);
+				color: var(--color-text-muted);
+				font-weight: 600;
+			}
+
+			.proto-panel .files {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--space-1);
+			}
+
+			.proto-panel label {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			@media (max-width: 900px) {
+				.shell {
+					grid-template-columns: minmax(0, 1fr);
+				}
+
+				.sidebar {
+					position: static;
+					height: auto;
+				}
+
+				.main {
+					padding: var(--space-6) var(--space-4) 280px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<span class="proto-badge">PROTOTYPE</span>
+
+		<div class="shell">
+			<div class="sidebar">
+				<nav aria-label="Main">
+					<a class="brand" href="#">
+						<span class="brand-mark">
+							<svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+								<circle cx="8" cy="3.5" r="1.5" />
+								<path d="M8 5v9M5 7.5h6M2.5 9.5a5.5 5 0 0 0 11 0" />
+							</svg>
+						</span>
+						QAnchor
+					</a>
+					<div class="nav-group" style="margin-top: 24px">
+						<h2>Blockchain</h2>
+						<ul>
+							<li><a class="nav-item" href="#" aria-disabled="true">Unit converter</a></li>
+						</ul>
+					</div>
+				</nav>
+				<div class="sidebar-footer">
+					<a class="nav-item" href="#" aria-current="page">Settings</a>
+					<fieldset class="segmented" data-theme-control>
+						<legend class="visually-hidden">Theme</legend>
+						<label><input type="radio" name="theme-side" value="system" checked />System</label>
+						<label><input type="radio" name="theme-side" value="light" />Light</label>
+						<label><input type="radio" name="theme-side" value="dark" />Dark</label>
+					</fieldset>
+				</div>
+			</div>
+
+			<div>
+				<main class="main" id="main">
+					<div class="content">
+						<div id="storage-banner" class="callout info" hidden style="margin: 0 0 24px">
+							<svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 14.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM8 7.5v4M8 5v.01" /></svg>
+							<p>Storage is unavailable in this browser session. Tools still work, but nothing will be saved.</p>
+						</div>
+
+						<header class="page-header">
+							<h1>Settings</h1>
+							<p>Preferences and data stored in this browser.</p>
+						</header>
+
+						<section class="section" aria-labelledby="appearance">
+							<h2 id="appearance">Appearance</h2>
+							<div class="row">
+								<fieldset class="segmented" data-theme-control>
+									<legend class="visually-hidden">Theme</legend>
+									<label><input type="radio" name="theme-page" value="system" checked />System</label>
+									<label><input type="radio" name="theme-page" value="light" />Light</label>
+									<label><input type="radio" name="theme-page" value="dark" />Dark</label>
+								</fieldset>
+								<span class="hint">System follows your operating system's setting.</span>
+							</div>
+						</section>
+
+						<section class="section" aria-labelledby="data">
+							<h2 id="data">Data</h2>
+							<p class="muted">
+								Everything QAnchor saves stays in this browser. Export it to keep a backup or to move
+								to another browser; importing a backup replaces what is stored here.
+							</p>
+
+							<div id="stored" class="stored" aria-live="polite"></div>
+
+							<div class="row">
+								<button class="button" id="export" type="button">Export backup</button>
+								<button class="button" id="import" type="button">Import backup…</button>
+								<input id="file" type="file" accept="application/json,.json" hidden />
+							</div>
+							<p id="import-disabled" class="hint" hidden style="margin-top: 8px">
+								Import needs storage, which is unavailable in this browser session.
+							</p>
+
+							<p id="reading" class="status-text" hidden>Reading file…</p>
+							<div id="result" tabindex="-1"></div>
+						</section>
+
+						<footer>Build proto</footer>
+					</div>
+				</main>
+			</div>
+		</div>
+
+		<dialog id="confirm" aria-labelledby="confirm-title">
+			<div class="dialog-body">
+				<h2 id="confirm-title">Replace all data?</h2>
+				<p>From <span class="file-name mono" id="confirm-file"></span>, exported <span id="confirm-date"></span>.</p>
+				<table class="counts" id="counts"></table>
+				<p class="warning-line">
+					<svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 2.5l6 11H2zM8 6.5v3M8 11.5v.01" /></svg>
+					<span>Importing replaces all existing data. This cannot be undone.</span>
+				</p>
+			</div>
+			<div class="dialog-actions">
+				<button class="button" type="button" id="cancel" autofocus>Cancel</button>
+				<button class="button danger-fill" type="button" id="confirm-import">Replace all data</button>
+			</div>
+		</dialog>
+
+		<div class="toast" id="toast" aria-hidden="true"></div>
+		<div class="visually-hidden" aria-live="polite" id="live"></div>
+
+		<details class="proto-panel" open>
+			<summary>Prototype controls</summary>
+			<div class="inner">
+				<fieldset>
+					<legend>Data stored now</legend>
+					<label><input type="radio" name="stored" value="empty" />Nothing</label>
+					<label><input type="radio" name="stored" value="some" checked />12 wallets, 2 overrides, 1 faucet</label>
+					<label><input type="radio" name="stored" value="many" />240 wallets, 8 overrides, 6 faucets</label>
+				</fieldset>
+				<fieldset>
+					<legend>Import a sample file</legend>
+					<div class="files">
+						<button class="button sm" type="button" data-sample="valid">Valid (3 wallets)</button>
+						<button class="button sm" type="button" data-sample="big">Valid (40 wallets)</button>
+						<button class="button sm" type="button" data-sample="emptyFile">Valid, empty</button>
+						<button class="button sm" type="button" data-sample="newer">Schema v3</button>
+						<button class="button sm" type="button" data-sample="notJson">Not JSON</button>
+						<button class="button sm" type="button" data-sample="truncated">Truncated</button>
+						<button class="button sm" type="button" data-sample="broken">Broken record</button>
+						<button class="button sm" type="button" data-sample="other">Not QAnchor</button>
+					</div>
+				</fieldset>
+				<fieldset>
+					<legend>Dialog style</legend>
+					<label><input type="radio" name="dialog" value="file" />A: counts in the file only</label>
+					<label><input type="radio" name="dialog" value="compare" checked />B: now → after [PROPOSAL]</label>
+				</fieldset>
+				<fieldset>
+					<legend>Other states</legend>
+					<label><input type="checkbox" id="opt-stored" checked />Show "Stored now" [PROPOSAL]</label>
+					<label><input type="checkbox" id="opt-slow" />Slow file read</label>
+					<label><input type="checkbox" id="opt-quota" />Storage full on import (EC-002)</label>
+					<label><input type="checkbox" id="opt-unavailable" />Storage unavailable (EC-001)</label>
+				</fieldset>
+			</div>
+		</details>
+
+		<script>
+			// PROTOTYPE logic only. The real import validates with type guards (ADR-008) and writes
+			// through lib/storage in one transaction; none of this code is meant for the app.
+
+			const SCHEMA_VERSION = 1;
+			const $ = (id) => document.getElementById(id);
+
+			// ---- Fake stored data -------------------------------------------------------------
+
+			const LABELS = ['QA main', 'Withdraw tests', 'Swap bot (Sepolia)', 'Bridge receiver', 'Staking validator ops', 'Dust test', 'Regression: USDT 6dp', 'Mobile build 4.12.0', 'Faucet drip', 'Edge: max uint', 'Nile TRC-20', 'Devnet airdrop'];
+			const NETWORKS = ['eth-sepolia', 'base-sepolia', 'polygon-amoy', 'tron-nile', 'sol-devnet', 'btc-testnet'];
+
+			function hex(bytes) {
+				return Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, '0')).join('');
+			}
+
+			function makeData(wallets, overrides, faucets) {
+				return {
+					settings: { theme: 'system' },
+					endpoints: Array.from({ length: overrides }, (_, i) => ({ networkId: NETWORKS[i % NETWORKS.length], url: `https://rpc-${i + 1}.example-node.dev/v1/${hex(6)}` })),
+					wallets: Array.from({ length: wallets }, (_, i) => ({
+						id: crypto.randomUUID(),
+						label: LABELS[i % LABELS.length] + (i >= LABELS.length ? ` ${Math.floor(i / LABELS.length) + 1}` : ''),
+						chain: 'evm',
+						networkId: NETWORKS[i % 3],
+						address: `0x${hex(20)}`,
+						notes: i % 4 === 0 ? 'Funded from the Sepolia PoW faucet; refill when below 0.05 ETH.' : '',
+						createdAt: 1794500000000 + i * 60000,
+						updatedAt: 1794500000000 + i * 60000
+					})),
+					faucets: Array.from({ length: faucets }, (_, i) => ({ id: crypto.randomUUID(), networkId: NETWORKS[i % NETWORKS.length], label: `Team faucet ${i + 1}`, url: `https://faucet-${i + 1}.example.dev` }))
+				};
+			}
+
+			const STORED_PRESETS = { empty: () => makeData(0, 0, 0), some: () => makeData(12, 2, 1), many: () => makeData(240, 8, 6) };
+			let stored = STORED_PRESETS.some();
+
+			function counts(data) {
+				return { wallets: data.wallets.length, endpoints: data.endpoints.length, faucets: data.faucets.length };
+			}
+
+			const plural = (n, one, many) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
+
+			function renderStored() {
+				const box = $('stored');
+				box.hidden = !$('opt-stored').checked;
+				const c = counts(stored);
+				box.innerHTML = c.wallets + c.endpoints + c.faucets === 0
+					? '<span class="muted">Nothing is stored yet.</span><span class="proposal-tag">PROPOSAL</span>'
+					: `<span class="muted">Stored now:</span><span><strong>${plural(c.wallets, 'wallet', 'wallets')}</strong></span><span><strong>${plural(c.endpoints, 'endpoint override', 'endpoint overrides')}</strong></span><span><strong>${plural(c.faucets, 'faucet link', 'faucet links')}</strong></span><span class="proposal-tag">PROPOSAL</span>`;
+			}
+
+			// ---- Theme (FR-002) ---------------------------------------------------------------
+
+			function setTheme(value) {
+				if (value === 'system') delete document.documentElement.dataset.theme;
+				else document.documentElement.dataset.theme = value;
+				stored.settings.theme = value;
+				for (const input of document.querySelectorAll('[data-theme-control] input')) input.checked = input.value === value;
+			}
+
+			for (const input of document.querySelectorAll('[data-theme-control] input')) {
+				input.addEventListener('change', () => setTheme(input.value));
+			}
+
+			// ---- Toast and live region --------------------------------------------------------
+
+			let toastTimer;
+			function toast(message) {
+				clearTimeout(toastTimer);
+				$('toast').textContent = message;
+				$('toast').classList.add('visible');
+				$('live').textContent = '';
+				queueMicrotask(() => ($('live').textContent = message));
+				toastTimer = setTimeout(() => $('toast').classList.remove('visible'), 4000);
+			}
+
+			// ---- Export (FR-003 AC-1) ---------------------------------------------------------
+
+			$('export').addEventListener('click', () => {
+				const name = `qanchor-backup-${new Date().toISOString().slice(0, 10)}.json`;
+				const file = { app: 'qanchor', schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), data: stored };
+				const url = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }));
+				const link = Object.assign(document.createElement('a'), { href: url, download: name });
+				link.click();
+				setTimeout(() => URL.revokeObjectURL(url), 1000);
+				toast(`Exported ${name}`);
+			});
+
+			// ---- Import (FR-003 AC-2 to AC-4) -------------------------------------------------
+
+			const valid = (data) => JSON.stringify({ app: 'qanchor', schemaVersion: 1, exportedAt: '2026-11-02T08:14:00.000Z', data }, null, 2);
+			const SAMPLES = {
+				valid: { name: 'qanchor-backup-2026-11-02.json', text: () => valid(makeData(3, 1, 0)) },
+				big: { name: 'qanchor-backup-team-shared-wallets-2026-10-28.json', text: () => valid(makeData(40, 3, 2)) },
+				emptyFile: { name: 'qanchor-backup-fresh-browser.json', text: () => valid(makeData(0, 0, 0)) },
+				newer: { name: 'qanchor-backup-2027-01-15.json', text: () => JSON.stringify({ app: 'qanchor', schemaVersion: 3, exportedAt: '2027-01-15T10:00:00.000Z', data: {} }) },
+				notJson: { name: 'wallets.csv', text: () => 'label,address\nQA main,0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed\n' },
+				truncated: { name: 'qanchor-backup-2026-11-02.json', text: () => valid(makeData(3, 1, 0)).slice(0, 380) },
+				broken: { name: 'qanchor-backup-hand-edited.json', text: () => { const d = makeData(6, 0, 0); delete d.wallets[3].address; return valid(d); } },
+				other: { name: 'metamask-state-logs.json', text: () => JSON.stringify({ version: '12.4.1', metamask: { networks: {} } }) }
+			};
+
+			/** Simplified stand-in for the ADR-008 type guards: returns the first problem found. */
+			function validate(text) {
+				let file;
+				try {
+					file = JSON.parse(text);
+				} catch {
+					return { error: 'The file is not valid JSON. It may be incomplete or not a QAnchor backup.' };
+				}
+				if (file?.app !== 'qanchor') return { error: 'This is not a QAnchor backup file.' };
+				if (file.schemaVersion > SCHEMA_VERSION) return { error: `Unknown schema version ${file.schemaVersion}. This backup comes from a newer version of QAnchor.` };
+				if (file.schemaVersion !== SCHEMA_VERSION) return { error: `Unsupported schema version ${file.schemaVersion}.` };
+				const data = file.data ?? {};
+				for (const key of ['endpoints', 'wallets', 'faucets']) {
+					if (!Array.isArray(data[key])) return { error: `"${key}" is missing or is not a list.` };
+				}
+				const bad = data.wallets.findIndex((w) => typeof w.address !== 'string' || !w.address);
+				// Counted from 1 for people; the JSON index is bad.
+				if (bad !== -1) return { error: `Wallet ${bad + 1} of ${data.wallets.length} ("${data.wallets[bad].label}") has no address.` };
+				return { file };
+			}
+
+			let pending = null;
+
+			function showResult(kind, title, body) {
+				const icon = kind === 'success' ? '<path d="M3.5 8.5l3 3 6-7" />' : '<path d="M8 2.5l6 11H2zM8 6.5v3M8 11.5v.01" />';
+				$('result').className = `callout ${kind}`;
+				$('result').setAttribute('role', kind === 'danger' ? 'alert' : 'status');
+				$('result').innerHTML = `<svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">${icon}</svg><div><p class="callout-title">${title}</p><p>${body}</p></div>`;
+				if (kind === 'danger') $('result').focus();
+			}
+
+			function clearResult() {
+				$('result').className = '';
+				$('result').innerHTML = '';
+				$('result').removeAttribute('role');
+			}
+
+			async function readFile(name, text) {
+				clearResult();
+				$('reading').hidden = false;
+				$('import').disabled = true;
+				await new Promise((r) => setTimeout(r, $('opt-slow').checked ? 1500 : 150));
+				$('reading').hidden = true;
+				$('import').disabled = false;
+				const { file, error } = validate(text);
+				if (error) {
+					showResult('danger', 'Import failed. Nothing was changed.', `${name}: ${error}`);
+					return;
+				}
+				pending = { name, file };
+				openConfirm();
+			}
+
+			function openConfirm() {
+				const { name, file } = pending;
+				const now = counts(stored);
+				const next = counts(file.data);
+				$('confirm-file').textContent = name;
+				$('confirm-date').textContent = new Date(file.exportedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+				const rows = [['Wallets', 'wallets'], ['Endpoint overrides', 'endpoints'], ['Faucet links', 'faucets']];
+				const compare = document.querySelector('input[name="dialog"]:checked').value === 'compare';
+				$('counts').innerHTML = compare
+					? `<caption class="visually-hidden">Stored now and after the import</caption><tr><th scope="col">Type</th><th scope="col" class="num">Stored now</th><th scope="col" class="num">After import</th></tr>` +
+						rows.map(([label, key]) => `<tr><th scope="row">${label}</th><td class="num">${now[key].toLocaleString('en-US')}</td><td class="num${next[key] < now[key] ? ' loss' : ''}">${next[key].toLocaleString('en-US')}</td></tr>`).join('') +
+						`<tr><th scope="row">Theme</th><td class="num">${stored.settings.theme}</td><td class="num">${file.data.settings?.theme ?? 'system'}</td></tr>`
+					: `<caption class="visually-hidden">Records in the file</caption><tr><th scope="col">In the file</th><th scope="col" class="num">Records</th></tr>` +
+						rows.map(([label, key]) => `<tr><th scope="row">${label}</th><td class="num">${next[key].toLocaleString('en-US')}</td></tr>`).join('') +
+						`<tr><th scope="row">Theme</th><td class="num">${file.data.settings?.theme ?? 'system'}</td></tr>`;
+				$('confirm').showModal();
+			}
+
+			$('cancel').addEventListener('click', () => $('confirm').close());
+			$('confirm').addEventListener('close', () => {
+				if (pending && $('confirm').returnValue !== 'done') toast('Import cancelled. Nothing was changed.');
+				$('confirm').returnValue = '';
+				pending = null;
+			});
+
+			$('confirm-import').addEventListener('click', () => {
+				const { file } = pending;
+				$('confirm').close('done');
+				if ($('opt-quota').checked) {
+					showResult('danger', 'Import failed. Nothing was changed.', 'Storage is full. Free up space in this browser, then try again.');
+					return;
+				}
+				stored = file.data;
+				setTheme(stored.settings?.theme ?? 'system');
+				renderStored();
+				const c = counts(stored);
+				const message = `Imported ${plural(c.wallets, 'wallet', 'wallets')}, ${plural(c.endpoints, 'endpoint override', 'endpoint overrides')}, ${plural(c.faucets, 'faucet link', 'faucet links')}, and 1 setting.`;
+				showResult('success', 'Import complete', message);
+				toast('Import complete');
+			});
+
+			$('import').addEventListener('click', () => $('file').click());
+			$('file').addEventListener('change', async () => {
+				const file = $('file').files[0];
+				$('file').value = '';
+				if (file) readFile(file.name, await file.text());
+			});
+
+			for (const button of document.querySelectorAll('[data-sample]')) {
+				button.addEventListener('click', () => {
+					const sample = SAMPLES[button.dataset.sample];
+					$('import').focus();
+					readFile(sample.name, sample.text());
+				});
+			}
+
+			// ---- Prototype switches -----------------------------------------------------------
+
+			for (const input of document.querySelectorAll('input[name="stored"]')) {
+				input.addEventListener('change', () => {
+					stored = STORED_PRESETS[input.value]();
+					clearResult();
+					renderStored();
+				});
+			}
+			$('opt-stored').addEventListener('change', renderStored);
+			$('opt-unavailable').addEventListener('change', () => {
+				const off = $('opt-unavailable').checked;
+				$('storage-banner').hidden = !off;
+				$('import').disabled = off;
+				$('import-disabled').hidden = !off;
+				for (const b of document.querySelectorAll('[data-sample]')) b.disabled = off;
+			});
+
+			renderStored();
+		</script>
+	</body>
+</html>

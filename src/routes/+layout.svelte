@@ -65,6 +65,20 @@
 					</div>
 				</details>
 			{/if}
+
+			<a
+				class="nav-item settings"
+				href={resolve('/settings')}
+				aria-current={page.url.pathname === '/settings' ? 'page' : undefined}
+			>
+				<svg class="nav-icon" viewBox="0 0 16 16" aria-hidden="true">
+					<circle cx="8" cy="8" r="2.25" />
+					<path
+						d="M8 1.75v1.5M8 12.75v1.5M14.25 8h-1.5M3.25 8h-1.5M12.42 3.58l-1.06 1.06M4.64 11.36l-1.06 1.06M12.42 12.42l-1.06-1.06M4.64 4.64 3.58 3.58"
+					/>
+				</svg>
+				Settings
+			</a>
 		</nav>
 
 		<div class="theme">
@@ -123,12 +137,24 @@
 
 	nav {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: var(--space-6);
 	}
 
-	.theme {
+	/* Settings sits at the bottom of the sidebar, above the theme control (design S-00). */
+	.settings {
 		margin-top: auto;
+	}
+
+	.nav-icon {
+		width: 18px;
+		height: 18px;
+		flex: none;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.5;
+		stroke-linecap: round;
 	}
 
 	.brand {
@@ -272,6 +298,10 @@
 			justify-content: space-between;
 			gap: var(--space-4);
 			flex: 1;
+		}
+
+		.settings {
+			margin-top: 0;
 		}
 
 		/* On narrow screens it wraps onto its own row instead of squeezing the menu button. */

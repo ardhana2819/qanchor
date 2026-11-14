@@ -243,7 +243,7 @@ flowchart TD
 ### J-6: Back up and restore (US-010)
 
 1. Settings, Data section, Export: a JSON file downloads.
-2. Import: choose a file. A dialog shows record counts per type and warns that all existing data will be replaced (FR-003 AC-2, AC-3).
+2. Import: choose a file. A dialog titled "Replace all data?" names the file and its export date and shows, per type, what is stored now against what the import leaves (wallets, endpoint overrides, faucet links, theme); a count that drops is shown in the danger colour. It warns that all existing data will be replaced, and Cancel has focus first (FR-003 AC-2, AC-3). Chosen over a dialog with the file's counts only after testing `prototype/settings.html` (owner, 2026-11-13).
 3. Confirm: success message with counts. Invalid file: error naming the reason, nothing written (FR-003 AC-4).
 
 ### J-7: Interviewer's first visit (secondary user, PRD section 3)
@@ -357,7 +357,7 @@ Form panel (v0.4): default `--color-surface` with `--shadow-panel`; while any co
 | S-07 | Filter with no match: "No checklist or item contains "<text>"." | none (static content) | none | "Copied as Markdown" |
 | S-08 | "No wallets yet. Add a testnet address to keep it at hand." + Add wallet | Page: "Loading wallets…" until IndexedDB is read (FR-003 AC-5). Balance: "Refreshing…" | "This is a mainnet address. Only testnet Bitcoin addresses can be saved." Balance errors as S-05; old value kept and tagged "stale" | Row added; balance + "fetched 14:02" |
 | S-09 | "Choose fields and a row count, then generate." Export disabled. | Progress bar + "Generating 10,000 rows…" | "Enter a whole number from 1 to 10,000." / "Select at least one field." / "This preset needs at least 2 rows." | "Showing the first 100 of 10,000 rows." + "Seed: 8f3a…" |
-| S-10 | Endpoints show defaults | "Reading file…" on import | "Import failed: unknown schema version 3. Nothing was changed." | "Imported 12 wallets and 3 settings." |
+| S-10 | Endpoints show defaults | "Reading file…" on import; "Checking storage…" until IndexedDB is open | Red alert, focused: "Import failed. Nothing was changed." + "<file name>: <reason>", e.g. "Unknown schema version 3. This backup comes from a newer version of QAnchor." or "Wallet 2 of 2 ("Withdraw tests") has no address." Storage unavailable: Export and Import disabled with "Export and import need storage, which is unavailable in this tab." | "Import complete" + "Imported 3 wallets, 1 endpoint override, 0 faucet links, and the theme setting." Export: toast "Exported qanchor-backup-<date>.json". Cancel: toast "Import cancelled. Nothing was changed." |
 | S-11 | "Page not found. This address does not match any tool." + "Back to toolkit" | none | none | none |
 
 Tx lookup errors (FR-042). Each is a danger callout with Retry; focus moves to it (FR-042 AC-6):
@@ -447,6 +447,7 @@ Static HTML mockups, for looking at only. They contain sample data, generate not
 
 * `prototype/address-generator.html`: app shell + Address generator with valid, invalid, and valid-but-risky rows.
 * `prototype/unit-converter.html`: app shell + Unit converter with an error state.
+* `prototype/settings.html` (T-011): Settings with export and import (J-6). A dashed "Prototype controls" panel switches the stored data, injects sample files (valid, newer schema, not JSON, truncated, broken record, not QAnchor), and toggles the dialog style, a full storage quota, and unavailable storage. Its import is a simplified stand-in for the real guards. Outcome: dialog B (stored now against after import) was chosen; a "Stored now" line on the page was not.
 * `prototype/directions.html` (v0.4): the three polish-round directions side by side, live. Direction A is the one chosen; its panel demonstrates the motion catalogue (staggered results, copy confirmation, tab indicator, panel focus). It loads fonts from Google Fonts for the comparison only; the app self-hosts every font (NFR-011).
 
 Each file is self-contained: the tokens and components from this document are in its own `<style>` block, so it opens correctly from disk or in a preview pane. The duplicated CSS is acceptable for throwaway mockups; the app gets one token file.

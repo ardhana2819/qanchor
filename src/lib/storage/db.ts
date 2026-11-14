@@ -1,7 +1,14 @@
-import { openDB, type IDBPDatabase, type StoreValue } from 'idb';
+import { openDB, type IDBPDatabase, type IDBPTransaction, type StoreValue } from 'idb';
 import { err, ok, type Result } from '#lib/core/result.ts';
 import { runMigrations } from './migrations.ts';
-import { DB_NAME, DB_VERSION, type QAnchorDB, type StoreName } from './schema.ts';
+import {
+	DB_NAME,
+	DB_VERSION,
+	STORE_NAMES,
+	type QAnchorDB,
+	type StoreName,
+	type StoredRecords
+} from './schema.ts';
 
 /**
  * - unavailable: no IndexedDB, or the browser refuses to open it (private mode, disabled
@@ -21,6 +28,13 @@ export interface Storage {
 		store: S,
 		records: readonly StoreValue<QAnchorDB, S>[]
 	): Promise<Result<void, StorageErrorCode>>;
+	/** Every store, read in one transaction so the counts are consistent. */
+	readRecords(): Promise<Result<StoredRecords, StorageErrorCode>>;
+	/**
+	 * Clears every store and writes the given records in one transaction (import, ADR-014): on any
+	 * error nothing changes (FR-003 AC-3, EC-002).
+	 */
+	replaceRecords(records: StoredRecords): Promise<Result<void, StorageErrorCode>>;
 }
 
 export interface OpenOptions {
@@ -65,23 +79,70 @@ function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
 		async putAll(store, records) {
 			try {
 				const transaction = db.transaction(store, 'readwrite');
-				try {
-					// Each request's error also rejects transaction.done, which is awaited below.
-					for (const record of records) transaction.store.put(record).catch(() => {});
-				} catch (error) {
-					// A request that throws synchronously leaves the transaction open; abort it so
-					// the records queued before it are not committed.
-					transaction.done.catch(() => {});
-					transaction.abort();
-					throw error;
-				}
-				await transaction.done;
+				await commit(transaction, () => {
+					for (const record of records) void track(transaction.store.put(record));
+				});
+				return ok(undefined);
+			} catch (error) {
+				return err(classify(error));
+			}
+		},
+
+		async readRecords() {
+			try {
+				const transaction = db.transaction([...STORE_NAMES], 'readonly');
+				const [endpoints, wallets, faucets] = await Promise.all([
+					transaction.objectStore('endpoints').getAll(),
+					transaction.objectStore('wallets').getAll(),
+					transaction.objectStore('faucets').getAll(),
+					transaction.done
+				]);
+				return ok({ endpoints, wallets, faucets });
+			} catch (error) {
+				return err(classify(error));
+			}
+		},
+
+		async replaceRecords(records) {
+			try {
+				const transaction = db.transaction([...STORE_NAMES], 'readwrite');
+				await commit(transaction, () => {
+					for (const name of STORE_NAMES) {
+						const store = transaction.objectStore(name);
+						void track(store.clear());
+						for (const record of records[name]) void track(store.put(record));
+					}
+				});
 				return ok(undefined);
 			} catch (error) {
 				return err(classify(error));
 			}
 		}
 	};
+}
+
+/** A request's error also rejects transaction.done, which commit() awaits; this avoids an
+ * unhandled rejection for the request itself. */
+function track(request: Promise<unknown>): Promise<unknown> {
+	return request.catch(() => {});
+}
+
+/**
+ * Queues requests and waits for the transaction. A request that throws synchronously leaves the
+ * transaction open, so it is aborted: the requests queued before it are not committed.
+ */
+async function commit(
+	transaction: Pick<IDBPTransaction, 'done' | 'abort'>,
+	queue: () => void
+): Promise<void> {
+	try {
+		queue();
+	} catch (error) {
+		transaction.done.catch(() => {});
+		transaction.abort();
+		throw error;
+	}
+	await transaction.done;
 }
 
 function classify(error: unknown): StorageErrorCode {
