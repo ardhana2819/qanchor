@@ -22,6 +22,14 @@ const GROUP_ORDER: readonly ToolGroup[] = ['Blockchain', 'Data'];
  */
 export const tools: readonly ToolEntry[] = [
 	{
+		route: '/amounts',
+		name: 'Amount edge cases',
+		description:
+			'Boundary and format inputs for an amount field: token decimals, dust, fee versus balance, separators, and limits.',
+		group: 'Blockchain',
+		icon: 'bars'
+	},
+	{
 		route: '/units',
 		name: 'Unit converter',
 		description:
