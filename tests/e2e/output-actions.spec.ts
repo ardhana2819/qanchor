@@ -88,8 +88,10 @@ test('Copy puts the exact value on the clipboard and confirms it (FR-004 AC-1)',
 	await expect(page.locator('tbody tr')).toHaveCount(12);
 	const address = await page.locator('tbody tr').nth(2).locator('td').nth(1).textContent();
 	const button = page.getByRole('button', { name: 'Copy address 3' });
-	// Stop the fake clock from also moving in real time, so only runFor() advances the timer.
-	await page.clock.pauseAt(await page.evaluate(() => Date.now() + 10));
+	// Stop the fake clock from also moving in real time, so only runFor() advances the timer. The
+	// pause point is 1 s ahead: with 10 ms a slow CI runner had already passed it ("Cannot
+	// fast-forward to the past"). No timer is pending in that second; Copy has not been clicked.
+	await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
 
 	await button.click();
 
