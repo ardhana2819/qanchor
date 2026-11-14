@@ -15,11 +15,13 @@ import type { AddressCheck, AddressDefect } from './types.ts';
 export type BitcoinType = 'p2pkh' | 'p2sh' | 'p2wpkh' | 'p2tr';
 export type BitcoinNetwork = 'mainnet' | 'testnet';
 
-const VERSION: Record<BitcoinNetwork, Record<'p2pkh' | 'p2sh', number>> = {
+/** Base58Check version bytes per network and type. */
+export const VERSION: Record<BitcoinNetwork, Record<'p2pkh' | 'p2sh', number>> = {
 	mainnet: { p2pkh: 0x00, p2sh: 0x05 },
 	testnet: { p2pkh: 0x6f, p2sh: 0xc4 }
 };
-const PREFIX: Record<BitcoinNetwork, string> = { mainnet: 'bc', testnet: 'tb' };
+/** Segwit human-readable prefixes per network. */
+export const PREFIX: Record<BitcoinNetwork, string> = { mainnet: 'bc', testnet: 'tb' };
 const WITNESS: Record<'p2wpkh' | 'p2tr', { version: number; length: number }> = {
 	p2wpkh: { version: 0, length: 20 },
 	p2tr: { version: 1, length: 32 }
