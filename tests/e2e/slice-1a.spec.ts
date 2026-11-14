@@ -266,6 +266,8 @@ test.describe('motion (NFR-006)', () => {
 	}
 
 	test('with reduced motion, nothing animates for any length of time', async ({ page }) => {
+		// Uses two tools end to end; WebKit in CI needs more than the default 30 s.
+		test.slow();
 		await page.emulateMedia({ reducedMotion: 'reduce' });
 		await useEveryTool(page);
 
