@@ -2,7 +2,7 @@
 	interface Props {
 		/** Group name for screen readers; visually hidden. */
 		legend: string;
-		/** 2 to 4 options (design section 6). */
+		/** 2 to 5 options (design section 6). */
 		options: readonly { value: T; label: string }[];
 		value: T;
 		onchange: (value: T) => void;

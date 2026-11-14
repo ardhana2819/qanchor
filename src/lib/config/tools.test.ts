@@ -5,7 +5,8 @@ const entry = (name: string, group: ToolEntry['group']): ToolEntry => ({
 	route: '/',
 	name,
 	description: `${name} description`,
-	group
+	group,
+	icon: 'swap'
 });
 
 describe('groupTools', () => {
