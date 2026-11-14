@@ -182,6 +182,7 @@ Finding for the owner: USDT on BNB Smart Chain is not issued by Tether. Tether's
 * `@noble/hashes` 2.4.0 (keccak-256, SHA-256) and `@scure/base` 2.4.0 (Base58, Base58Check, Bech32, Bech32m, hex) are added as runtime dependencies, as listed in `docs/architecture.md` section 8. Both were released in late August 2026; `npm audit` reports no vulnerabilities.
 * Pinned to exact versions, unlike the other dependencies (`^`) [PROPOSAL]. Why: these libraries decide whether an address is called valid, so an upgrade should be a reviewed change that reruns the published test vectors, not something a fresh install picks up. `@noble/curves` follows the same rule when T-018 adds it.
 * Size: the encoding core with both libraries bundles to 8.0 KB gzip. It is imported only by the address tool's route chunk, so the initial JS budget is unaffected.
+* T-018 added `@noble/curves` 2.4.0 (secp256k1, ed25519) under the same exact-pin rule. With EVM, Tron, and Solana it bundles to 24.2 KB gzip, again for the address tool only.
 
 ## Architecture decision records
 
