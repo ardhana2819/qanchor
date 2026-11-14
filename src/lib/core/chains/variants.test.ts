@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { TARGETS, validateAddress, type AddressTarget } from './targets.ts';
-import type { AddressDefect } from './types.ts';
 import {
-	buildVariant,
 	invalidVariantsFor,
 	lookAlikeSource,
 	riskySamplesFor,
+	TARGETS,
+	type AddressTarget,
 	type VariantId
-} from './variants.ts';
+} from './catalog.ts';
+import { validateAddress } from './dispatch.ts';
+import type { AddressDefect } from './types.ts';
+import { buildVariant } from './variants.ts';
 
 // Invalid variants and risky samples (T-020): FR-011 AC-2 to AC-5, EC-007. Every variant is built
 // for every target it applies to, many times, and must fail that target's validator.

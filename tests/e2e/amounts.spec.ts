@@ -28,16 +28,16 @@ test('Amount edge cases is listed before the converter, in the nav and on the in
 	page
 }) => {
 	await page.goto('/');
-	await expect(
-		page
-			.getByRole('navigation', { name: 'Main' })
-			.getByRole('link')
-			.filter({ hasNotText: 'QAnchor' })
-	).toHaveText(['Amount edge cases', 'Unit converter', 'Settings']);
-	await expect(page.getByRole('main').getByRole('link')).toHaveText([
-		'Amount edge cases',
-		'Unit converter'
-	]);
+	// Order only: other tools are added around it as they ship.
+	for (const links of [
+		page.getByRole('navigation', { name: 'Main' }).getByRole('link'),
+		page.getByRole('main').getByRole('link')
+	]) {
+		const names = await links.allTextContents();
+		const position = (name: string) => names.findIndex((n) => n.trim() === name);
+		expect(position('Amount edge cases')).toBeGreaterThanOrEqual(0);
+		expect(position('Amount edge cases')).toBeLessThan(position('Unit converter'));
+	}
 
 	await page.getByRole('main').getByRole('link', { name: 'Amount edge cases' }).click();
 

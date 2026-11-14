@@ -184,6 +184,10 @@ Finding for the owner: USDT on BNB Smart Chain is not issued by Tether. Tether's
 * Size: the encoding core with both libraries bundles to 8.0 KB gzip. It is imported only by the address tool's route chunk, so the initial JS budget is unaffected.
 * T-018 added `@noble/curves` 2.4.0 (secp256k1, ed25519) under the same exact-pin rule. With EVM, Tron, and Solana it bundles to 24.2 KB gzip, again for the address tool only.
 
+### 2026-11-14: 500-row render at 4x CPU throttle accepted (T-021)
+
+* Rendering 500 generated addresses is one main-thread task of 50 to 54 ms at normal CPU speed and 200 to 214 ms under a 4x CPU throttle, at or just over the 200 ms long-task budget. The owner chose to keep the single render. Why: the budget holds at normal speed, and rendering in batches would make the rows appear in steps. Revisit if the live-site measurement in T-024 shows long tasks on real hardware.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

@@ -22,6 +22,14 @@ const GROUP_ORDER: readonly ToolGroup[] = ['Blockchain', 'Data'];
  */
 export const tools: readonly ToolEntry[] = [
 	{
+		route: '/address',
+		name: 'Address generator',
+		description:
+			'Valid and deliberately invalid addresses for EVM, Bitcoin, Solana, and Tron, each with the reason it is invalid.',
+		group: 'Blockchain',
+		icon: 'at'
+	},
+	{
 		route: '/amounts',
 		name: 'Amount edge cases',
 		description:
