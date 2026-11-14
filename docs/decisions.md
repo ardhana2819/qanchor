@@ -161,6 +161,22 @@ Visual direction (redone Phase 1), chosen by the owner:
 * No "Stored now" summary on the Settings page. Why: the dialog shows those counts at the moment they matter, the page stays short, and the page does not read IndexedDB on every visit.
 * With storage unavailable, Export is disabled together with Import [ASSUMPTION, not tested in the prototype]. Why: an export would contain no records and could be mistaken for a real backup.
 
+### 2026-11-14: Token decimals for the amount presets verified (T-014)
+
+Every preset value in FR-020 AC-2 matches its primary source; nothing changes in the PRD. Tokens were read on-chain with `decimals()`, `symbol()`, and `name()` on 2026-11-14 (Ethereum block `0x1930224`, BNB Smart Chain block `0x7f50910`); native coins have no contract, so their unit is taken from the protocol's own docs or source.
+
+| Preset | Decimals | Source |
+| --- | --- | --- |
+| ETH | 18 | ethereum.org, [Intro to Ether](https://ethereum.org/en/developers/docs/intro-to-ether/): wei is the smallest denomination, 10^-18 ether |
+| BTC | 8 | Bitcoin Core, [`src/consensus/amount.h`](https://github.com/bitcoin/bitcoin/blob/master/src/consensus/amount.h): `COIN{100'000'000}`; [developer.bitcoin.org glossary](https://developer.bitcoin.org/glossary.html): one bitcoin equals 100,000,000 satoshis |
+| SOL | 9 | Solana SDK, [`native-token/src/lib.rs`](https://github.com/anza-xyz/solana-sdk/blob/master/native-token/src/lib.rs): `LAMPORTS_PER_SOL = 1_000_000_000`, `SOL_DECIMALS = 9` |
+| TRX | 6 | TRON developer docs, [Token standards: TRX](https://developers.tron.network/docs/token-standards-trx): 1 TRX = 1,000,000 sun |
+| USDT on Ethereum | 6 | Contract `0xdAC17F958D2ee523a2206206994597C13D831ec7` (address from [tether.to, supported protocols](https://tether.to/en/supported-protocols/)): `decimals()` = 6, `symbol()` = USDT, `name()` = Tether USD |
+| USDT on Tron | 6 | Contract `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t` (address from the same tether.to page), read through TronGrid `triggerconstantcontract`: `decimals()` = 6, `symbol()` = USDT |
+| USDT on BNB Smart Chain | 18 | Contract `0x55d398326f99059fF775485246999027B3197955`: `decimals()` = 18, `symbol()` = USDT, `name()` = Tether USD |
+
+Finding for the owner: USDT on BNB Smart Chain is not issued by Tether. Tether's supported-protocols page lists no USDT contract on BNB Smart Chain; the token above is Binance's bridged USDT (labelled "Binance-Peg BSC-USD" on BscScan). Its address could not be confirmed on a Binance or Tether page (BscScan refused automated access); it is the address in the [Trust Wallet asset registry](https://github.com/trustwallet/assets/blob/master/blockchains/smartchain/assets/0x55d398326f99059fF775485246999027B3197955/info.json) and the one the on-chain read answered for. The 18 decimals, the difference from Tether's own 6-decimal tokens, is exactly the case the preset exists to test, so the preset stays as written.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
