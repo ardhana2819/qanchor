@@ -349,7 +349,7 @@ Form panel (v0.4): default `--color-surface` with `--shadow-panel`; while any co
 | Screen | Empty | Loading | Error | Success |
 | --- | --- | --- | --- | --- |
 | S-02 Generate | "Pick a chain and a count, then generate. Add invalid variants for negative tests." Export disabled. | Button "Generating…" (only noticeable at 500) | Field: "Enter a whole number from 1 to 500." | Table + toolbar "12 addresses". Toast "Copied". |
-| S-02 Validate | Nothing shown (FR-014 AC-5) | none (instant) | "Not valid for any supported chain." + defect, e.g. "Checksum does not match. Closest match: Bitcoin P2WPKH." | "Valid: Bitcoin · P2TR · mainnet" or "Matches 2 formats. The format alone cannot tell them apart." |
+| S-02 Validate | Nothing shown (FR-014 AC-5) | none (instant) | "Not valid for any supported chain." + defect, e.g. "Checksum does not match. Closest match: Bitcoin P2WPKH." | A "Valid" badge with "Bitcoin · P2TR · mainnet" (the badge says Valid or Risky in words, so the headline names the format only; T-022), or "Matches 2 formats. The format alone cannot tell them apart." |
 | S-03 | "Enter the token's decimals to generate edge-case amounts." | Button "Generating…" | Field: "Decimals must be a whole number from 0 to 36." / "Balance has more than 6 decimal places." | Table + note "4 cases omitted: no minimum or maximum set." |
 | S-04 | Fields empty, no message | none | "wei has no decimal places." / "Use . as the decimal separator and no thousands separators." | Other fields update |
 | S-05 | "Paste a transaction hash to look it up. Nothing is requested until you submit." | Button "Looking up…", status text "Asking <host>…" | See below | Result panel |

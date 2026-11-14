@@ -1,5 +1,14 @@
 <script lang="ts">
 	import GenerateTab from '#lib/tools/address/GenerateTab.svelte';
+	import ValidateTab from '#lib/tools/address/ValidateTab.svelte';
+	import Tabs from '#lib/ui/Tabs.svelte';
+
+	const TABS = [
+		{ id: 'generate', label: 'Generate' },
+		{ id: 'validate', label: 'Validate' }
+	] as const;
+
+	let tab = $state<(typeof TABS)[number]['id']>('generate');
 </script>
 
 <svelte:head>
@@ -14,11 +23,17 @@
 	</p>
 </header>
 
-<GenerateTab />
+<Tabs label="Mode" tabs={TABS} bind:value={tab}>
+	{#snippet panel(id)}
+		<!-- Both stay mounted, so switching tabs keeps the generated rows and the pasted address. -->
+		<div hidden={id !== 'generate'}><GenerateTab /></div>
+		<div hidden={id !== 'validate'}><ValidateTab /></div>
+	{/snippet}
+</Tabs>
 
 <style>
 	.page-header {
-		margin-bottom: var(--space-8);
+		margin-bottom: var(--space-6);
 	}
 
 	h1 {
