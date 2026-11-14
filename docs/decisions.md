@@ -177,6 +177,12 @@ Every preset value in FR-020 AC-2 matches its primary source; nothing changes in
 
 Finding for the owner: USDT on BNB Smart Chain is not issued by Tether. Tether's supported-protocols page lists no USDT contract on BNB Smart Chain; the token above is Binance's bridged USDT (labelled "Binance-Peg BSC-USD" on BscScan). Its address could not be confirmed on a Binance or Tether page (BscScan refused automated access); it is the address in the [Trust Wallet asset registry](https://github.com/trustwallet/assets/blob/master/blockchains/smartchain/assets/0x55d398326f99059fF775485246999027B3197955/info.json) and the one the on-chain read answered for. The 18 decimals, the difference from Tether's own 6-decimal tokens, is exactly the case the preset exists to test, so the preset stays as written.
 
+### 2026-11-14: Crypto dependencies for the encoding core (T-017)
+
+* `@noble/hashes` 2.4.0 (keccak-256, SHA-256) and `@scure/base` 2.4.0 (Base58, Base58Check, Bech32, Bech32m, hex) are added as runtime dependencies, as listed in `docs/architecture.md` section 8. Both were released in late August 2026; `npm audit` reports no vulnerabilities.
+* Pinned to exact versions, unlike the other dependencies (`^`) [PROPOSAL]. Why: these libraries decide whether an address is called valid, so an upgrade should be a reviewed change that reruns the published test vectors, not something a fresh install picks up. `@noble/curves` follows the same rule when T-018 adds it.
+* Size: the encoding core with both libraries bundles to 8.0 KB gzip. It is imported only by the address tool's route chunk, so the initial JS budget is unaffected.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
