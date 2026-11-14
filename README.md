@@ -2,7 +2,7 @@
 
 QA toolkit for blockchain and crypto testing: valid and invalid test addresses, amount edge cases, unit conversion, transaction lookup, calldata decoding, and Indonesian dummy data. Runs entirely in the browser; there is no backend and nothing leaves the browser except requests you trigger to chain endpoints.
 
-Status: in development (Phase 1). Shipped so far: the address generator (`/address`, Generate tab), amount edge cases (`/amounts`), and the unit converter (`/units`).
+Status: in development (Phase 1). Shipped so far: the address generator and validator (`/address`), amount edge cases (`/amounts`), and the unit converter (`/units`).
 
 ## Development
 
