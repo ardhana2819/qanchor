@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page } from '@playwright/test';
 
 /**
@@ -17,4 +18,12 @@ export async function appOpened(page: Page): Promise<void> {
 	await expect
 		.poll(() => page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name)))
 		.toContain('qanchor');
+}
+
+/** WCAG 2.1 AA scan of the whole page; returns "rule: first target" per violation (NFR-009). */
+export async function scanA11y(page: Page): Promise<string[]> {
+	const results = await new AxeBuilder({ page })
+		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+		.analyze();
+	return results.violations.map((v) => `${v.id}: ${v.nodes[0].target}`);
 }
