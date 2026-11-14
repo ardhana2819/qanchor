@@ -7,6 +7,7 @@
 	import { page } from '$app/state';
 	import { groupTools, tools } from '#lib/config/tools.ts';
 	import ClipboardFallback from '#lib/ui/ClipboardFallback.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
 	import StorageBanner from '#lib/ui/StorageBanner.svelte';
 	import ThemeControl from '#lib/ui/ThemeControl.svelte';
 	import Toaster from '#lib/ui/Toaster.svelte';
@@ -55,6 +56,7 @@
 												href={resolve(entry.route)}
 												aria-current={page.url.pathname === entry.route ? 'page' : undefined}
 											>
+												<Icon name={entry.icon} size={18} />
 												{entry.name}
 											</a>
 										</li>
@@ -338,8 +340,22 @@
 			box-shadow: var(--shadow-overlay);
 		}
 
+		/* Menu open (design 2.4): fades and drops in from the Menu button. A keyframe animation,
+		   not a transition: the panel already has a style while the menu is closed (the browser
+		   only hides it), so @starting-style never applies. Closing is instant. */
+		.menu[open] .menu-panel {
+			animation: menu-open var(--duration-slow) var(--ease-out);
+		}
+
 		.column {
 			padding: var(--space-6) var(--space-4) var(--space-4);
+		}
+	}
+
+	@keyframes menu-open {
+		from {
+			opacity: 0;
+			transform: translateY(-4px);
 		}
 	}
 </style>

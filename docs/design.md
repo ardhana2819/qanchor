@@ -296,7 +296,7 @@ The primary action is always the single filled teal button in the form panel. Wh
 | S-10 Settings | Sections stacked: Appearance (theme), Endpoints (table per network: default, override, reset), Data (Export, Import) | none page-wide; each section has its own | Segmented control, Text input, Button, Dialog |
 | S-11 Not found | Title, one sentence, link to the toolkit index | Back to toolkit | Empty state |
 
-Unit converter fields are stacked rather than side by side because a 2^256 value has 78 digits (FR-030 AC-4) and needs the full column width.
+Unit converter fields are stacked rather than side by side because a 2^256 value has 78 digits (FR-030 AC-4) and needs the full column width. Below 640 px the five unit families do not fit a segmented control, so a select takes its place (T-013).
 
 ## 6. Component library
 
@@ -310,7 +310,7 @@ All components use native elements first (`<button>`, `<select>`, `<dialog>`, `<
 | Number input | text input with `inputmode="numeric"` | No spinner arrows: counts and decimals are validated as text (FR-010 AC-3) |
 | Select | native `<select>` with `appearance: none` and a themed chevron 10 px from the right edge | Keeps native keyboard and picker behaviour, zero JS; the custom chevron replaces the browser arrow, which sat flush against the border |
 | Checkbox, Checkbox group | with group label (`<fieldset>` + `<legend>`) | Variants, fields |
-| Segmented control | 2 to 4 options, built on radio inputs | Theme, unit family |
+| Segmented control | 2 to 5 options, built on radio inputs; below 640 px a five-option group is replaced by a select with the same state | Theme, unit family |
 | Tabs | text tabs with accent underline | Generate / Validate |
 | Field | label, optional hint, error message | Wraps every control; error linked with `aria-describedby` |
 | Status badge | success, danger, warning, neutral | Always icon + text: Valid, Invalid, Risky, Pending, Failed |

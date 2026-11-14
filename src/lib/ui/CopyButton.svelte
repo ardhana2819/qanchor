@@ -10,9 +10,11 @@
 		/** Names the object: "Copy address 3", "Copy wei" (design section 9). */
 		label: string;
 		size?: 'sm' | 'md';
+		/** For an empty value: copying nothing would still show "Copied". */
+		disabled?: boolean;
 	}
 
-	let { value, label, size = 'md' }: Props = $props();
+	let { value, label, size = 'md', disabled = false }: Props = $props();
 
 	/** How long the check mark stays before the copy icon returns (design 2.4). */
 	const CONFIRM_MS = 1400;
@@ -30,7 +32,7 @@
 	onDestroy(() => clearTimeout(timer));
 </script>
 
-<IconButton {label} {size} onclick={copy}>
+<IconButton {label} {size} {disabled} onclick={copy}>
 	<!-- Copy confirmation (design 2.4): the icons swap with opacity and scale only. -->
 	<span class="icons" class:copied>
 		<span class="copy"><Icon name="copy" /></span>
