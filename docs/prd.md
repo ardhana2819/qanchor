@@ -569,7 +569,7 @@ Decided by the owner on 2026-11-12. Details and reasons are in `docs/decisions.m
 
 No product question is open. The items below are facts, not decisions; each must be checked against a primary source, and a failed check is reported to the owner before the related code is written.
 
-* Token decimals in the amount presets (FR-020 AC-2).
+* Token decimals in the amount presets (FR-020 AC-2). Verified 2026-11-14 (T-014); sources in `docs/decisions.md`.
 * +62 mobile number length rule and operator prefix list (FR-081 AC-2).
 * Legacy 15-digit NPWP check-digit rule (FR-081 AC-6).
 * Account number length per bank (FR-081 AC-7).
