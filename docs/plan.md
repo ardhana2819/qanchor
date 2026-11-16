@@ -57,7 +57,7 @@ How this plan is used:
 | T-021 | Address worker and Generate tab: form, worker job, results table, export | FR-010 AC-1, AC-3, AC-4; FR-011 AC-1; FR-012; US-001, US-002; NFR-005, NFR-012, NFR-019 | T-009, T-020 | 500 addresses generate without a main-thread long task over 200 ms; count limits enforced; export records have all FR-012 fields | E2E; performance trace for N = 500 | Medium | done |
 | T-022 | Validate tab: live verdict, multiple matches, named defects, whitespace and invisible characters | FR-014, US-012, EC-007 | T-008a, T-020 | Each AC of FR-014 has an E2E case; no network request is made | E2E with request recording | Low | done |
 | T-023 | Cross-cutting E2E for slice 1a: idle has no requests, request allowlist, no key material in DOM/storage/requests, axe scan in both themes, reduced motion, keyboard paths, no crypto chunk on the default route | FR-001 AC-5; NFR-003, NFR-006, NFR-008, NFR-009, NFR-011, NFR-012, NFR-015 | T-013, T-016, T-021, T-022 | All specs green in three browsers | CI | Medium (flaky timing on idle checks) | done |
-| T-024 | README (shipped tools, roadmap) and first deploy: Cloudflare Pages Git integration, project `qanchor`, analytics off; check `*.pages.dev` name, 404 status, CSP and headers, commit ID; measure Lighthouse, LCP, idle heap; decide Inter vs system font | NFR-002, NFR-004, NFR-017, NFR-021; OQ-27 | T-023 | Live URL serves the build of `main`; measured numbers recorded in this plan; Inter decision recorded | Manual checks on the live site | Medium; **needs the owner** to connect the GitHub repo in their Cloudflare account | todo |
+| T-024 | README (shipped tools, roadmap) and first deploy: Cloudflare Pages Git integration, project `qanchor`, analytics off; check `*.pages.dev` name, 404 status, CSP and headers, commit ID; measure Lighthouse, LCP, idle heap; decide Inter vs system font | NFR-002, NFR-004, NFR-017, NFR-021; OQ-27 | T-023 | Live URL serves the build of `main`; measured numbers recorded in this plan; Inter decision recorded | Manual checks on the live site | Medium; **needs the owner** to connect the GitHub repo in their Cloudflare account | done |
 
 ### M2 Slice 1b
 
@@ -295,6 +295,13 @@ FRs not covered by any task: **none**. NFR-018 (dependency discipline) is a revi
   * The per-tool nav tests stay as they are; the spec's checks are cross-cutting only.
   * Mutation-tested: a polling `fetch`, a key written to localStorage, the validator imported eagerly, an infinite animation, reduced motion not zeroing `--duration-base`, and a button without a focus ring each fail the spec.
   * Full E2E suite 423/423 in Chromium and Firefox locally; WebKit runs in CI.
+* **T-024 (done):**
+  * Live at https://qanchor.pages.dev (Cloudflare Pages Git integration, project `qanchor`, production branch `main`, framework preset none, `npm run build`, output `build`, Node from `.nvmrc`; the owner connected the repository on 2026-11-16 with access to this repository only). Web Analytics off: no `cloudflareinsights` beacon in any page.
+  * Checked on the live site on 2026-11-16 with `curl`: `/`, `/address`, `/amounts`, `/units`, `/settings` answer 200; `/address.html` redirects (308) to `/address`; an unknown path answers **404** with `404.html`, which carries the same CSP meta tag. Response headers from `static/_headers` are all present (`frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, `no-referrer`, `Permissions-Policy`); the CSP meta tag matches the build (NFR-017). The footer reads "Build 6c7fe12", the head of `main` (NFR-021).
+  * Lighthouse 12.8.2, desktop preset, performance only, 3 runs per route in Chrome from one home connection: score 99 to 100 on every route; LCP 597 to 661 ms on `/`, 700 to 817 ms on `/address`, 688 to 818 ms on `/amounts`, 656 to 702 ms on `/units`; TBT 0 ms and CLS 0 everywhere (NFR-002).
+  * Idle JS heap after load and a forced GC (Chrome DevTools Protocol): 1.4 to 1.7 MB on each route; 12.5 MB on `/address` with 500 generated rows on screen (NFR-004).
+  * The 500-row render (decisions 2026-11-14, T-021) on the live site: one long task of 51 ms or none at normal CPU speed; 135 ms and 191 to 207 ms under a 4x CPU throttle, the same as measured locally, so the accepted trade-off stands.
+  * Inter stays: LCP is about half the 1.5 s threshold with the 47.1 KB font preloaded, so the fallback to the system font (decisions 2026-11-12) is not triggered.
 
 
 
@@ -315,5 +322,5 @@ FRs not covered by any task: **none**. NFR-018 (dependency discipline) is a revi
 ## Owner actions
 
 * Review the checklist content (T-032) before it merges.
-* Connect the GitHub repository to Cloudflare Pages in your Cloudflare account (T-024); it cannot be done from here.
+* ~~Connect the GitHub repository to Cloudflare Pages (T-024).~~ Done 2026-11-16.
 * Approve each task's merge, as agreed.
