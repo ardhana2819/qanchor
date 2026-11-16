@@ -227,6 +227,11 @@ Decided by the owner after T-025 found no reachable primary source for these fac
 * Age presets count whole years on an "Ages as of" date that is part of the settings, defaulting to today in the UI, so a seed gives the same rows on any later day (FR-082 AC-1). Rejected: counting from the current date (a seed would drift at every birthday). Decided by the owner.
 * Adult ages are 17 to 70 (17 is the KTP age); underage is 10 to 16 (below the KTP age but old enough to try signing up). Decided by the owner.
 
+### 2026-11-16: Dummy-data export columns and run info (T-030)
+
+* Address exports as one full line (`address`) plus one column per part; the bank account as `bank_name`, `bank_code`, and `bank_account`. Why: testers fill forms with separate province and city fields, and the full line still exercises commas (EC-017). Rejected: the full address only; a single bank column. Decided by the owner.
+* The generator version, seed, and as-of date are written as `--` comments at the top of SQL exports and in the file name (`qanchor-dummy-v1-<seed>`); CSV and JSON stay plain so they match FR-083 AC-1 and AC-2. Rejected: a JSON wrapper object (changes AC-2); version and seed columns on every row. Decided by the owner.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
