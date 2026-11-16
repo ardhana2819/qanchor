@@ -8,8 +8,16 @@ import { appOpened, scanA11y } from './helpers.ts';
 // non-functional requirements that apply to all of them. Per-tool behaviour lives in each tool's
 // own spec.
 
-const ROUTES = ['/', '/address', '/amounts', '/units', '/settings', '/this-page-does-not-exist'];
-const TOOL_ROUTES = ['/address', '/amounts', '/units'];
+const ROUTES = [
+	'/',
+	'/address',
+	'/amounts',
+	'/units',
+	'/dummy-data',
+	'/settings',
+	'/this-page-does-not-exist'
+];
+const TOOL_ROUTES = ['/address', '/amounts', '/units', '/dummy-data'];
 
 /** Strings that only appear in crypto code (our Taproot tag, noble's scalar check). */
 const CRYPTO_MARKERS = ['TapTweak', 'invalid scalar'];
@@ -414,6 +422,25 @@ test.describe('every tool works from the keyboard alone (NFR-008)', () => {
 		await page.keyboard.type('1');
 
 		await expect(page.getByRole('textbox', { name: 'sats', exact: true })).toHaveValue('100000000');
+	});
+
+	test('Dummy data: choose a preset, generate, and download', async ({ page }) => {
+		await page.goto('/dummy-data');
+		await appOpened(page);
+
+		await tabTo(page, page.getByRole('combobox', { name: 'Preset' }));
+		await page.keyboard.type('Invalid');
+		await expect(page.getByRole('checkbox', { name: 'Address', exact: true })).not.toBeChecked();
+		await tabTo(page, page.getByRole('textbox', { name: 'Rows' }));
+		await page.keyboard.press('ControlOrMeta+a');
+		await page.keyboard.type('5');
+		await page.keyboard.press('Enter');
+		await expect(
+			page.getByRole('table', { name: 'Generated dummy data' }).locator('tbody tr')
+		).toHaveCount(5);
+		await tabTo(page, page.getByRole('button', { name: 'Download' }));
+		const [file] = await Promise.all([page.waitForEvent('download'), page.keyboard.press('Enter')]);
+		expect(file.suggestedFilename()).toMatch(/^qanchor-dummy-v1-[0-9a-f]{16}\.csv$/);
 	});
 
 	for (const path of TOOL_ROUTES) {
