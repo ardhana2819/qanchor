@@ -1,8 +1,7 @@
 // Banks for dummy account numbers (FR-081 AC-7). No bank publishes its account number length, and
 // Bank Indonesia's participant list could not be reached when this was written (T-025), so every
 // value here comes from commonly published secondary sources. The owner decided to use them with
-// this label and re-check them against a bank app, a statement, or Bank Indonesia's SKNBI list
-// before T-028 merges (decisions 2026-11-16). No checksum is applied to account numbers.
+// this label (decisions 2026-11-16). No checksum is applied to account numbers.
 
 export interface Bank {
 	readonly name: string;
