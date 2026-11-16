@@ -193,6 +193,12 @@ Finding for the owner: USDT on BNB Smart Chain is not issued by Tether. Tether's
 * Playwright's Firefox page crashes during an axe scan in two known cases: right after an auto-retrying `toBeEnabled()` / `toBeVisible()` assertion (reproducible locally, found in T-023), and occasionally on `/components` in CI (seen on PR 28). A crash kills the page, so the test cannot catch and redo the scan itself.
 * [PROPOSAL] The Firefox project sets `retries: 1` in CI only. Chromium and WebKit keep no retries, and nothing is retried locally. A test that passes on its retry is reported as flaky in the run summary, so a pattern stays visible; a real failure fails twice and stays red. Rejected: skipping axe in Firefox (it would weaken the accessibility checks) and retrying every browser (it would hide real flakes elsewhere).
 
+### 2026-11-16: First deploy and Inter kept (T-024)
+
+* The site is live at https://qanchor.pages.dev through the Cloudflare Pages Git integration (NFR-021, OQ-27): the project name `qanchor` was available, so the URL is the default one. The owner installed the Cloudflare GitHub App with access to this repository only.
+* Cloudflare answers unknown paths with HTTP 404 and `404.html`, closing the open point in `docs/architecture.md` (risk table).
+* Inter stays as the UI font. Why: measured LCP on the live site is 0.6 to 0.82 s and Lighthouse Performance 99 to 100 on every route (desktop), well inside the 1.5 s threshold that would switch to the system font (2026-11-12). Numbers in `docs/plan.md`, T-024 notes.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

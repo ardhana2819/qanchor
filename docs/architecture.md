@@ -326,8 +326,8 @@ Tooling defaults: npm as the package manager and Node 26 LTS pinned in `.nvmrc` 
 | Taproot tweak (BIP-341) implemented by hand on top of noble | Invalid P2TR addresses marked valid | BIP-341 and BIP-350 vectors; generated addresses round-trip through the validator (FR-010 AC-2) |
 | Inline theme script blocked by the CSP | Theme flash or broken theme | Resolved in T-004: `vite.config.ts` hashes the `app.html` script into `script-src`, the script sits after the CSP meta tag, and E2E fails on any CSP violation (`docs/decisions.md`, CSP spike results) |
 | Initial bundle exceeds 80 KB gzip | NFR-001 fails | Budget check in CI from the first PR; crypto and datasets only in route chunks |
-| `*.pages.dev` and the `qanchor` project name unverified from the test network | First deploy URL may differ | Checked when the Cloudflare project is created at the end of slice 1a |
-| Cloudflare 404 status code for `404.html` not documented | A not-found page might answer HTTP 200 | Checked on the first preview deploy; the user-facing behaviour (not-found state) is the same either way |
+| `*.pages.dev` and the `qanchor` project name unverified from the test network | First deploy URL may differ | Resolved 2026-11-16 (T-024): the project is `qanchor`, live at https://qanchor.pages.dev |
+| Cloudflare 404 status code for `404.html` not documented | A not-found page might answer HTTP 200 | Resolved 2026-11-16 (T-024): unknown paths answer HTTP 404 with `404.html` |
 | IndexedDB unavailable (private mode) | Saving fails | Storage layer reports unavailability once; banner shown; tools still work (EC-001) |
 
 ## 10. Routing and hosting details
