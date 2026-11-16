@@ -208,6 +208,11 @@ Decided by the owner after T-025 found no reachable primary source for these fac
 * NPWP, 15-digit legacy format: format-valid only; the ninth digit is random and the UI says the check digit is not verified (FR-081 AC-6). Rejected: Luhn as an assumption (no source; it could make real numbers fail or fake ones pass).
 * Bank accounts: use the commonly published account number length per bank and the 3-digit bank codes, with a `source` field in the dataset marking them as secondary. They are re-checked against a bank statement, a bank app, or Bank Indonesia's SKNBI list before T-028 merges.
 
+### 2026-11-16: Seeded PRNG for dummy data (T-026)
+
+* xoshiro128** 1.1 per row, seeded from SHA-256 of the seed and the row index (`src/lib/core/dummy/random.ts`). Why: 32-bit integer arithmetic gives identical output in every browser (FR-082 AC-1); a stream per row keeps the first N rows unchanged when more rows are requested (AC-4); SHA-256 from `@noble/hashes`, already a dependency, turns any seed string into a well-mixed state, so seeds that differ only in case or a space still differ (AC-3). Rejected: one stream for the whole run (adding a field or a row-dependent draw would shift every later row); `Math.random`-style float helpers (float formatting and rounding are where engines can diverge); a hand-written string hash (an extra algorithm to get right when SHA-256 is already there).
+* Seeds are used exactly as typed; trimming or case-folding, if any, is the UI's decision in T-031.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
