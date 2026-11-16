@@ -8,3 +8,6 @@ prototype/
 
 # Not part of the repository
 Claude outputs/
+
+# Generated datasets (scripts/build-regions.mjs)
+src/lib/core/dummy/data/*.json
