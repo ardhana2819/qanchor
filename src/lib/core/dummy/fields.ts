@@ -145,10 +145,19 @@ export function generatePhone(rng: Rng, format: PhoneFormat, realism: Realism): 
 			? rng.pick(rng.pick(OPERATORS).prefixes)
 			: rng.pick(UNALLOCATED_PREFIXES);
 	const length = rng.between(NATIONAL_LENGTH.min, NATIONAL_LENGTH.max);
-	const national = prefix + digits(rng, length - prefix.length);
+	return formatPhone(prefix + digits(rng, length - prefix.length), format);
+}
+
+/** Writes a national `08…` number in the chosen format. */
+export function formatPhone(national: string, format: PhoneFormat): string {
 	const significant = national.slice(1);
 	if (format === 'national') return national;
 	return format === 'plus62' ? `+62${significant}` : `62${significant}`;
+}
+
+/** The national `08…` form of a number in any of the three formats. */
+export function nationalPhone(phone: string): string {
+	return `0${phone.replace(/^\+?62/, '').replace(/^0/, '')}`;
 }
 
 /** A bank from the dataset and an account number of its length; no checksum (FR-081 AC-7). */
@@ -157,7 +166,7 @@ export function generateBank(rng: Rng): Person['bank'] {
 	return { name: bank.name, code: bank.code, account: digits(rng, bank.accountLength) };
 }
 
-function digits(rng: Rng, count: number): string {
+export function digits(rng: Rng, count: number): string {
 	let out = '';
 	for (let i = 0; i < count; i++) out += rng.below(10);
 	return out;

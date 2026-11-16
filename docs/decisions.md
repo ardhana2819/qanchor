@@ -222,6 +222,11 @@ Decided by the owner after T-025 found no reachable primary source for these fac
 
 * In "non-colliding" mode a NIK's province digits are `00`, which Kepmendagri never assigns (codes start at 11); the kabupaten and kecamatan digits, birth date, gender, and sequence stay consistent with the row. The address stays real, so FR-081 AC-5 (NIK region matches the address) does not hold for the province part in this mode, and the UI warning of AC-9 covers it. Decided by the owner. Rejected: sequence `0000` with the real region (keeps AC-5, but "sequences start at 0001" has no primary source, so the no-real-person guarantee would be weaker).
 
+### 2026-11-16: Dummy-data ages and the "as of" date (T-029)
+
+* Age presets count whole years on an "Ages as of" date that is part of the settings, defaulting to today in the UI, so a seed gives the same rows on any later day (FR-082 AC-1). Rejected: counting from the current date (a seed would drift at every birthday). Decided by the owner.
+* Adult ages are 17 to 70 (17 is the KTP age); underage is 10 to 16 (below the KTP age but old enough to try signing up). Decided by the owner.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

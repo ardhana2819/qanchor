@@ -106,3 +106,15 @@ export const SECOND_NAMES = [
 	'Wibowo',
 	'Wijaya'
 ] as const;
+
+/** Names with an apostrophe, for the name edge-case preset (FR-084) and escaping tests. */
+export const APOSTROPHE_NAMES = {
+	male: ["Ma'ruf", "Mu'in", "Sa'id"],
+	female: ["Ni'mah", "Nu'aimah", "Mu'awanah"]
+} as const;
+
+/** Titles written before or after a name on Indonesian documents (FR-084 name edge cases). */
+export const TITLES = {
+	before: { male: ['Dr.', 'Ir.', 'Prof. Dr.', 'H.'], female: ['Dr.', 'Ir.', 'Prof. Dr.', 'Hj.'] },
+	after: ['S.Kom.', 'S.H.', 'S.E.', 'M.M.', 'S.Kom., M.T.']
+} as const;
