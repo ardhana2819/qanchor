@@ -1,5 +1,7 @@
 import { readFile } from 'node:fs/promises';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { expect, test, type Locator, type Page, type Request } from '@playwright/test';
+import { base58check } from '@scure/base';
 import { appOpened, scanA11y } from './helpers.ts';
 
 // Cross-cutting checks for slice 1a (T-023): every shipped route and tool against the
@@ -12,11 +14,32 @@ const TOOL_ROUTES = ['/address', '/amounts', '/units'];
 /** Strings that only appear in crypto code (our Taproot tag, noble's scalar check). */
 const CRYPTO_MARKERS = ['TapTweak', 'invalid scalar'];
 
-/** A 32-byte private key in hex, or a Bitcoin WIF private key. */
-const KEY_PATTERNS = [
-	/[0-9a-fA-F]{64}/,
-	/(?<![1-9A-HJ-NP-Za-km-z])[5KLc9][1-9A-HJ-NP-Za-km-z]{50,51}(?![1-9A-HJ-NP-Za-km-z])/
-];
+/** A 32-byte private key in hex. */
+const HEX_KEY = /[0-9a-fA-F]{64}/;
+
+/** Strings shaped like a Bitcoin WIF private key; `wifKeys` keeps only those that are one. */
+const WIF_SHAPE =
+	/(?<![1-9A-HJ-NP-Za-km-z])[5KLc9][1-9A-HJ-NP-Za-km-z]{50,51}(?![1-9A-HJ-NP-Za-km-z])/g;
+const wif = base58check(sha256);
+
+/**
+ * WIF private keys in `text`: Base58Check with version 0x80 (mainnet) or 0xef (testnet) and a
+ * 32-byte key, plus 0x01 when compressed. The shape alone is not enough: a run of a Bech32m
+ * address between two characters Base58 lacks (`0`, `l`) can have it (seen in CI on PR 34).
+ */
+function wifKeys(text: string): string[] {
+	return [...text.matchAll(WIF_SHAPE)]
+		.map(([candidate]) => candidate)
+		.filter((candidate) => {
+			try {
+				const bytes = wif.decode(candidate);
+				const version = bytes[0] === 0x80 || bytes[0] === 0xef;
+				return version && (bytes.length === 33 || (bytes.length === 34 && bytes[33] === 1));
+			} catch {
+				return false;
+			}
+		});
+}
 
 function recordRequests(page: Page): Request[] {
 	const requests: Request[] = [];
@@ -126,6 +149,16 @@ test('every request while using each tool goes to this origin only (NFR-011)', a
 	expect(requests.length).toBeGreaterThan(0);
 });
 
+test('the WIF check finds a real key and ignores a Bech32m fragment of the same shape', () => {
+	// Bitcoin wiki WIF example (uncompressed, mainnet); the address is from the PR 34 CI run.
+	const key = '5HueCGU8rMjxEXxiPuD5BDku4MkFqeZyd4dZ1jvhTVqvbTLvyTJ';
+	expect(wifKeys(`Key: ${key}.`)).toEqual([key]);
+	expect(wifKeys('tb1pkx809nchu7gx9r86n3zvmfdm23t5xv6777r49xapr77k5ywe9sq26c3v')).toEqual([]);
+	expect('tb1pkx809nchu7gx9r86n3zvmfdm23t5xv6777r49xapr77k5ywe9sq26c3v').toMatch(
+		new RegExp(WIF_SHAPE.source)
+	);
+});
+
 test('no private key reaches the page, storage, requests, or an export (NFR-012)', async ({
 	page
 }) => {
@@ -186,7 +219,8 @@ test('no private key reaches the page, storage, requests, or an export (NFR-012)
 	seen.push(...requests.map((r) => `${r.url()} ${r.postData() ?? ''}`));
 
 	for (const text of seen) {
-		for (const pattern of KEY_PATTERNS) expect(text).not.toMatch(pattern);
+		expect(text).not.toMatch(HEX_KEY);
+		expect(wifKeys(text)).toEqual([]);
 	}
 });
 
