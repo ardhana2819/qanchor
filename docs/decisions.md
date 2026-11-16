@@ -206,7 +206,7 @@ Decided by the owner after T-025 found no reachable primary source for these fac
 * Phone, "realistic" mode: use the commonly published operator prefix list and a length of 10 to 13 digits in the `08…` form, labeled as a secondary source in the dataset and here. The verified rules still hold: `08XY` with X ≠ 0, 4, 6, and at most 13 digits after `62`. Rejected: random prefixes from the regulation pattern only (some would be unallocated, so strict validators reject them).
 * Phone, "non-colliding" mode: prefixes `0801`, `0802`, `0803`, `0805`, which Permenkominfo 14/2018 lists as not allocated, so no subscriber can hold them. Many phone validators will reject them, which is what FR-081 AC-9 already warns about. Rejected: `084X` (assigned to M2M and IoT devices by Permenkomdigi 7/2025, so a real IoT SIM could hold the number).
 * NPWP, 15-digit legacy format: format-valid only; the ninth digit is random and the UI says the check digit is not verified (FR-081 AC-6). Rejected: Luhn as an assumption (no source; it could make real numbers fail or fake ones pass).
-* Bank accounts: use the commonly published account number length per bank and the 3-digit bank codes, with a `source` field in the dataset marking them as secondary. They are re-checked against a bank statement, a bank app, or Bank Indonesia's SKNBI list before T-028 merges.
+* Bank accounts: use the commonly published account number length per bank and the 3-digit bank codes, with a `source` field in the dataset marking them as secondary. Revised by the owner in T-028: no re-check before merge; the label is enough for test data.
 
 ### 2026-11-16: Seeded PRNG for dummy data (T-026)
 
@@ -217,6 +217,10 @@ Decided by the owner after T-025 found no reachable primary source for these fac
 
 * The region codes, names, and postal codes come from Cahya DSN's `wilayah` and `wilayah_kodepos` repositories (MIT), pinned to a commit and converted by `scripts/build-regions.mjs`. Why: they follow Kepmendagri 300.2.2-2430 Tahun 2025 and match its totals (38 provinces, 416 kabupaten, 98 kota), and the decree's lampiran could not be reached on the Ditjen Bina Adwil site from here (T-025). Postal codes have no other machine-readable source per village. The MIT notice is kept in the repository next to the data, and the dummy data page will credit the source.
 * Only a fixed sample below kabupaten/kota is shipped (2 kecamatan, 2 villages each), as FR-081 AC-3 allows: the full 83,762 villages would be several MB. Rejected: hand-typing the region list (error-prone for 514 entries); shipping the full dataset.
+
+### 2026-11-16: Non-colliding NIK uses province 00 (T-028)
+
+* In "non-colliding" mode a NIK's province digits are `00`, which Kepmendagri never assigns (codes start at 11); the kabupaten and kecamatan digits, birth date, gender, and sequence stay consistent with the row. The address stays real, so FR-081 AC-5 (NIK region matches the address) does not hold for the province part in this mode, and the UI warning of AC-9 covers it. Decided by the owner. Rejected: sequence `0000` with the real region (keeps AC-5, but "sequences start at 0001" has no primary source, so the no-real-person guarantee would be weaker).
 
 ## Architecture decision records
 
@@ -345,3 +349,5 @@ Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010
 ## Out of scope (for now)
 
 APK + emulator + automation from Firebase App Distribution (separate, much heavier project).
+
+Backend (owner, 2026-11-16): a server for team sharing of test cases and runs, sync across devices, an RPC proxy for CORS and rate limits, or keeping API keys out of the browser. A future feature, not planned; it would change the "no backend, data stays in the browser" constraint and needs its own PRD and decision first.
