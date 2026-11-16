@@ -25,6 +25,7 @@ Address and amount results can be copied or exported as CSV or JSON; converted v
 * Phase 2: test cases, test runs with screenshots, Jira-format bug reports, exploratory session notes, release summary.
 * Phase 3: generate test cases from a PRD (PDF, DOCX, Markdown) with ambiguity questions and a traceability matrix, using your own Claude API key.
 * Phase 4: demo mode with a sample crypto PRD, usable without an API key.
+* Later, not planned: an optional backend for team sharing, sync across devices, and an RPC proxy.
 
 ## Development
 

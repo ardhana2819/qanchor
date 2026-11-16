@@ -349,3 +349,5 @@ Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010
 ## Out of scope (for now)
 
 APK + emulator + automation from Firebase App Distribution (separate, much heavier project).
+
+Backend (owner, 2026-11-16): a server for team sharing of test cases and runs, sync across devices, an RPC proxy for CORS and rate limits, or keeping API keys out of the browser. A future feature, not planned; it would change the "no backend, data stays in the browser" constraint and needs its own PRD and decision first.
