@@ -1,0 +1,108 @@
+// Indonesian personal names for dummy data (FR-081 AC-1), written for this project. A full name is
+// one or more given names, optionally followed by a second name; the generator (T-028) decides the
+// mix, including single-word names, which are common in Indonesia.
+//
+// Given names are split by gender so a row's name agrees with its NIK (FR-081 AC-5). Second names
+// cover common Indonesian naming traditions: Javanese and Sundanese given-name pairs, Arabic-origin
+// names, Batak marga, Minahasa fam, Chinese-Indonesian names, and Christian given names. None of
+// these carries a gender in this dataset.
+
+export const MALE_GIVEN_NAMES = [
+	'Agus',
+	'Ahmad',
+	'Andi',
+	'Arif',
+	'Bagus',
+	'Bambang',
+	'Budi',
+	'Dedi',
+	'Dimas',
+	'Eko',
+	'Fajar',
+	'Farhan',
+	'Gilang',
+	'Hendra',
+	'Ilham',
+	'Imam',
+	'Joko',
+	'Kurniawan',
+	'Lukman',
+	"Ma'ruf",
+	'Muhammad',
+	'Nanang',
+	'Nur',
+	'Rizki',
+	'Rudi',
+	'Slamet',
+	'Sugeng',
+	'Surya',
+	'Taufik',
+	'Teguh',
+	'Wahyu',
+	'Yohanes',
+	'Yusuf'
+] as const;
+
+export const FEMALE_GIVEN_NAMES = [
+	'Aisyah',
+	'Ani',
+	'Ayu',
+	'Bunga',
+	'Citra',
+	'Dewi',
+	'Dian',
+	'Endang',
+	'Fitri',
+	'Indah',
+	'Intan',
+	'Kartika',
+	'Lestari',
+	'Maria',
+	'Mega',
+	'Nabila',
+	'Novita',
+	'Nur',
+	'Nurul',
+	'Puspita',
+	'Putri',
+	'Ratna',
+	'Rina',
+	'Siti',
+	'Sri',
+	'Suci',
+	'Utami',
+	'Wulan',
+	'Yuliana'
+] as const;
+
+export const SECOND_NAMES = [
+	'Gunawan',
+	'Hakim',
+	'Halim',
+	'Harahap',
+	'Hasibuan',
+	'Hidayat',
+	'Kusuma',
+	'Lubis',
+	'Lumentut',
+	'Nasution',
+	'Nugroho',
+	'Pangaribuan',
+	'Permana',
+	'Pratama',
+	'Purnomo',
+	'Rahman',
+	'Rumengan',
+	'Santoso',
+	'Saputra',
+	'Setiawan',
+	'Simanjuntak',
+	'Sinaga',
+	'Siregar',
+	'Situmorang',
+	'Sulistyo',
+	'Susanto',
+	'Tanoto',
+	'Wibowo',
+	'Wijaya'
+] as const;

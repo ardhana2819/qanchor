@@ -213,6 +213,11 @@ Decided by the owner after T-025 found no reachable primary source for these fac
 * xoshiro128** 1.1 per row, seeded from SHA-256 of the seed and the row index (`src/lib/core/dummy/random.ts`). Why: 32-bit integer arithmetic gives identical output in every browser (FR-082 AC-1); a stream per row keeps the first N rows unchanged when more rows are requested (AC-4); SHA-256 from `@noble/hashes`, already a dependency, turns any seed string into a well-mixed state, so seeds that differ only in case or a space still differ (AC-3). Rejected: one stream for the whole run (adding a field or a row-dependent draw would shift every later row); `Math.random`-style float helpers (float formatting and rounding are where engines can diverge); a hand-written string hash (an extra algorithm to get right when SHA-256 is already there).
 * Seeds are used exactly as typed; trimming or case-folding, if any, is the UI's decision in T-031.
 
+### 2026-11-16: Region dataset from open MIT data (T-027)
+
+* The region codes, names, and postal codes come from Cahya DSN's `wilayah` and `wilayah_kodepos` repositories (MIT), pinned to a commit and converted by `scripts/build-regions.mjs`. Why: they follow Kepmendagri 300.2.2-2430 Tahun 2025 and match its totals (38 provinces, 416 kabupaten, 98 kota), and the decree's lampiran could not be reached on the Ditjen Bina Adwil site from here (T-025). Postal codes have no other machine-readable source per village. The MIT notice is kept in the repository next to the data, and the dummy data page will credit the source.
+* Only a fixed sample below kabupaten/kota is shipped (2 kecamatan, 2 villages each), as FR-081 AC-3 allows: the full 83,762 villages would be several MB. Rejected: hand-typing the region list (error-prone for 514 entries); shipping the full dataset.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
