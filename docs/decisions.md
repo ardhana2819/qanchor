@@ -199,6 +199,15 @@ Finding for the owner: USDT on BNB Smart Chain is not issued by Tether. Tether's
 * Cloudflare answers unknown paths with HTTP 404 and `404.html`, closing the open point in `docs/architecture.md` (risk table).
 * Inter stays as the UI font. Why: measured LCP on the live site is 0.6 to 0.82 s and Lighthouse Performance 99 to 100 on every route (desktop), well inside the 1.5 s threshold that would switch to the system font (2026-11-12). Numbers in `docs/plan.md`, T-024 notes.
 
+### 2026-11-16: Dummy-data facts without a primary source (T-025)
+
+Decided by the owner after T-025 found no reachable primary source for these facts (sources and findings in `docs/plan.md`, T-025 notes):
+
+* Phone, "realistic" mode: use the commonly published operator prefix list and a length of 10 to 13 digits in the `08…` form, labeled as a secondary source in the dataset and here. The verified rules still hold: `08XY` with X ≠ 0, 4, 6, and at most 13 digits after `62`. Rejected: random prefixes from the regulation pattern only (some would be unallocated, so strict validators reject them).
+* Phone, "non-colliding" mode: prefixes `0801`, `0802`, `0803`, `0805`, which Permenkominfo 14/2018 lists as not allocated, so no subscriber can hold them. Many phone validators will reject them, which is what FR-081 AC-9 already warns about. Rejected: `084X` (assigned to M2M and IoT devices by Permenkomdigi 7/2025, so a real IoT SIM could hold the number).
+* NPWP, 15-digit legacy format: format-valid only; the ninth digit is random and the UI says the check digit is not verified (FR-081 AC-6). Rejected: Luhn as an assumption (no source; it could make real numbers fail or fake ones pass).
+* Bank accounts: use the commonly published account number length per bank and the 3-digit bank codes, with a `source` field in the dataset marking them as secondary. They are re-checked against a bank statement, a bank app, or Bank Indonesia's SKNBI list before T-028 merges.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

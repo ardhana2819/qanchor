@@ -570,10 +570,10 @@ Decided by the owner on 2026-11-12. Details and reasons are in `docs/decisions.m
 No product question is open. The items below are facts, not decisions; each must be checked against a primary source, and a failed check is reported to the owner before the related code is written.
 
 * Token decimals in the amount presets (FR-020 AC-2). Verified 2026-11-14 (T-014); sources in `docs/decisions.md`.
-* +62 mobile number length rule and operator prefix list (FR-081 AC-2).
-* Legacy 15-digit NPWP check-digit rule (FR-081 AC-6).
-* Account number length per bank (FR-081 AC-7).
-* Unassigned NIK region codes and phone prefixes usable for "non-colliding" mode (FR-081 AC-9).
+* +62 mobile number length rule and operator prefix list (FR-081 AC-2). Checked 2026-11-16 (T-025): pattern and maximum length verified; minimum length and per-operator prefixes have secondary sources only, used with a label (`docs/decisions.md`).
+* Legacy 15-digit NPWP check-digit rule (FR-081 AC-6). Checked 2026-11-16 (T-025): no primary source; the legacy format stays format-valid only, as this AC already allows.
+* Account number length per bank (FR-081 AC-7). Checked 2026-11-16 (T-025): secondary sources only, used with a label.
+* Unassigned NIK region codes and phone prefixes usable for "non-colliding" mode (FR-081 AC-9). Checked 2026-11-16 (T-025): phone blocks `0801` to `0803` and `0805` are not allocated (Permenkominfo 14/2018); NIK codes come from the Kepmendagri 2025 lampiran in T-027.
 * Default public endpoints per network allow cross-origin browser requests (tx lookup, FR-041).
 * Tron protocol choice: Ethereum-compatible JSON-RPC or native HTTP API (tx lookup).
 * Cloudflare Pages fallback behavior for unknown URLs with prerendered output (NFR-022).
