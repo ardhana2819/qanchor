@@ -44,6 +44,14 @@ export const tools: readonly ToolEntry[] = [
 			'Exact conversion between wei, gwei, and ether, sats and BTC, lamports and SOL, sun and TRX, or any token decimals.',
 		group: 'Blockchain',
 		icon: 'swap'
+	},
+	{
+		route: '/dummy-data',
+		name: 'Dummy data',
+		description:
+			'Fake Indonesian names, NIK, NPWP, phones, addresses, and bank accounts from a seed, with presets and CSV, JSON, or SQL export.',
+		group: 'Data',
+		icon: 'person'
 	}
 ];
 

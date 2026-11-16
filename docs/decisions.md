@@ -232,6 +232,16 @@ Decided by the owner after T-025 found no reachable primary source for these fac
 * Address exports as one full line (`address`) plus one column per part; the bank account as `bank_name`, `bank_code`, and `bank_account`. Why: testers fill forms with separate province and city fields, and the full line still exercises commas (EC-017). Rejected: the full address only; a single bank column. Decided by the owner.
 * The generator version, seed, and as-of date are written as `--` comments at the top of SQL exports and in the file name (`qanchor-dummy-v1-<seed>`); CSV and JSON stay plain so they match FR-083 AC-1 and AC-2. Rejected: a JSON wrapper object (changes AC-2); version and seed columns on every row. Decided by the owner.
 
+### 2026-11-16: Locators for owner-written automation (`data-testid`)
+
+The owner wants to practise writing their own Playwright tests against the live site, so the UI keeps stable locators. Decided by the owner.
+
+* Accessible roles and names stay the primary locators: every control has a visible label or accessible name that is unique on its page.
+* Dynamic output and repeated items also get a `data-testid`, kebab-case `<tool>-<element>` (for example `dummy-generate`, `dummy-preview-row`, `address-result-row`): result rows, per-row copy buttons, status and error messages, and counts, where a role alone is ambiguous.
+* Test ids are a public contract: a PR that renames or removes one says so.
+* The project's own E2E tests stay role-first and do not use test ids.
+* Applied from T-031 on; the slice 1a pages get theirs in a small follow-up task (T-031a). The byte cost is negligible.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

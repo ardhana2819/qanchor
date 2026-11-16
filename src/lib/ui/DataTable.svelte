@@ -28,9 +28,19 @@
 		/** Last column, e.g. a copy button whose name includes the row ("Copy address 3"). */
 		actions?: Snippet<[Row, number]>;
 		actionsLabel?: string;
+		/** `data-testid` on every body row, for owner-written automation (decisions 2026-11-16). */
+		rowTestId?: string;
 	}
 
-	let { caption, columns, rows, rowKey, actions, actionsLabel = 'Actions' }: Props = $props();
+	let {
+		caption,
+		columns,
+		rows,
+		rowKey,
+		actions,
+		actionsLabel = 'Actions',
+		rowTestId
+	}: Props = $props();
 
 	// Two bodies so that at most 13 elements animate, however many rows there are: each of the
 	// first 12 rows on its own, then everything after them as one block (design 2.4).
@@ -40,7 +50,7 @@
 
 {#snippet row(item: Row, index: number, staggered: boolean)}
 	<!-- --i drives the stagger delay; a style attribute is allowed by the CSP (ADR-007). -->
-	<tr class:enter={staggered} style:--i={staggered ? index : undefined}>
+	<tr class:enter={staggered} style:--i={staggered ? index : undefined} data-testid={rowTestId}>
 		{#each columns as column (column.key)}
 			<td class:mono={column.mono} class:numeric={column.numeric}>
 				{#if column.cell}{@render column.cell(item)}{:else}{column.value(item)}{/if}

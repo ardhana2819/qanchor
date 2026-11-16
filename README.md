@@ -15,8 +15,11 @@ Shipped:
 | Address generator and validator | `/address` | Valid, invalid, and risky test addresses for EVM, Bitcoin (P2PKH, P2SH, P2WPKH, P2TR; mainnet and testnet), Solana, and Tron, generated in a Web Worker from the browser's CSPRNG. Paste an address to get its chain, type, network, and the exact defect. No private key is ever shown or stored. |
 | Amount edge cases | `/amounts` | Edge-case amounts from token decimals, balance, fee, and limits: dust, too many decimals, comma vs dot, scientific notation, fee greater than balance, above max. Exact BigInt arithmetic up to 36 decimals. |
 | Unit converter | `/units` | Exact conversion between wei/gwei/ether, sats/BTC, lamports/SOL, sun/TRX, and custom token decimals. |
+| Dummy data | `/dummy-data` | Fake Indonesian test identities: names, NIK, NPWP, +62 phones, addresses with consistent region codes, and bank accounts. Up to 10,000 rows per run, generated in a Web Worker from a seed, so the same seed gives the same rows. Presets for KYC, underage, name edge cases, invalid formats (with the reason per row), and duplicate NIK. Export as CSV, JSON, or SQL `INSERT` (PostgreSQL or MySQL quoting). |
 
-Address and amount results can be copied or exported as CSV or JSON; converted values can be copied. Settings and data stay in the browser (IndexedDB) and can be exported and imported as JSON.
+Address and amount results can be copied or exported as CSV or JSON; dummy data also as SQL; converted values can be copied. Settings and data stay in the browser (IndexedDB) and can be exported and imported as JSON.
+
+Interactive elements have accessible names, and dynamic output also carries a stable `data-testid` (`<tool>-<element>`, for example `dummy-preview-row`), so you can write your own Playwright tests against the live site.
 
 ## Roadmap
 
