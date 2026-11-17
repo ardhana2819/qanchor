@@ -262,6 +262,15 @@ Implementation choices inside the approved architecture; none changes a requirem
 * Known limit: receipts from before the Byzantium fork (Ethereum mainnet before block 4,370,000) have no `status`, so such a transaction is reported as an unexpected response instead of success or failure.
 * Each parser checks that the node answered for the hash or signature that was asked; anything else is a bad response.
 
+### 2026-11-17: Transaction parsers, Tron and Bitcoin (T-039)
+
+Implementation choices inside the approved architecture (ADR-006); none changes a requirement.
+
+* Tron calls are sent with `visible: true`, so addresses come back in Base58 (`T...`) as users see them in wallets and on Tronscan. An empty transaction (`{}`) is not found; an empty transaction info means the transaction is not in a block yet, so it is pending.
+* Tron status is the transaction's `contractRet`: SUCCESS is success, anything else (REVERT, OUT_OF_ENERGY, ...) is failed, and the node's `resMessage` is kept as the reason. TronGrid leaves out `fee` when staked energy and bandwidth covered the cost, so a missing fee is 0, not unknown.
+* Tron value: the `amount` of a TransferContract, or the `call_value` of a TriggerSmartContract (the contract is the recipient). Other contract types, TRC-10 transfers included, move no TRX and show value 0. Amounts are JSON numbers, so a value above 2^53 sun (about 9 billion TRX) is refused as an unexpected response rather than shown rounded.
+* Bitcoin: `from` and `to` are null and the inputs and outputs are listed instead (FR-040 AC-2); the value is the total of the outputs. A transaction is never "failed": it is confirmed (success) or in the mempool (pending). A pending transaction's fee is already fixed, so it is shown; `TxResult.fee` is null only where the fee is not known yet.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

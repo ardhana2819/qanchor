@@ -169,7 +169,7 @@ interface TxResult {
   from: string | null;    // null for Bitcoin, which has inputs instead
   to: string | null;
   valueBase: bigint | null; // smallest unit; null when not known yet (Solana pending)
-  fee: bigint | null;     // null while pending (FR-040 AC-3)
+  fee: bigint | null;     // null while not known (pending EVM or Solana; FR-040 AC-3)
   extra: EvmExtra | BitcoinExtra | SolanaExtra | TronExtra;
 }
 ```

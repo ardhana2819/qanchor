@@ -1,0 +1,50 @@
+{
+	"network": "tron",
+	"recordedAt": "2026-11-17",
+	"txID": "1e3feade6367fd67ea3993cd3a227c4e9b4bd7b1d7b4038fffd710e6a78016ef",
+	"transaction": {
+		"raw_data": {
+			"ref_block_bytes": "003d",
+			"ref_block_hash": "422469c0ecc55e46",
+			"expiration": 1794915387000,
+			"contract": [
+				{
+					"parameter": {
+						"value": {
+							"owner_address": "TJ9HZ2wrT9zYxZKXRR5Q2VpDqEfcuR6wLv",
+							"contract_address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+							"data": "a9059cbb000000000000000000000000cd7783fd25f72e746d0056488fca0f37b2302688000000000000000000000000000000000000000000000000000000177e2b1340"
+						},
+						"type_url": "type.googleapis.com/protocol.TriggerSmartContract"
+					},
+					"type": "TriggerSmartContract"
+				}
+			],
+			"timestamp": 1794915327000,
+			"fee_limit": 100000000
+		},
+		"signature": [
+			"5a865a38eb50bd0d87a858cddb379639bd7f831fd5ddcd41a0fd8c2c8563b0c2148043c50a6a4b1260684002299f0c706dbaab7b911a06ab3c92a615c4ea22bc1c"
+		],
+		"ret": [
+			{
+				"contractRet": "OUT_OF_ENERGY"
+			}
+		],
+		"raw_data_hex": "0a02003d2208422469c0ecc55e4640f88cadca9e345aae01081f12a9010a31747970652e676f6f676c65617069732e636f6d2f70726f746f636f6c2e54726967676572536d617274436f6e747261637412740a154159a8f712341862c7870b8038444c9a8e604e7feb121541a614f803b6fd780986a42c78ec9c7f77e6ded13c2244a9059cbb000000000000000000000000cd7783fd25f72e746d0056488fca0f37b2302688000000000000000000000000000000000000000000000000000000177e2b13407098b8a9ca9e34900180c2d72f",
+		"txID": "1e3feade6367fd67ea3993cd3a227c4e9b4bd7b1d7b4038fffd710e6a78016ef"
+	},
+	"info": {
+		"id": "1e3feade6367fd67ea3993cd3a227c4e9b4bd7b1d7b4038fffd710e6a78016ef",
+		"blockNumber": 88080448,
+		"blockTimeStamp": 1794915336000,
+		"contractResult": [""],
+		"contract_address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+		"receipt": {
+			"net_usage": 345,
+			"result": "OUT_OF_ENERGY"
+		},
+		"result": "FAILED",
+		"resMessage": "Not enough energy for 'PUSH1' operation executing: curInvokeEnergyLimit[0], curOpEnergy[3], penaltyEnergy[10], usedEnergy[0]"
+	}
+}

@@ -1,0 +1,53 @@
+{
+	"network": "bitcoin",
+	"recordedAt": "2026-11-17",
+	"txid": "a3ba55c0a4d3a8a7d6fc9cf74fef9b7d9c18b2a42dacde7ef6ab422d2e7f3e63",
+	"transaction": {
+		"txid": "a3ba55c0a4d3a8a7d6fc9cf74fef9b7d9c18b2a42dacde7ef6ab422d2e7f3e63",
+		"version": 2,
+		"locktime": 0,
+		"vin": [
+			{
+				"txid": "23e5f5d908e158ed559ae11469ca057bfdccb17925cfe41ec144da37eb997cb8",
+				"vout": 1,
+				"prevout": {
+					"scriptpubkey": "5120345fae4dc9fc30f53a22de3f66a15fb1565d4853f4a6a3b7d6637955835feee8",
+					"scriptpubkey_asm": "OP_PUSHNUM_1 OP_PUSHBYTES_32 345fae4dc9fc30f53a22de3f66a15fb1565d4853f4a6a3b7d6637955835feee8",
+					"scriptpubkey_type": "v1_p2tr",
+					"scriptpubkey_address": "bc1px306unwflsc02w3zmclkdg2lk9t96jzn7jn28d7kvdu4tq6lam5qs3nspa",
+					"value": 12469555684
+				},
+				"scriptsig": "",
+				"scriptsig_asm": "",
+				"witness": [
+					"c05b48c9e35447c0a17c2ba1bf280f21cb579835776cc62a425f0e51d87cacc4f85da8007dc3e3c5ab8b4913b512fd862a2e3d638edfc0ab7763aa68142b0e6b"
+				],
+				"is_coinbase": false,
+				"sequence": 4294967293
+			}
+		],
+		"vout": [
+			{
+				"scriptpubkey": "512096459f423378ddc7fce734b2ed53597447828947340af9e2df030979236706fd",
+				"scriptpubkey_asm": "OP_PUSHNUM_1 OP_PUSHBYTES_32 96459f423378ddc7fce734b2ed53597447828947340af9e2df030979236706fd",
+				"scriptpubkey_type": "v1_p2tr",
+				"scriptpubkey_address": "bc1pjeze7s3n0rwu0l88xjew656ew3rc9z28xs90ncklqvyhjgm8qm7s4yqhe5",
+				"value": 3411651
+			},
+			{
+				"scriptpubkey": "5120345fae4dc9fc30f53a22de3f66a15fb1565d4853f4a6a3b7d6637955835feee8",
+				"scriptpubkey_asm": "OP_PUSHNUM_1 OP_PUSHBYTES_32 345fae4dc9fc30f53a22de3f66a15fb1565d4853f4a6a3b7d6637955835feee8",
+				"scriptpubkey_type": "v1_p2tr",
+				"scriptpubkey_address": "bc1px306unwflsc02w3zmclkdg2lk9t96jzn7jn28d7kvdu4tq6lam5qs3nspa",
+				"value": 12466143668
+			}
+		],
+		"size": 205,
+		"weight": 616,
+		"sigops": 0,
+		"fee": 365,
+		"status": {
+			"confirmed": false
+		}
+	}
+}
