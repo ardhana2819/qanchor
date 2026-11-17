@@ -24,7 +24,6 @@ Interactive elements have accessible names, and dynamic output also carries a st
 
 ## Roadmap
 
-* Phase 1, slice 1b: Indonesian dummy data (names, +62 phones, addresses, valid-format fake NIK/NPWP, bank accounts) with seed, presets, and CSV/JSON/SQL export; QA checklists (deposit, withdraw, swap, staking, network mismatch, memo/tag, stocks).
 * Phase 1, slice 1c: transaction lookup over public endpoints (EVM chains, Solana, Tron, Bitcoin), EVM calldata decoder, testnet wallet tracker with faucet links.
 * Phase 2: test cases, test runs with screenshots, Jira-format bug reports, exploratory session notes, release summary.
 * Phase 3: generate test cases from a PRD (PDF, DOCX, Markdown) with ambiguity questions and a traceability matrix, using your own Claude API key.
