@@ -22,6 +22,16 @@
 	afterNavigate(() => {
 		menuOpen = false;
 	});
+
+	/**
+	 * "page" on the tool's own route; "true" on a page inside it (a checklist under /checklists),
+	 * so the entry stays highlighted without claiming to be the current page.
+	 */
+	function current(route: string): 'page' | 'true' | undefined {
+		const path = page.url.pathname;
+		if (path === route) return 'page';
+		return path.startsWith(`${route}/`) ? 'true' : undefined;
+	}
 </script>
 
 <svelte:head>
@@ -54,7 +64,7 @@
 											<a
 												class="nav-item"
 												href={resolve(entry.route)}
-												aria-current={page.url.pathname === entry.route ? 'page' : undefined}
+												aria-current={current(entry.route)}
 											>
 												<Icon name={entry.icon} size={18} />
 												{entry.name}
@@ -68,11 +78,7 @@
 				</details>
 			{/if}
 
-			<a
-				class="nav-item settings"
-				href={resolve('/settings')}
-				aria-current={page.url.pathname === '/settings' ? 'page' : undefined}
-			>
+			<a class="nav-item settings" href={resolve('/settings')} aria-current={current('/settings')}>
 				<svg class="nav-icon" viewBox="0 0 16 16" aria-hidden="true">
 					<circle cx="8" cy="8" r="2.25" />
 					<path
@@ -238,7 +244,7 @@
 		color: var(--color-text);
 	}
 
-	.nav-item[aria-current='page'] {
+	.nav-item[aria-current] {
 		background: var(--color-accent-subtle);
 		color: var(--color-accent);
 		font-weight: 500;

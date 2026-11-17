@@ -74,6 +74,22 @@ test('unit converter', async ({ page }) => {
 	await once(page, ['units-decimals']);
 });
 
+test('checklists', async ({ page }) => {
+	await page.goto('/checklists');
+	await appOpened(page);
+	await once(page, ['checklists-filter']);
+	await each(page, 'checklists-row', 7);
+
+	await page.getByTestId('checklists-filter').fill('zzz');
+	await once(page, ['checklists-empty']);
+
+	await page.goto('/checklists/deposit');
+	await appOpened(page);
+	await once(page, ['checklists-copy-markdown']);
+	await each(page, 'checklists-section', 5);
+	await each(page, 'checklists-item', 27);
+});
+
 test('settings', async ({ page }) => {
 	await page.goto('/settings');
 	await appOpened(page);

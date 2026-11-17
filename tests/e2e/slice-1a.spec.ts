@@ -14,10 +14,19 @@ const ROUTES = [
 	'/amounts',
 	'/units',
 	'/dummy-data',
+	'/checklists',
+	'/checklists/deposit',
 	'/settings',
 	'/this-page-does-not-exist'
 ];
-const TOOL_ROUTES = ['/address', '/amounts', '/units', '/dummy-data'];
+const TOOL_ROUTES = [
+	'/address',
+	'/amounts',
+	'/units',
+	'/dummy-data',
+	'/checklists',
+	'/checklists/deposit'
+];
 
 /** Strings that only appear in crypto code (our Taproot tag, noble's scalar check). */
 const CRYPTO_MARKERS = ['TapTweak', 'invalid scalar'];
