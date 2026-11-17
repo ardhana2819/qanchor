@@ -281,6 +281,20 @@ Implementation choices inside FR-040 to FR-043 and design S-05; none changes a r
 * The result section is not a labelled landmark: with `aria-labelledby` on it, an axe scan crashed Playwright's Firefox once the error callout had focus. The heading is unchanged for sighted and screen-reader users.
 * `/tx` is added to the cross-cutting route lists (idle network, keyboard focus ring, long tasks) now rather than in T-046.
 
+### 2026-11-17: ABI core (T-041)
+
+Implementation choices inside FR-050, FR-052, EC-014, and ADR-005; none changes a requirement.
+
+* Supported types: `address`, `bool`, `uint8` to `uint256` and `int8` to `int256` in steps of 8 (`uint`/`int` read as the 256-bit types), `bytes1` to `bytes32`, `bytes`, `string`, fixed and dynamic arrays, and tuples. Not supported: `fixed`/`ufixed` (Solidity cannot use them) and the `function` type (rare in calldata); both give "Unknown type". Empty tuples and zero-length fixed arrays are rejected, as Solidity does.
+* Signatures may carry a `function` keyword, parameter names, `address payable`, and data locations (`memory`, `calldata`, `storage`), so a line copied from Solidity source works. Anything after the closing parenthesis, such as `external returns (bool)`, is an error rather than silently ignored.
+* A JSON ABI may be an array of entries or a build artifact with an `abi` array. Events, errors, constructors, `fallback`, and `receive` are skipped; an entry with no `type` is a function, as the ABI specification says. One malformed function entry fails the whole ABI with its position, so the user never decodes against a partly read ABI.
+* Decoding is all or nothing (FR-052 AC-4) and value types are checked as strictly as Solidity's ABI decoder: an integer outside its type's range, an address or `bytesN` with non-zero padding, or a `bool` other than 0 or 1 is a decoding error. Every offset and length is checked against the data before anything is read or allocated, so a huge length cannot hang the page.
+* A `string` that is not valid UTF-8 is a decoding error. Why: showing replacement characters would present altered data as valid. The bytes can still be read by decoding the argument as `bytes`.
+* Offsets that point to the same data are allowed (the specification does not forbid them), but a decode that reads more than four times the data size is refused. A real encoding reads each byte once; the limit stops a small, crafted input from expanding into a huge result.
+* Trailing data after the encoded arguments is reported as an extra-byte count for a warning (EC-014), measured from the furthest byte any value covered, padding included. A last `bytes` or `string` value without its padding is accepted.
+* Error messages name the argument path, for example `Argument 1 (orders)[2].maker: address has non-zero padding.`
+* Test vectors: the five examples of the Solidity ABI specification, the ERC-20 and Uniswap V3 selectors, and hand-encoded nested tuples, with expected words written out in the tests rather than produced by an encoder. Decoding 384 KB of calldata takes 4.4 ms in Node, so the decoder runs on the main thread.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
