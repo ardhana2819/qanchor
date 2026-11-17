@@ -8,6 +8,7 @@
 	} from '#lib/storage/backup.ts';
 	import type { StoredRecords } from '#lib/storage/schema.ts';
 	import type { StorageErrorCode } from '#lib/storage/db.ts';
+	import { endpointOverrides } from '#lib/state/endpoints.svelte.ts';
 	import { notify } from '#lib/state/notify.svelte.ts';
 	import { storage } from '#lib/state/storage.svelte.ts';
 	import { theme } from '#lib/state/theme.svelte.ts';
@@ -138,6 +139,8 @@
 		}
 		// The theme is written only after the records are committed (architecture 3.2).
 		theme.set(settings.theme);
+		// The Endpoints section above shows the imported overrides at once.
+		await endpointOverrides.load();
 		await show({ kind: 'success', title: 'Import complete', message: summary(records) });
 		notify.showToast('Import complete');
 	}

@@ -128,6 +128,22 @@ describe('Storage', () => {
 		expect(await storage.readAll('wallets')).toEqual({ ok: false, error: 'closed' });
 	});
 
+	it('deleteOne removes one record and ignores a key that is not stored', async () => {
+		const storage = await open();
+		await storage.putAll('endpoints', [
+			{ networkId: 'eth', url: 'https://a.example.dev' },
+			{ networkId: 'polygon', url: 'https://b.example.dev' }
+		]);
+
+		expect(await storage.deleteOne('endpoints', 'eth')).toEqual({ ok: true, value: undefined });
+		expect(await storage.deleteOne('endpoints', 'nope')).toEqual({ ok: true, value: undefined });
+
+		expect(await storage.readAll('endpoints')).toEqual({
+			ok: true,
+			value: [{ networkId: 'polygon', url: 'https://b.example.dev' }]
+		});
+	});
+
 	it('readRecords returns every store', async () => {
 		const storage = await open();
 		await storage.putAll('wallets', [wallet('1')]);

@@ -131,6 +131,23 @@ describe('parseBackup', () => {
 			'Endpoint override 1 of 1 has no url.'
 		],
 		[
+			'endpoint for an unknown network',
+			withData({ endpoints: [{ networkId: 'dogecoin', url: 'https://rpc.example.dev' }] }),
+			'Endpoint override 1 of 1 is for an unknown network ("dogecoin").'
+		],
+		[
+			'endpoint with a plain http URL',
+			withData({ endpoints: [{ networkId: 'eth', url: 'http://rpc.example.dev' }] }),
+			'Endpoint override 1 of 1 (Ethereum) does not have a valid https URL.'
+		],
+		[
+			'Esplora endpoint with a query',
+			withData({
+				endpoints: [{ networkId: 'bitcoin', url: 'https://esplora.example.dev/api?k=1' }]
+			}),
+			'Endpoint override 1 of 1 (Bitcoin) does not have a valid https URL.'
+		],
+		[
 			'a faucet link with no URL',
 			withData({ faucets: [{ id: 'f', networkId: 'n', label: 'Drip' }] }),
 			'Faucet link 1 of 1 ("Drip") has no url.'
