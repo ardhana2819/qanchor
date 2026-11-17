@@ -229,32 +229,84 @@ sequenceDiagram
 
 ## 5. Default endpoints
 
-Verified on 2026-11-12 with a CORS preflight and a real request carrying `Origin: https://qanchor.pages.dev`, from one network. Public endpoints change without notice, so this table is re-checked before each slice that depends on it, and users can always override (FR-041).
+Re-checked on 2026-11-17 (T-035) in real browsers, Chromium and Firefox, with `fetch()` from a page on `https://qanchor.pages.dev`, so each browser applied its own CORS rules for the production origin. Each endpoint was asked for its chain ID where it has one, a recent transaction with its receipt or status, an old transaction (from the block at half the current height), and an unknown hash. The unknown hash has to come back as "not found" (`null` or HTTP 404), not as an error. All calls were reads; no transaction was sent. The first check, on 2026-11-12, only proved CORS and a chain ID. Public endpoints change without notice, so this table is re-checked before each slice that depends on it, and users can always override (FR-041).
 
-| Network | Protocol | Default URL | Check result |
+| Network | Protocol | Default URL | Check result (2026-11-17) |
 | --- | --- | --- | --- |
-| Ethereum | JSON-RPC | `https://ethereum-rpc.publicnode.com` | CORS ok, chain ID `0x1` |
-| Ethereum Sepolia | JSON-RPC | `https://ethereum-sepolia-rpc.publicnode.com` | CORS ok, `0xaa36a7` |
-| BNB Smart Chain | JSON-RPC | `https://bsc-dataseed.bnbchain.org` | CORS ok, `0x38` |
-| BSC Testnet | JSON-RPC | `https://data-seed-prebsc-1-s1.bnbchain.org:8545` | CORS ok, `0x61` |
-| Polygon | JSON-RPC | `https://polygon-bor-rpc.publicnode.com` | CORS ok, `0x89` |
-| Polygon Amoy | JSON-RPC | `https://polygon-amoy-bor-rpc.publicnode.com` | CORS ok, `0x13882` |
-| Arbitrum One | JSON-RPC | `https://arb1.arbitrum.io/rpc` | CORS ok, `0xa4b1` |
-| Arbitrum Sepolia | JSON-RPC | `https://sepolia-rollup.arbitrum.io/rpc` | CORS ok, `0x66eee` |
-| Base | JSON-RPC | `https://mainnet.base.org` | CORS ok (origin echoed), `0x2105` |
-| Base Sepolia | JSON-RPC | `https://sepolia.base.org` | CORS ok (origin echoed), `0x14a34` |
-| Solana | JSON-RPC | `https://solana-rpc.publicnode.com` | CORS ok, `getSlot` answered |
-| Solana Devnet | JSON-RPC | `https://api.devnet.solana.com` | CORS ok, `getHealth` = ok |
-| Tron | HTTP API | `https://api.trongrid.io` | CORS ok, `/wallet/getnowblock` answered |
-| Tron Nile | HTTP API | `https://nile.trongrid.io` | CORS ok, `/wallet/getnowblock` answered |
-| Bitcoin | Esplora REST | `https://mempool.space/api` | **[VERIFY]** not reachable from the network used for the check |
-| Bitcoin Testnet4 | Esplora REST | `https://mempool.space/testnet4/api` | **[VERIFY]** same |
+| Ethereum | JSON-RPC | `https://mainnet.gateway.tenderly.co` | `0x1`; recent and old tx ok; unknown → `null` |
+| Ethereum Sepolia | JSON-RPC | `https://sepolia.gateway.tenderly.co` | `0xaa36a7`; recent and old ok; unknown → `null` |
+| BNB Smart Chain | JSON-RPC | `https://bsc-dataseed.bnbchain.org` | `0x38`; recent and old ok; unknown → `null` |
+| BSC Testnet | JSON-RPC | `https://data-seed-prebsc-1-s1.bnbchain.org:8545` | `0x61`; recent and old ok; unknown → `null` |
+| Polygon | JSON-RPC | `https://polygon.gateway.tenderly.co` | `0x89`; recent and old ok; unknown → `null` |
+| Polygon Amoy | JSON-RPC | `https://polygon-amoy.gateway.tenderly.co` | `0x13882`; recent and old ok; unknown → `null` |
+| Arbitrum One | JSON-RPC | `https://arb1.arbitrum.io/rpc` | `0xa4b1`; recent and old ok; unknown → `null` |
+| Arbitrum Sepolia | JSON-RPC | `https://sepolia-rollup.arbitrum.io/rpc` | `0x66eee`; recent and old ok; unknown → `null` |
+| Base | JSON-RPC | `https://mainnet.base.org` | `0x2105`; recent and old ok; unknown → `null` |
+| Base Sepolia | JSON-RPC | `https://base-sepolia.gateway.tenderly.co` | `0x14a34`; recent and old ok; unknown → `null` |
+| Solana | JSON-RPC | `https://solana-rpc.publicnode.com` | `getTransaction` ok; unknown → `null`; **keeps only about the last 2 to 3 days** (`getFirstAvailableBlock`), see below |
+| Solana Devnet | JSON-RPC | `https://api.devnet.solana.com` | `getTransaction` ok for recent, 30-day-old, and old; unknown → `null` |
+| Tron | HTTP API | `https://api.trongrid.io` | `/wallet/gettransactionbyid` and `/wallet/gettransactioninfobyid` ok |
+| Tron Nile | HTTP API | `https://nile.trongrid.io` | same calls ok |
+| Bitcoin | Esplora REST | `https://mempool.space/api` | `/tx/:txid` and `/tx/:txid/status` ok for recent and old; unknown → HTTP 404 |
+| Bitcoin Testnet4 | Esplora REST | `https://mempool.space/testnet4/api` | same |
 
-Rejected during the check: `polygon-rpc.com` (HTTP 401, "tenant disabled"), `rpc-amoy.polygon.technology` (no response), `api.mainnet-beta.solana.com` (HTTP 403 "Access forbidden" for `getSlot` and `getHealth` from the test network).
+Replaced on 2026-11-17 (they answered, but would have shown a real transaction as "not found"):
 
-Testnet choices: Sepolia for Ethereum, Arbitrum, and Base; Amoy for Polygon; Devnet for Solana; Nile for Tron; Testnet4 for Bitcoin [PROPOSAL] (one testnet per chain, PRD decision OQ-29).
+* `ethereum-rpc.publicnode.com`, `ethereum-sepolia-rpc.publicnode.com`, `polygon-amoy-bor-rpc.publicnode.com`: return `null` for a transaction older than their retention window.
+* `polygon-bor-rpc.publicnode.com`: answers any hash it does not hold, unknown or old, with HTTP 403 "Archive requests require a personal token".
+* `sepolia.base.org`: "pruned history unavailable" for old blocks.
 
-Explorer URL templates (FR-043) and built-in faucet links (FR-072) are written into `networks.ts` in slice 1c and checked by hand then. [VERIFY]
+Tenderly's gateways are public and need no key ("without one, requests go to the public Tenderly RPC endpoint, which carries public endpoint limits", docs.tenderly.co, Node RPC reference). Five networks now depend on one provider; each can be overridden in Settings.
+
+Also tried and rejected (from this network, in a browser): `eth.llamarpc.com`, `eth.merkle.io`, `polygon.llamarpc.com`, `polygon-mainnet.public.blastapi.io`, `rpc.sepolia.org`, `rpc-amoy.polygon.technology` (failed to fetch); `rpc.flashbots.net` (pruned); `1rpc.io/matic`, `polygon-amoy.drpc.org` (old tx `null`); `1rpc.io/sepolia` (HTTP 429); `sepolia.drpc.org`, `solana.drpc.org` (paid plan only); `polygon-rpc.com` (HTTP 401); `api.mainnet-beta.solana.com` (HTTP 403). Passed but not chosen: `eth.drpc.org`, `eth-mainnet.public.blastapi.io`, `rpc.mevblocker.io`, `polygon.drpc.org`.
+
+Solana mainnet: no keyless endpoint with full history passed. The default stays, and a "not found" on Solana mainnet adds that the default endpoint keeps only recent days and suggests an override with full history (`docs/design.md` section 7).
+
+Bitcoin: mempool.space timed out from the test network in the first runs of the day and answered later, from the same network, in both browsers. `blockstream.info/api` (also `/testnet4/api`) passed the same checks and is the documented alternative; on the test network its name is blocked by the ISP's DNS filter, so it was reached by IP. Either can fail on a filtered network, which FR-042 AC-3 reports as a connection error, not as "not found".
+
+Testnet choices: Sepolia for Ethereum, Arbitrum, and Base; Amoy for Polygon; Devnet for Solana; Nile for Tron; Testnet4 for Bitcoin (one testnet per chain, PRD decision OQ-29).
+
+### 5.1 Explorer URL templates (FR-043)
+
+Checked 2026-11-17 by opening each template with a transaction from the check above in Chromium: the page showed the hash. `{hash}` is the transaction hash or signature as entered.
+
+| Network | Template | Check |
+| --- | --- | --- |
+| Ethereum | `https://etherscan.io/tx/{hash}` | ok |
+| Ethereum Sepolia | `https://sepolia.etherscan.io/tx/{hash}` | ok |
+| BNB Smart Chain | `https://bscscan.com/tx/{hash}` | bot check in automation; owner to open by hand |
+| BSC Testnet | `https://testnet.bscscan.com/tx/{hash}` | bot check; owner to open by hand |
+| Polygon | `https://polygonscan.com/tx/{hash}` | ok |
+| Polygon Amoy | `https://amoy.polygonscan.com/tx/{hash}` | ok |
+| Arbitrum One | `https://arbiscan.io/tx/{hash}` | ok |
+| Arbitrum Sepolia | `https://sepolia.arbiscan.io/tx/{hash}` | ok |
+| Base | `https://basescan.org/tx/{hash}` | ok |
+| Base Sepolia | `https://sepolia.basescan.org/tx/{hash}` | bot check; owner to open by hand |
+| Solana | `https://explorer.solana.com/tx/{hash}` | ok |
+| Solana Devnet | `https://explorer.solana.com/tx/{hash}?cluster=devnet` | ok |
+| Tron | `https://tronscan.org/#/transaction/{hash}` | bot check; owner to open by hand |
+| Tron Nile | `https://nile.tronscan.org/#/transaction/{hash}` | ok |
+| Bitcoin | `https://mempool.space/tx/{hash}` | ok |
+| Bitcoin Testnet4 | `https://mempool.space/testnet4/tx/{hash}` | ok |
+
+The bot-check pages are the same explorer families as passing ones (Etherscan's `/tx/`, Tronscan's `#/transaction/`), so the templates are expected to work [ASSUMPTION]; QAnchor does not try to get past a bot check.
+
+### 5.2 Built-in faucet links (FR-072)
+
+Checked 2026-11-17: each page loaded in Chromium and is a faucet for that network. Sources: the chains' own docs where they list faucets (Base, Arbitrum, Tron, the Bitcoin Wiki for Testnet4).
+
+| Network | Faucets |
+| --- | --- |
+| Ethereum Sepolia | `https://cloud.google.com/application/web3/faucet/ethereum/sepolia`, `https://faucets.chain.link/sepolia`, `https://www.alchemy.com/faucets/ethereum-sepolia` |
+| BSC Testnet | `https://www.bnbchain.org/en/testnet-faucet` |
+| Polygon Amoy | `https://faucet.polygon.technology/` (bot check in automation; owner to open by hand) |
+| Arbitrum Sepolia | `https://arbitrum.faucet.dev/`, `https://faucets.chain.link/arbitrum-sepolia`, `https://www.alchemy.com/faucets/arbitrum-sepolia` |
+| Base Sepolia | `https://www.alchemy.com/faucets/base-sepolia`, `https://portal.cdp.coinbase.com/onchain-tools/faucet` (connection refused from the test network; owner to open by hand) |
+| Solana Devnet | `https://faucet.solana.com/` |
+| Tron Nile | `https://nileex.io/join/getJoinPage` |
+| Bitcoin Testnet4 | `https://mempool.space/testnet4/faucet`, `https://coinfaucet.eu/en/btc-testnet4/` |
+
+Rejected: `faucet.testnet4.dev` (listed on the Bitcoin Wiki; the domain is now for sale). Mainnets have no faucet; the tracker shows "no faucet listed" (FR-072 AC-3).
 
 ## 6. Conventions
 

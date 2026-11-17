@@ -365,6 +365,7 @@ Tx lookup errors (FR-042). Each is a danger callout with Retry; focus moves to i
 | Case | Copy |
 | --- | --- |
 | Not found | "Transaction not found on <network>. Check that the selected network is the one the transaction was sent on." |
+| Not found, Solana mainnet on the default endpoint | The not-found copy, plus: "The default Solana endpoint keeps only the last few days of transactions. For an older one, set an endpoint with full history in Settings." (T-035) |
 | Rate limited | "<host> is rate-limiting requests. Try again later or set your own endpoint in Settings." |
 | Connection (offline, DNS, CORS) | "Could not reach <host>. The request did not complete, so this says nothing about whether the transaction exists." |
 | Timeout | "No response from <host> within 10 seconds." |
