@@ -1,0 +1,74 @@
+{
+	"network": "solana",
+	"recordedAt": "2026-11-17",
+	"signature": "56MKLzSffLE68rSdSjAS5q5wY7Rnixn9prjW786xPebWoyAZNNZqy959VwXW5GeHm9jSSA1whKUXqu5uh6qF4Sbq",
+	"transaction": {
+		"blockTime": 1794910246,
+		"meta": {
+			"computeUnitsConsumed": 450,
+			"costUnits": 1784,
+			"err": null,
+			"fee": 5050,
+			"innerInstructions": [],
+			"loadedAddresses": {
+				"readonly": [],
+				"writable": []
+			},
+			"logMessages": [
+				"Program ComputeBudget111111111111111111111111111111 invoke [1]",
+				"Program ComputeBudget111111111111111111111111111111 success",
+				"Program ComputeBudget111111111111111111111111111111 invoke [1]"
+			],
+			"postBalances": [0, 2068605, 1, 1],
+			"postTokenBalances": [],
+			"preBalances": [2073655, 0, 1, 1],
+			"preTokenBalances": [],
+			"rewards": [],
+			"status": {
+				"Ok": null
+			}
+		},
+		"slot": 470495358,
+		"transaction": {
+			"message": {
+				"accountKeys": [
+					"4YWqv92DpCqcR9EtEsnXRpGRWa5Pv6kL7REMeuV1ACyw",
+					"Ho7m3UceyWmyywaPoNuoHEDGWdvN2TAZfELPJU33D9QF",
+					"11111111111111111111111111111111",
+					"ComputeBudget111111111111111111111111111111"
+				],
+				"header": {
+					"numReadonlySignedAccounts": 0,
+					"numReadonlyUnsignedAccounts": 2,
+					"numRequiredSignatures": 1
+				},
+				"instructions": [
+					{
+						"accounts": [],
+						"data": "JC3gyu",
+						"programIdIndex": 3,
+						"stackHeight": 1
+					},
+					{
+						"accounts": [],
+						"data": "3vGhvZn9zGuM",
+						"programIdIndex": 3,
+						"stackHeight": 1
+					},
+					{
+						"accounts": [0, 1],
+						"data": "3Bxs4Mrn6r9RFcjZ",
+						"programIdIndex": 2,
+						"stackHeight": 1
+					}
+				],
+				"recentBlockhash": "4uNPFP6azAes2fK54H2BYi4cp1jv1vZg2ChVksTUDTYE"
+			},
+			"signatures": [
+				"56MKLzSffLE68rSdSjAS5q5wY7Rnixn9prjW786xPebWoyAZNNZqy959VwXW5GeHm9jSSA1whKUXqu5uh6qF4Sbq"
+			]
+		},
+		"transactionIndex": 1,
+		"version": "legacy"
+	}
+}

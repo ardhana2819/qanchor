@@ -251,6 +251,17 @@ Decided by the owner, both as recommended.
 * Bitcoin defaults to mempool.space (mainnet and Testnet4), now verified; `blockstream.info` is the documented alternative.
 * Explorer URL templates and built-in faucet links are the lists in `docs/architecture.md` sections 5.1 and 5.2. Four explorer pages and one faucet show a bot check to automation and are opened by hand by the owner.
 
+### 2026-11-17: Transaction parsers, EVM and Solana (T-038)
+
+Implementation choices inside the approved architecture; none changes a requirement.
+
+* `TxResult.valueBase` may be `null` (was `bigint`). Why: Solana's `getTransaction` returns nothing for a transaction that is only "processed", so its value is unknown, and FR-040 AC-3 forbids showing an unknown field as zero. `docs/architecture.md` section 3 updated.
+* A Solana lookup asks `getSignatureStatuses` (with `searchTransactionHistory`) first: no entry means not found, "processed" means pending, and only a confirmed or finalized signature is fetched with `getTransaction` (encoding `json`, commitment `confirmed`). The lookup itself is built in T-040.
+* Solana value and recipient: the SOL moved by top-level System Program transfers, read exactly from the instruction data (not from JSON numbers, which lose precision above 2^53); the recipient is shown only when every transfer goes to one account; the sender is the fee payer. A transaction that only calls other programs shows value 0 and no recipient.
+* EVM fee: gas used × effective gas price, plus `l1Fee` on OP Stack chains (Base); Arbitrum already counts its L1 cost in gas used. Receipts without `effectiveGasPrice` (pre-London) fall back to the transaction's `gasPrice`.
+* Known limit: receipts from before the Byzantium fork (Ethereum mainnet before block 4,370,000) have no `status`, so such a transaction is reported as an unexpected response instead of success or failure.
+* Each parser checks that the node answered for the hash or signature that was asked; anything else is a bad response.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

@@ -168,7 +168,7 @@ interface TxResult {
   block: string | null;   // block number or slot; null while pending
   from: string | null;    // null for Bitcoin, which has inputs instead
   to: string | null;
-  valueBase: bigint;      // smallest unit
+  valueBase: bigint | null; // smallest unit; null when not known yet (Solana pending)
   fee: bigint | null;     // null while pending (FR-040 AC-3)
   extra: EvmExtra | BitcoinExtra | SolanaExtra | TronExtra;
 }
