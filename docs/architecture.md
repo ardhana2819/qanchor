@@ -224,7 +224,7 @@ sequenceDiagram
   P->>P: Render result, or error callout with Retry and focus
 ```
 
-* `LookupError.code` is one of `not-found`, `rate-limited`, `network`, `timeout`, `bad-response`, `chain-mismatch`, each mapped to the copy in `docs/design.md` section 7 (FR-042).
+* `LookupError.code` is one of `not-found`, `rate-limited`, `network`, `timeout`, `bad-response`, `chain-mismatch`, each mapped to the copy in `docs/design.md` section 7 (FR-042). A seventh code, `aborted`, means the caller cancelled (a newer lookup, or the page was left); it is never shown (T-036).
 * The page owns an `AbortController`; unmounting aborts the request (FR-040 AC-5, NFR-019).
 
 ## 5. Default endpoints
