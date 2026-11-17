@@ -1,0 +1,53 @@
+{
+	"network": "tron",
+	"recordedAt": "2026-11-17",
+	"txID": "3ad626f721e3edb1bbf5a3fe88cddb91a9d8b4c501ba312ff01d516431106f3f",
+	"transaction": {
+		"raw_data": {
+			"ref_block_bytes": "002c",
+			"ref_block_hash": "dc6b84f00d4676c1",
+			"expiration": 1794915390000,
+			"contract": [
+				{
+					"parameter": {
+						"value": {
+							"owner_address": "TXJUdEr9pn2WDMZArDxfqwV9yPARF2ZkvY",
+							"contract_address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+							"data": "a9059cbb000000000000000000000000ce32913dbb3cfe4a8d08850deb01ba58b9d40e7b00000000000000000000000000000000000000000000000000000000038444c0"
+						},
+						"type_url": "type.googleapis.com/protocol.TriggerSmartContract"
+					},
+					"type": "TriggerSmartContract"
+				}
+			],
+			"timestamp": 1794915332760,
+			"fee_limit": 150000000
+		},
+		"signature": [
+			"5fba61a3ecb9939905acc5e2370b2d487e58d6ebea17b7a61b4ccbf0c9abf17c0db16793730b8a7e029998e73a4d1e320365bac8cbbfcafd5a605e862b62aa681c"
+		],
+		"ret": [
+			{
+				"contractRet": "SUCCESS"
+			}
+		],
+		"raw_data_hex": "0a02002c2208dc6b84f00d4676c140b0a4adca9e345aae01081f12a9010a31747970652e676f6f676c65617069732e636f6d2f70726f746f636f6c2e54726967676572536d617274436f6e747261637412740a1541e9ff963a4e1e7a9ed592dbf130523db8c563b0c8121541a614f803b6fd780986a42c78ec9c7f77e6ded13c2244a9059cbb000000000000000000000000ce32913dbb3cfe4a8d08850deb01ba58b9d40e7b00000000000000000000000000000000000000000000000000000000038444c07098e5a9ca9e34900180a3c347",
+		"txID": "3ad626f721e3edb1bbf5a3fe88cddb91a9d8b4c501ba312ff01d516431106f3f"
+	},
+	"info": {
+		"id": "3ad626f721e3edb1bbf5a3fe88cddb91a9d8b4c501ba312ff01d516431106f3f",
+		"fee": 345000,
+		"blockNumber": 88080448,
+		"blockTimeStamp": 1794915336000,
+		"contractResult": ["0000000000000000000000000000000000000000000000000000000000000000"],
+		"contract_address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+		"receipt": {
+			"energy_usage": 130284,
+			"origin_energy_usage": 1,
+			"energy_usage_total": 130285,
+			"net_fee": 345000,
+			"result": "SUCCESS",
+			"energy_penalty_total": 100635
+		}
+	}
+}
