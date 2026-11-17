@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { appOpened } from './helpers.ts';
 
@@ -88,6 +89,35 @@ test('checklists', async ({ page }) => {
 	await once(page, ['checklists-copy-markdown']);
 	await each(page, 'checklists-section', 5);
 	await each(page, 'checklists-item', 27);
+});
+
+test('tx lookup', async ({ page }) => {
+	await page.route('https://mempool.space/**', async (route) => {
+		const body = readFileSync('src/lib/core/tx/fixtures/bitcoin-confirmed.json', 'utf8');
+		await route.fulfill({
+			headers: { 'access-control-allow-origin': '*' },
+			body: JSON.stringify(JSON.parse(body).transaction)
+		});
+	});
+	await page.goto('/tx');
+	await appOpened(page);
+	await once(page, ['tx-network', 'tx-hash', 'tx-lookup', 'tx-progress']);
+
+	await page.getByTestId('tx-network').selectOption('bitcoin');
+	await page
+		.getByTestId('tx-hash')
+		.fill('ac634c3e67938e3ae0c0ee8471dcb1db9712c10d014054fea7aea3f6e443d933');
+	await once(page, ['tx-explorer']);
+	await page.getByTestId('tx-lookup').click();
+	await once(page, ['tx-result']);
+	await each(page, 'tx-row', 7);
+	await each(page, 'tx-input-row', 3);
+	await each(page, 'tx-output-row', 2);
+
+	await page.unrouteAll();
+	await page.route('https://mempool.space/**', (route) => route.abort('failed'));
+	await page.getByTestId('tx-lookup').click();
+	await once(page, ['tx-error', 'tx-retry']);
 });
 
 test('settings', async ({ page }) => {

@@ -271,6 +271,16 @@ Implementation choices inside the approved architecture (ADR-006); none changes 
 * Tron value: the `amount` of a TransferContract, or the `call_value` of a TriggerSmartContract (the contract is the recipient). Other contract types, TRC-10 transfers included, move no TRX and show value 0. Amounts are JSON numbers, so a value above 2^53 sun (about 9 billion TRX) is refused as an unexpected response rather than shown rounded.
 * Bitcoin: `from` and `to` are null and the inputs and outputs are listed instead (FR-040 AC-2); the value is the total of the outputs. A transaction is never "failed": it is confirmed (success) or in the mempool (pending). A pending transaction's fee is already fixed, so it is shown; `TxResult.fee` is null only where the fee is not known yet.
 
+### 2026-11-17: Tx lookup page (T-040)
+
+Implementation choices inside FR-040 to FR-043 and design S-05; none changes a requirement.
+
+* A pasted hash is accepted with or without `0x` and in either case, then sent in the form each chain expects (EVM `0x` + lower case; Tron and Bitcoin bare lower-case hex). Why: wallets and explorers copy both forms; the format check still runs before any request (FR-040 AC-4).
+* "Open in explorer" sits beside Look up and appears as soon as the hash is valid for the selected network, before any lookup (FR-043 AC-1). Its URL comes from `explorerTx` in `networks.ts`, which now also holds each network's native coin symbol.
+* A lookup waits for the stored endpoint overrides to be read, so it never goes to a default while an override exists. The result names the host it came from and says "(your endpoint)" for an override.
+* The result section is not a labelled landmark: with `aria-labelledby` on it, an axe scan crashed Playwright's Firefox once the error callout had focus. The heading is unchanged for sighted and screen-reader users.
+* `/tx` is added to the cross-cutting route lists (idle network, keyboard focus ring, long tasks) now rather than in T-046.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

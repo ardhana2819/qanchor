@@ -13,6 +13,7 @@ const ROUTES = [
 	'/address',
 	'/amounts',
 	'/units',
+	'/tx',
 	'/dummy-data',
 	'/checklists',
 	'/checklists/deposit',
@@ -23,6 +24,7 @@ const TOOL_ROUTES = [
 	'/address',
 	'/amounts',
 	'/units',
+	'/tx',
 	'/dummy-data',
 	'/checklists',
 	'/checklists/deposit'
