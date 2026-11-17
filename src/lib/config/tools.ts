@@ -49,6 +49,14 @@ export const tools: readonly ToolEntry[] = [
 		icon: 'swap'
 	},
 	{
+		route: '/tx',
+		name: 'Tx lookup',
+		description:
+			'Status, block, sender, recipient, value, and fee of a transaction on EVM chains, Solana, Tron, or Bitcoin, straight from the chain.',
+		group: 'Blockchain',
+		icon: 'search'
+	},
+	{
 		route: '/dummy-data',
 		name: 'Dummy data',
 		description:

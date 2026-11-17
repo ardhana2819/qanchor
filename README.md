@@ -15,6 +15,7 @@ Shipped:
 | Address generator and validator | `/address` | Valid, invalid, and risky test addresses for EVM, Bitcoin (P2PKH, P2SH, P2WPKH, P2TR; mainnet and testnet), Solana, and Tron, generated in a Web Worker from the browser's CSPRNG. Paste an address to get its chain, type, network, and the exact defect. No private key is ever shown or stored. |
 | Amount edge cases | `/amounts` | Edge-case amounts from token decimals, balance, fee, and limits: dust, too many decimals, comma vs dot, scientific notation, fee greater than balance, above max. Exact BigInt arithmetic up to 36 decimals. |
 | Unit converter | `/units` | Exact conversion between wei/gwei/ether, sats/BTC, lamports/SOL, sun/TRX, and custom token decimals. |
+| Tx lookup | `/tx` | Status, block or slot, sender, recipient, value (in the coin and its smallest unit), and fee of a transaction on Ethereum, BNB Smart Chain, Polygon, Arbitrum, Base, Solana, Tron, or Bitcoin, mainnet or testnet. Bitcoin shows inputs and outputs. The request goes from the browser straight to the network's endpoint (public by default, or your own from Settings); EVM endpoints are checked for the right chain ID first. Pending transactions are shown as pending, errors say what failed and offer Retry, and every hash links to the network's explorer. |
 | Dummy data | `/dummy-data` | Fake Indonesian test identities: names, NIK, NPWP, +62 phones, addresses with consistent region codes, and bank accounts. Up to 10,000 rows per run, generated in a Web Worker from a seed, so the same seed gives the same rows. Presets for KYC, underage, name edge cases, invalid formats (with the reason per row), and duplicate NIK. Export as CSV, JSON, or SQL `INSERT` (PostgreSQL or MySQL quoting). |
 | Checklists | `/checklists` | Test checklists for deposit, withdraw, swap, staking, network mismatch, memo and tag (XRP, XLM, TON), and stocks: 173 one-sentence items under headings. Filter across all of them, open one on its own page, and copy it as a Markdown task list. |
 
@@ -24,7 +25,7 @@ Interactive elements have accessible names, and dynamic output also carries a st
 
 ## Roadmap
 
-* Phase 1, slice 1c: transaction lookup over public endpoints (EVM chains, Solana, Tron, Bitcoin), EVM calldata decoder, testnet wallet tracker with faucet links.
+* Phase 1, slice 1c (rest): EVM calldata decoder, testnet wallet tracker with faucet links.
 * Phase 2: test cases, test runs with screenshots, Jira-format bug reports, exploratory session notes, release summary.
 * Phase 3: generate test cases from a PRD (PDF, DOCX, Markdown) with ambiguity questions and a traceability matrix, using your own Claude API key.
 * Phase 4: demo mode with a sample crypto PRD, usable without an API key.

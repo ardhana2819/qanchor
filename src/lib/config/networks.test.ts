@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NETWORKS, networkById } from './networks.ts';
+import { explorerTxUrl, NETWORKS, networkById } from './networks.ts';
 
 describe('NETWORKS', () => {
 	it('has a mainnet and one testnet for each of the eight chains (OQ-29)', () => {
@@ -31,6 +31,21 @@ describe('NETWORKS', () => {
 			expect(new URL(n.defaultUrl).protocol).toBe('https:');
 			expect(n.defaultUrl.endsWith('/')).toBe(false);
 		}
+	});
+
+	it('has an https explorer template with one {hash} for every network (FR-043)', () => {
+		for (const n of NETWORKS) {
+			expect(new URL(n.explorerTx.replace('{hash}', 'x')).protocol).toBe('https:');
+			expect(n.explorerTx.split('{hash}')).toHaveLength(2);
+			expect(n.symbol).toMatch(/^[A-Z]+$/);
+		}
+	});
+
+	it('fills the explorer template with the hash', () => {
+		expect(explorerTxUrl(networkById('solana-devnet')!, 'abc')).toBe(
+			'https://explorer.solana.com/tx/abc?cluster=devnet'
+		);
+		expect(explorerTxUrl(networkById('tron')!, 'ff')).toBe('https://tronscan.org/#/transaction/ff');
 	});
 
 	it('finds a network by id, and nothing for an unknown id', () => {
