@@ -1,0 +1,18 @@
+{
+	"network": "solana",
+	"recordedAt": "2026-11-17",
+	"method": "getSignatureStatuses",
+	"signature": "56MKLzSffLE68rSdSjAS5q5wY7Rnixn9prjW786xPebWoyAZNNZqy959VwXW5GeHm9jSSA1whKUXqu5uh6qF4Sbq",
+	"result": {
+		"context": { "apiVersion": "4.4.1", "slot": 470495467 },
+		"value": [
+			{
+				"confirmationStatus": "finalized",
+				"confirmations": null,
+				"err": null,
+				"slot": 470495358,
+				"status": { "Ok": null }
+			}
+		]
+	}
+}
