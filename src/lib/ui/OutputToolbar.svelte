@@ -19,9 +19,11 @@
 		fields: readonly string[];
 		/** File name without extension, e.g. "addresses-evm". */
 		filename: string;
+		/** Prefix for the toolbar's `data-testid`s, e.g. "address" (decisions 2026-11-16). */
+		testIdPrefix: string;
 	}
 
-	let { summary, records, fields, filename }: Props = $props();
+	let { summary, records, fields, filename, testIdPrefix }: Props = $props();
 
 	let format: ExportFormat = $state('csv');
 	// Disabled until there is output (FR-012 AC-2, FR-083 AC-5).
@@ -38,18 +40,23 @@
 </script>
 
 <div class="toolbar">
-	<p class="summary">{summary}</p>
+	<p class="summary" data-testid="{testIdPrefix}-result-count">{summary}</p>
 	<div class="actions">
-		<Button size="sm" disabled={empty} onclick={copyAll}>Copy all</Button>
+		<Button size="sm" disabled={empty} onclick={copyAll} data-testid="{testIdPrefix}-copy-all">
+			Copy all
+		</Button>
 		<span class="format">
 			<Select
 				aria-label="Export format"
 				options={EXPORT_FORMATS}
 				disabled={empty}
+				data-testid="{testIdPrefix}-export-format"
 				bind:value={format}
 			/>
 		</span>
-		<Button size="sm" disabled={empty} onclick={download}>Download</Button>
+		<Button size="sm" disabled={empty} onclick={download} data-testid="{testIdPrefix}-download">
+			Download
+		</Button>
 	</div>
 </div>
 

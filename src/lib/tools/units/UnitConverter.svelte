@@ -102,6 +102,7 @@
 					aria-label="Unit family"
 					options={familyOptions}
 					value={familyId}
+					data-testid="units-family"
 					onchange={(event) => onFamilyChange(event.currentTarget.value as FamilyId)}
 				/>
 			</div>
@@ -119,6 +120,7 @@
 						<TextInput
 							{...control}
 							inputmode="numeric"
+							data-testid="units-decimals"
 							value={decimalsText}
 							oninput={(event) => onDecimalsInput(event.currentTarget.value)}
 						/>
@@ -143,15 +145,19 @@
 						value={values[unit.id] ?? ''}
 						aria-invalid={showError ? 'true' : undefined}
 						aria-describedby={showError ? `${inputId}-error` : undefined}
+						data-testid="units-input-{unit.id}"
 						oninput={(event) => onUnitInput(unit.id, event.currentTarget.value)}
 					/>
 					<CopyButton
 						value={values[unit.id] ?? ''}
 						label="Copy {unit.name}"
 						disabled={!values[unit.id]}
+						data-testid="units-copy-{unit.id}"
 					/>
 					{#if showError}
-						<p class="error" id="{inputId}-error"><Icon name="warning" size={14} />{error}</p>
+						<p class="error" id="{inputId}-error" data-testid="units-error">
+							<Icon name="warning" size={14} />{error}
+						</p>
 					{/if}
 				</div>
 			{/each}

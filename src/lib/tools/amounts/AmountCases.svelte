@@ -92,6 +92,7 @@
 					{...control}
 					options={PRESET_OPTIONS}
 					value={preset}
+					data-testid="amounts-preset"
 					onchange={(event) => choosePreset(event.currentTarget.value as PresetId)}
 				/>
 			{/snippet}
@@ -101,6 +102,7 @@
 				<TextInput
 					{...control}
 					inputmode="numeric"
+					data-testid="amounts-decimals"
 					value={values.decimals}
 					oninput={(event) => onDecimalsInput(event.currentTarget.value)}
 				/>
@@ -111,7 +113,13 @@
 		{#each OPTIONAL_FIELDS as field (field.key)}
 			<Field label={field.label} hint="Optional, in token units." error={errors[field.key]}>
 				{#snippet children(control)}
-					<TextInput {...control} mono inputmode="decimal" bind:value={values[field.key]} />
+					<TextInput
+						{...control}
+						mono
+						inputmode="decimal"
+						data-testid="amounts-{field.key}"
+						bind:value={values[field.key]}
+					/>
 				{/snippet}
 			</Field>
 		{/each}
@@ -120,7 +128,9 @@
 		<span class="summary">
 			{form.ok ? `Decimals ${form.params.decimals}` : 'Enter the decimals to generate.'}
 		</span>
-		<Button type="submit" variant="primary" disabled={!form.ok}>Generate</Button>
+		<Button type="submit" variant="primary" disabled={!form.ok} data-testid="amounts-generate">
+			Generate
+		</Button>
 	{/snippet}
 </FormPanel>
 
@@ -128,7 +138,7 @@
 	<h2 id="results">Results</h2>
 
 	{#if result && result.omitted.length > 0}
-		<div class="omitted">
+		<div class="omitted" data-testid="amounts-omitted">
 			<Callout variant="info" title="{cases(omittedCount)} omitted">
 				<ul>
 					{#each result.omitted as group (group.cases.join())}
@@ -148,11 +158,23 @@
 		}))}
 		fields={['input', 'category', 'purpose']}
 		filename={result ? `amount-cases-d${result.decimals}` : 'amount-cases'}
+		testIdPrefix="amounts"
 	/>
 	{#if rows.length > 0}
-		<DataTable caption="Edge-case amounts" {columns} {rows} rowKey={(row) => row.id}>
+		<DataTable
+			caption="Edge-case amounts"
+			{columns}
+			{rows}
+			rowKey={(row) => row.id}
+			rowTestId="amounts-result-row"
+		>
 			{#snippet actions(row)}
-				<CopyButton label="Copy input {row.index}" value={row.input} size="sm" />
+				<CopyButton
+					label="Copy input {row.index}"
+					value={row.input}
+					size="sm"
+					data-testid="amounts-copy"
+				/>
 			{/snippet}
 		</DataTable>
 	{:else}

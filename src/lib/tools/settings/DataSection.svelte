@@ -169,8 +169,14 @@
 	</p>
 
 	<div class="actions">
-		<Button disabled={!ready || busy !== null} onclick={exportBackup}>Export backup</Button>
-		<Button disabled={!ready || busy !== null} onclick={() => fileInput?.click()}>
+		<Button disabled={!ready || busy !== null} onclick={exportBackup} data-testid="settings-export">
+			Export backup
+		</Button>
+		<Button
+			disabled={!ready || busy !== null}
+			onclick={() => fileInput?.click()}
+			data-testid="settings-import"
+		>
 			Import backup…
 		</Button>
 		<input
@@ -180,21 +186,24 @@
 			accept="application/json,.json"
 			aria-label="Backup file to import"
 			tabindex="-1"
+			data-testid="settings-import-file"
 			onchange={onFileChosen}
 		/>
 	</div>
 
 	{#if storage.status === 'checking'}
-		<p class="status">Checking storage…</p>
+		<p class="status" data-testid="settings-status">Checking storage…</p>
 	{:else if !ready}
-		<p class="status">Export and import need storage, which is unavailable in this tab.</p>
+		<p class="status" data-testid="settings-status">
+			Export and import need storage, which is unavailable in this tab.
+		</p>
 	{:else if busy === 'reading'}
-		<p class="status">Reading file…</p>
+		<p class="status" data-testid="settings-status">Reading file…</p>
 	{:else if busy === 'writing'}
-		<p class="status">Importing…</p>
+		<p class="status" data-testid="settings-status">Importing…</p>
 	{/if}
 
-	<div class="outcome" bind:this={outcomeBox}>
+	<div class="outcome" bind:this={outcomeBox} data-testid="settings-outcome">
 		{#if outcome}
 			<Callout
 				variant={outcome.kind === 'danger' ? 'danger' : 'info'}
@@ -218,7 +227,7 @@
 				pending.backup.exportedAt
 			)}.
 		</p>
-		<table class="counts">
+		<table class="counts" data-testid="settings-import-counts">
 			<caption class="visually-hidden">Stored now and after the import</caption>
 			<thead>
 				<tr>
@@ -248,7 +257,9 @@
 	{/if}
 	{#snippet actions()}
 		<Button onclick={() => closeDialog(true)}>Cancel</Button>
-		<Button variant="danger" onclick={confirmImport}>Replace all data</Button>
+		<Button variant="danger" onclick={confirmImport} data-testid="settings-confirm-import">
+			Replace all data
+		</Button>
 	{/snippet}
 </Dialog>
 

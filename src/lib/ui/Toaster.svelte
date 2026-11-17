@@ -11,7 +11,12 @@
 <div class="visually-hidden" aria-live="polite" aria-atomic="true">{notify.announcement}</div>
 
 <!-- Not a live region itself: the region above already reads the message once. -->
-<div class="toast" class:visible={notify.toast !== ''} aria-hidden={notify.toast === ''}>
+<div
+	class="toast"
+	data-testid="app-toast"
+	class:visible={notify.toast !== ''}
+	aria-hidden={notify.toast === ''}
+>
 	{shown}
 </div>
 

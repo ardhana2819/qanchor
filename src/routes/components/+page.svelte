@@ -233,6 +233,7 @@
 		}))}
 		fields={['index', 'address', 'variant']}
 		filename="example-rows"
+		testIdPrefix="components"
 	/>
 	{#if rows.length > 0}
 		<DataTable caption="Generated example rows" {columns} {rows} rowKey={(row) => row.id}>
