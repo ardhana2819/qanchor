@@ -28,6 +28,8 @@ export interface Storage {
 		store: S,
 		records: readonly StoreValue<QAnchorDB, S>[]
 	): Promise<Result<void, StorageErrorCode>>;
+	/** Removes one record by key; a key that is not stored is not an error. */
+	deleteOne<S extends StoreName>(store: S, key: string): Promise<Result<void, StorageErrorCode>>;
 	/** Every store, read in one transaction so the counts are consistent. */
 	readRecords(): Promise<Result<StoredRecords, StorageErrorCode>>;
 	/**
@@ -82,6 +84,15 @@ function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
 				await commit(transaction, () => {
 					for (const record of records) void track(transaction.store.put(record));
 				});
+				return ok(undefined);
+			} catch (error) {
+				return err(classify(error));
+			}
+		},
+
+		async deleteOne(store, key) {
+			try {
+				await db.delete(store, key);
 				return ok(undefined);
 			} catch (error) {
 				return err(classify(error));

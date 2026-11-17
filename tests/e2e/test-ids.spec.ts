@@ -99,6 +99,18 @@ test('settings', async ({ page }) => {
 		'settings-import-file',
 		'settings-outcome'
 	]);
+	await each(page, 'settings-endpoint-row', 16);
+	await each(page, 'settings-endpoint-edit', 16);
+
+	await page.locator('[data-network="eth"]').getByTestId('settings-endpoint-edit').click();
+	await once(page, [
+		'settings-endpoint-input',
+		'settings-endpoint-save',
+		'settings-endpoint-cancel'
+	]);
+	await page.getByTestId('settings-endpoint-input').fill('https://rpc.example.dev');
+	await page.getByTestId('settings-endpoint-save').click();
+	await once(page, ['settings-endpoint-reset']);
 });
 
 test('app shell', async ({ page }) => {

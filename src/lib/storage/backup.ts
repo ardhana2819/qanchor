@@ -1,3 +1,5 @@
+import { networkById } from '#lib/config/networks.ts';
+import { parseEndpointUrl } from '#lib/core/endpoint-url.ts';
 import { err, ok, type Result } from '#lib/core/result.ts';
 import type { ThemePreference } from '#lib/state/theme.svelte.ts';
 import { DB_VERSION, type EndpointOverride, type Faucet, type Wallet } from './schema.ts';
@@ -92,12 +94,19 @@ function fields<T>(checks: { [K in keyof T]: () => Result<T[K], string> }): Resu
 const CHAINS: readonly Wallet['chain'][] = ['evm', 'bitcoin', 'solana', 'tron'];
 const THEMES: readonly ThemePreference[] = ['system', 'light', 'dark'];
 
+/** An override must name a known network and pass the same URL rule as Settings (FR-041 AC-2). */
 const endpointGuard: Guard<EndpointOverride> = (value, name) => {
 	if (!isObject(value)) return err(`${name} is not a record.`);
-	return fields<EndpointOverride>({
+	const record = fields<EndpointOverride>({
 		networkId: () => text(value, 'networkId', name),
 		url: () => text(value, 'url', name)
 	});
+	if (!record.ok) return record;
+	const network = networkById(record.value.networkId);
+	if (!network) return err(`${name} is for an unknown network ("${record.value.networkId}").`);
+	const url = parseEndpointUrl(record.value.url, { appendsPaths: network.protocol !== 'json-rpc' });
+	if (!url.ok) return err(`${name} (${network.name}) does not have a valid https URL.`);
+	return ok({ networkId: network.id, url: url.value });
 };
 
 const walletGuard: Guard<Wallet> = (value, name) => {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import DataSection from '#lib/tools/settings/DataSection.svelte';
+	import EndpointsSection from '#lib/tools/settings/EndpointsSection.svelte';
 	import ThemeControl from '#lib/ui/ThemeControl.svelte';
 </script>
 
@@ -21,6 +22,10 @@
 		<p class="hint">System follows your operating system's setting.</p>
 	</div>
 </section>
+
+<div class="section">
+	<EndpointsSection />
+</div>
 
 <div class="section">
 	<DataSection />
