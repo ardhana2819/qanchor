@@ -242,6 +242,15 @@ The owner wants to practise writing their own Playwright tests against the live 
 * The project's own E2E tests stay role-first and do not use test ids.
 * Applied from T-031 on; the slice 1a pages get theirs in a small follow-up task (T-031a). The byte cost is negligible.
 
+### 2026-11-17: Default endpoints after the slice 1c re-check (T-035)
+
+Decided by the owner, both as recommended.
+
+* Ethereum, Ethereum Sepolia, Polygon, Polygon Amoy, and Base Sepolia default to Tenderly's keyless public gateways (`*.gateway.tenderly.co`). Why: the previous defaults (publicnode for four, `sepolia.base.org`) do not keep old transactions, so a real transaction would show as "Transaction not found"; Polygon's publicnode even answers an unknown hash with HTTP 403. Tenderly passed every check in Chromium and Firefox from the production origin. Accepted risk: five networks depend on one provider; each can be overridden (FR-041). Alternatives considered: mixing providers (another full-history Ethereum endpoint, Tenderly for the rest) and replacing only Polygon.
+* Solana mainnet keeps `solana-rpc.publicnode.com`, which holds only about the last 2 to 3 days of transactions; no keyless full-history endpoint passed. A "not found" on Solana mainnet says so and suggests an override (`docs/design.md` section 7). Alternative considered: no extra copy.
+* Bitcoin defaults to mempool.space (mainnet and Testnet4), now verified; `blockstream.info` is the documented alternative.
+* Explorer URL templates and built-in faucet links are the lists in `docs/architecture.md` sections 5.1 and 5.2. Four explorer pages and one faucet show a bot check to automation and are opened by hand by the owner.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
@@ -342,6 +351,7 @@ Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010
 * Decision: the defaults in `docs/architecture.md` section 5, checked on 2026-11-12. publicnode.com for Ethereum, Polygon, and Solana mainnet; chain operators' own endpoints for BNB, Arbitrum, Base, Solana Devnet, and Tron; mempool.space for Bitcoin, pending verification.
 * Rejected: `polygon-rpc.com` (HTTP 401), `rpc-amoy.polygon.technology` (no response), `api.mainnet-beta.solana.com` (HTTP 403 from the test network).
 * Consequences: the list is re-checked before slice 1c. Bitcoin defaults stay unlisted until a check succeeds.
+* Revised 2026-11-17 (T-035): the re-check also requires an old transaction to be found and an unknown hash to come back as "not found". Ethereum, Sepolia, Polygon, Amoy, and Base Sepolia move to Tenderly's public gateways; mempool.space is verified for Bitcoin. See the decision of 2026-11-17 and `docs/architecture.md` section 5.
 
 ### ADR-013: Errors as values in core and network code
 
