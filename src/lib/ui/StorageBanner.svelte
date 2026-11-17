@@ -10,7 +10,7 @@
 </script>
 
 {#if storage.status === 'unavailable'}
-	<div class="banner">
+	<div class="banner" data-testid="app-storage-banner">
 		<Callout variant="info">
 			<p>
 				Storage is unavailable in this browser session. Tools still work, but nothing will be saved.
@@ -18,7 +18,7 @@
 		</Callout>
 	</div>
 {:else if storage.status === 'outdated'}
-	<div class="banner">
+	<div class="banner" data-testid="app-storage-banner">
 		<Callout variant="warning" title="QAnchor was updated in another tab">
 			<p>Reload this tab to keep saving your changes.</p>
 			{#snippet action()}

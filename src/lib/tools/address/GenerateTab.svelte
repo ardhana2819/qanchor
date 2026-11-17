@@ -176,7 +176,12 @@
 		{/if}
 		<Field label="Valid addresses" hint="1 to 500" error={countError}>
 			{#snippet children(control)}
-				<TextInput {...control} inputmode="numeric" bind:value={countText} />
+				<TextInput
+					{...control}
+					inputmode="numeric"
+					data-testid="address-count"
+					bind:value={countText}
+				/>
 			{/snippet}
 		</Field>
 	</div>
@@ -206,7 +211,13 @@
 				plus one row per selected variant.
 			{/if}
 		</span>
-		<Button type="submit" variant="primary" loading={generating} disabled={count === null}>
+		<Button
+			type="submit"
+			variant="primary"
+			loading={generating}
+			disabled={count === null}
+			data-testid="address-generate"
+		>
 			{generating ? 'Generating…' : 'Generate'}
 		</Button>
 	{/snippet}
@@ -216,7 +227,7 @@
 	<div class="results-head">
 		<h2 id="results">Results</h2>
 		{#if rows.length > 0}
-			<span class="tally">
+			<span class="tally" data-testid="address-tally">
 				<Badge variant="success">{tally.valid} valid</Badge>
 				{#if tally.invalid > 0}<Badge variant="danger">{tally.invalid} invalid</Badge>{/if}
 				{#if tally.risky > 0}<Badge variant="warning">{tally.risky} risky</Badge>{/if}
@@ -225,7 +236,7 @@
 	</div>
 
 	{#if failure}
-		<div class="failure">
+		<div class="failure" data-testid="address-error">
 			<Callout variant="danger" title="Generation failed" role="alert">
 				<p>{failure}</p>
 			</Callout>
@@ -245,11 +256,23 @@
 		}))}
 		fields={['address', 'chain', 'type', 'network', 'validity', 'variantId', 'reason']}
 		filename={exportName}
+		testIdPrefix="address"
 	/>
 	{#if rows.length > 0}
-		<DataTable caption="Generated addresses" {columns} {rows} rowKey={(row) => row.id}>
+		<DataTable
+			caption="Generated addresses"
+			{columns}
+			{rows}
+			rowKey={(row) => row.id}
+			rowTestId="address-result-row"
+		>
 			{#snippet actions(row)}
-				<CopyButton label="Copy address {row.index}" value={row.address} size="sm" />
+				<CopyButton
+					label="Copy address {row.index}"
+					value={row.address}
+					size="sm"
+					data-testid="address-copy"
+				/>
 			{/snippet}
 		</DataTable>
 	{:else}

@@ -36,12 +36,12 @@
 <div class="validate">
 	<Field label="Address" hint="Paste one address. It is checked in this browser only.">
 		{#snippet children(control)}
-			<TextInput {...control} mono bind:value={text} />
+			<TextInput {...control} mono data-testid="address-validate-input" bind:value={text} />
 		{/snippet}
 	</Field>
 
 	<!-- role="status" is a polite live region: the verdict is read when typing pauses. -->
-	<div class="verdict" role="status" aria-label="Verdict">
+	<div class="verdict" role="status" aria-label="Verdict" data-testid="address-verdict">
 		{#if check && main}
 			{#key key}
 				<div class="panel {check.issues.length > 0 ? 'invalid' : main.tone}">
