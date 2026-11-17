@@ -3,8 +3,11 @@ import type { IconName } from '#lib/ui/Icon.svelte';
 
 export type ToolGroup = 'Blockchain' | 'Data';
 
+/** A route without parameters: a tool's own page, not one inside it (`/checklists/[slug]`). */
+type StaticRouteId = Exclude<RouteId, `${string}[${string}`>;
+
 export interface ToolEntry {
-	route: RouteId;
+	route: StaticRouteId;
 	name: string;
 	/** One line, shown on the toolkit index (FR-001 AC-7). */
 	description: string;
@@ -52,6 +55,14 @@ export const tools: readonly ToolEntry[] = [
 			'Fake Indonesian names, NIK, NPWP, phones, addresses, and bank accounts from a seed, with presets and CSV, JSON, or SQL export.',
 		group: 'Data',
 		icon: 'person'
+	},
+	{
+		route: '/checklists',
+		name: 'Checklists',
+		description:
+			'Ready-made test checklists for deposit, withdraw, swap, staking, network mismatch, memo and tag, and stocks, copyable as Markdown.',
+		group: 'Data',
+		icon: 'checklist'
 	}
 ];
 

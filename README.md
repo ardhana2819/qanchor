@@ -1,6 +1,6 @@
 # QAnchor
 
-QA toolkit for blockchain and crypto testing: valid and invalid test addresses, amount edge cases, unit conversion, transaction lookup, calldata decoding, and Indonesian dummy data. Runs entirely in the browser; there is no backend and nothing leaves the browser except requests you trigger to chain endpoints.
+QA toolkit for blockchain and crypto testing: valid and invalid test addresses, amount edge cases, unit conversion, transaction lookup, calldata decoding, Indonesian dummy data, and QA checklists for crypto and stock flows. Runs entirely in the browser; there is no backend and nothing leaves the browser except requests you trigger to chain endpoints.
 
 Live: https://qanchor.pages.dev
 
@@ -16,8 +16,9 @@ Shipped:
 | Amount edge cases | `/amounts` | Edge-case amounts from token decimals, balance, fee, and limits: dust, too many decimals, comma vs dot, scientific notation, fee greater than balance, above max. Exact BigInt arithmetic up to 36 decimals. |
 | Unit converter | `/units` | Exact conversion between wei/gwei/ether, sats/BTC, lamports/SOL, sun/TRX, and custom token decimals. |
 | Dummy data | `/dummy-data` | Fake Indonesian test identities: names, NIK, NPWP, +62 phones, addresses with consistent region codes, and bank accounts. Up to 10,000 rows per run, generated in a Web Worker from a seed, so the same seed gives the same rows. Presets for KYC, underage, name edge cases, invalid formats (with the reason per row), and duplicate NIK. Export as CSV, JSON, or SQL `INSERT` (PostgreSQL or MySQL quoting). |
+| Checklists | `/checklists` | Test checklists for deposit, withdraw, swap, staking, network mismatch, memo and tag (XRP, XLM, TON), and stocks: 173 one-sentence items under headings. Filter across all of them, open one on its own page, and copy it as a Markdown task list. |
 
-Address and amount results can be copied or exported as CSV or JSON; dummy data also as SQL; converted values can be copied. Settings and data stay in the browser (IndexedDB) and can be exported and imported as JSON.
+Address and amount results can be copied or exported as CSV or JSON; dummy data also as SQL; converted values can be copied; a checklist can be copied as Markdown. Settings and data stay in the browser (IndexedDB) and can be exported and imported as JSON.
 
 Interactive elements have accessible names, and dynamic output also carries a stable `data-testid` (`<tool>-<element>`, for example `dummy-preview-row`), so you can write your own Playwright tests against the live site.
 

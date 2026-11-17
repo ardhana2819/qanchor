@@ -12,8 +12,11 @@ class ClipboardState {
 	/** The value that could not be copied. Kept after dismiss() so the dialog can fade out. */
 	value = $state('');
 
-	/** Copies the exact value, with nothing added. Returns whether the clipboard took it. */
-	async copy(value: string): Promise<boolean> {
+	/**
+	 * Copies the exact value, with nothing added, and toasts `message` (design section 7, e.g.
+	 * "Copied as Markdown"). Returns whether the clipboard took it.
+	 */
+	async copy(value: string, message = 'Copied'): Promise<boolean> {
 		try {
 			await navigator.clipboard.writeText(value);
 		} catch {
@@ -22,7 +25,7 @@ class ClipboardState {
 			this.failed = true;
 			return false;
 		}
-		notify.showToast('Copied');
+		notify.showToast(message);
 		return true;
 	}
 

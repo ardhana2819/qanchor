@@ -38,7 +38,7 @@ async function download(page: Page): Promise<{ name: string; text: string }> {
 test('Dummy data is in the Data group of the navigation and on the index', async ({ page }) => {
 	await page.goto('/');
 	const data = page.getByRole('navigation', { name: 'Main' }).getByRole('region', { name: 'Data' });
-	await expect(data.getByRole('link')).toHaveText(['Dummy data']);
+	await expect(data.getByRole('link')).toHaveText(['Dummy data', 'Checklists']);
 
 	await page.getByRole('main').getByRole('link', { name: 'Dummy data' }).click();
 
