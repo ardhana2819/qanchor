@@ -204,3 +204,43 @@ export function explorerTxUrl(network: Network, hash: string): string {
 export function networkById(id: string): Network | undefined {
 	return NETWORKS.find((network) => network.id === id);
 }
+
+/** A faucet page; the app only links to it and never fills in or submits anything (FR-072). */
+export interface FaucetLink {
+	readonly label: string;
+	readonly url: string;
+}
+
+/** Checked 2026-11-17 (T-035, docs/architecture.md section 5.2). Mainnets have none. */
+const BUILTIN_FAUCETS: Readonly<Record<string, readonly FaucetLink[]>> = {
+	'eth-sepolia': [
+		{
+			label: 'Google Cloud',
+			url: 'https://cloud.google.com/application/web3/faucet/ethereum/sepolia'
+		},
+		{ label: 'Chainlink', url: 'https://faucets.chain.link/sepolia' },
+		{ label: 'Alchemy', url: 'https://www.alchemy.com/faucets/ethereum-sepolia' }
+	],
+	'bsc-testnet': [{ label: 'BNB Chain', url: 'https://www.bnbchain.org/en/testnet-faucet' }],
+	'polygon-amoy': [{ label: 'Polygon', url: 'https://faucet.polygon.technology/' }],
+	'arbitrum-sepolia': [
+		{ label: 'Arbitrum faucet', url: 'https://arbitrum.faucet.dev/' },
+		{ label: 'Chainlink', url: 'https://faucets.chain.link/arbitrum-sepolia' },
+		{ label: 'Alchemy', url: 'https://www.alchemy.com/faucets/arbitrum-sepolia' }
+	],
+	'base-sepolia': [
+		{ label: 'Alchemy', url: 'https://www.alchemy.com/faucets/base-sepolia' },
+		{ label: 'Coinbase CDP', url: 'https://portal.cdp.coinbase.com/onchain-tools/faucet' }
+	],
+	'solana-devnet': [{ label: 'Solana', url: 'https://faucet.solana.com/' }],
+	'tron-nile': [{ label: 'Nile', url: 'https://nileex.io/join/getJoinPage' }],
+	'bitcoin-testnet4': [
+		{ label: 'mempool.space', url: 'https://mempool.space/testnet4/faucet' },
+		{ label: 'coinfaucet.eu', url: 'https://coinfaucet.eu/en/btc-testnet4/' }
+	]
+};
+
+/** The built-in faucets of a network, or none for a mainnet or an unknown id. */
+export function builtinFaucets(networkId: string): readonly FaucetLink[] {
+	return Object.hasOwn(BUILTIN_FAUCETS, networkId) ? BUILTIN_FAUCETS[networkId] : [];
+}

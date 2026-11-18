@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
-import { appOpened } from './helpers.ts';
+import { appOpened, putRecords } from './helpers.ts';
 
 // The `data-testid`s are a public contract for owner-written automation (decisions 2026-11-16).
 // This spec only checks that they exist; the other specs stay role-first and do not use them.
@@ -208,6 +208,40 @@ test('testnet wallets', async ({ page }) => {
 
 	await page.getByTestId('wallets-delete').click();
 	await once(page, ['wallets-confirm-delete']);
+	await page.keyboard.press('Escape');
+
+	await each(page, 'wallets-faucets', 1);
+	await page.getByTestId('wallets-faucets').locator('summary').click();
+	await each(page, 'wallets-faucet-link', 3);
+	await page.getByTestId('wallets-faucet-add').click();
+	await once(page, [
+		'wallets-faucet-form',
+		'wallets-faucet-url',
+		'wallets-faucet-label',
+		'wallets-faucet-save'
+	]);
+	await page.getByTestId('wallets-faucet-url').fill('https://faucet.example.dev');
+	await page.getByTestId('wallets-faucet-save').click();
+	await each(page, 'wallets-own-faucet', 1);
+	await each(page, 'wallets-faucet-remove', 1);
+
+	// A mainnet entry, as an imported backup can hold: no faucet is listed.
+	await putRecords(page, 'wallets', [
+		{
+			id: 'mainnet',
+			label: 'Mainnet',
+			chain: 'evm',
+			networkId: 'eth',
+			address,
+			notes: '',
+			createdAt: 1,
+			updatedAt: 1
+		}
+	]);
+	await page.reload();
+	await appOpened(page);
+	await page.getByTestId('wallets-faucets').first().locator('summary').click();
+	await once(page, ['wallets-no-faucet']);
 });
 
 test('settings', async ({ page }) => {

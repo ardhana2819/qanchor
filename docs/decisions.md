@@ -329,6 +329,20 @@ Implementation choices inside FR-070, FR-071, EC-021, EC-025, and design S-08; n
 * Delete opens a destructive dialog with Cancel focused first, matching the import dialog.
 * The wallets route loads the address validators (noble), like the address tool; the crypto-free routes are unchanged.
 
+### 2026-11-18: Faucet links (T-044)
+
+Implementation choices inside FR-072 and design S-08; none changes a requirement.
+
+* Each wallet row has a native `<details>` disclosure under the label (design: "Row detail … faucet links", disclosure = native `<details>`). Its summary reads "Faucets (n)", or "No faucet listed" when the network has none (AC-3), so the note is visible without opening it.
+* Built-in faucets are the list checked in T-035 (`docs/architecture.md` section 5.2), kept in `lib/config/networks.ts` as `builtinFaucets(networkId)`, each with a short provider label. Every testnet has at least one; mainnets and unknown network ids (possible after an import) have none.
+* User-added links are stored per network in the existing `faucets` store, not per wallet: a faucet serves a network, so a link added on one entry is listed on every entry on that network. The dialog says so. Fields: address (required) and label (optional, up to 80 characters; an unlabelled link shows its host).
+* A user link must be an `http:` or `https:` address, stored as the browser normalises it (`URL.href`). Anything else is refused, because a `javascript:` or `data:` link would run in or replace the app when clicked. Links already listed for the network (built-in or the user's) are refused as duplicates.
+* Imported backups are not trusted: a stored link that is not http or https is shown as text with "not a web link" and a Remove button, never as a link.
+* Every faucet link opens in a new tab with `rel="noopener noreferrer"`, shows the external-link icon and the destination host, and says "(opens in a new tab)" to screen readers. The app sends nothing to a faucet; the E2E test stubs the faucet and checks that the only request is the page GET, with no referrer and no opener.
+* Removing a user link needs no confirmation (it is one link, re-added in seconds); a toast confirms it.
+* User links are listed by label, then address. The store has no creation time and IndexedDB returns records by id, so insertion order would not survive a reload.
+* [ASSUMPTION] http (not only https) is accepted for user links, for faucets run on a local or test network. Revisit if that is never used.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
