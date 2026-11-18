@@ -15,6 +15,7 @@ const ROUTES = [
 	'/units',
 	'/tx',
 	'/calldata',
+	'/wallets',
 	'/dummy-data',
 	'/checklists',
 	'/checklists/deposit',
@@ -27,6 +28,7 @@ const TOOL_ROUTES = [
 	'/units',
 	'/tx',
 	'/calldata',
+	'/wallets',
 	'/dummy-data',
 	'/checklists',
 	'/checklists/deposit'
@@ -346,6 +348,12 @@ test.describe('accessibility in both themes (NFR-009)', () => {
 				await page.emulateMedia({ colorScheme });
 				await page.goto(path);
 				await appOpened(page);
+				// Scan the settled page: a control leaving its disabled loading state fades its
+				// colours, and a scan mid-fade reads a contrast that is never shown (T-043).
+				await expect(page.locator('[data-testid$="-loading"]')).toHaveCount(0);
+				await page.evaluate(() =>
+					Promise.allSettled(document.getAnimations().map((a) => a.finished))
+				);
 
 				expect(await scanA11y(page)).toEqual([]);
 			});

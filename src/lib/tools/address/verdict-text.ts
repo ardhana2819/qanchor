@@ -34,6 +34,11 @@ const RISKS: Record<AddressRisk, string> = {
 	'off-curve': 'Off the ed25519 curve, like a program-derived address: no key can sign for it.'
 };
 
+/** Why an address fails a format, in one sentence (also the wallet form's field error). */
+export function defectText(defect: AddressDefect): string {
+	return DEFECTS[defect];
+}
+
 export function riskText(risk: AddressRisk): string {
 	return RISKS[risk];
 }

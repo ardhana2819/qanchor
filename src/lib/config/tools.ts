@@ -65,6 +65,14 @@ export const tools: readonly ToolEntry[] = [
 		icon: 'code'
 	},
 	{
+		route: '/wallets',
+		name: 'Testnet wallets',
+		description:
+			'The testnet addresses you test with, labelled and kept in this browser. Bitcoin entries must be testnet addresses; no keys are ever stored.',
+		group: 'Blockchain',
+		icon: 'wallet'
+	},
+	{
 		route: '/dummy-data',
 		name: 'Dummy data',
 		description:
