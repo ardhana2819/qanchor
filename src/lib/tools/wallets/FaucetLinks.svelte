@@ -98,6 +98,7 @@
 
 	summary {
 		width: fit-content;
+		white-space: nowrap;
 		color: var(--color-text-muted);
 		font-size: var(--text-xs);
 		cursor: pointer;

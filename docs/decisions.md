@@ -343,6 +343,21 @@ Implementation choices inside FR-072 and design S-08; none changes a requirement
 * User links are listed by label, then address. The store has no creation time and IndexedDB returns records by id, so insertion order would not survive a reload.
 * [ASSUMPTION] http (not only https) is accepted for user links, for faucets run on a local or test network. Revisit if that is never used.
 
+### 2026-11-18: On-demand balance (T-045)
+
+Implementation choices inside FR-073, FR-042, and design S-08; none changes a requirement.
+
+* The table gains a Balance column, and each row's actions start with Refresh. One click sends one balance request (two on EVM networks, which check the chain ID first, as tx lookup does, so a wrong-chain endpoint cannot show another chain's balance). Nothing else sends a request: no polling, no refresh on load or on focus (AC-2).
+* Requests per protocol: `eth_getBalance` (latest), Solana `getBalance`, Tron `/wallet/getaccount` with `visible: true`, and Esplora `/address/<address>`. Response shapes were checked on the default testnet endpoints on 2026-11-18 (read-only). They go through the same request client and endpoint resolution as tx lookup, so the user's endpoint override applies (FR-041).
+* A Tron account that never received TRX answers `{}`; it is shown as 0 TRX. An activated account with no `balance` field is also 0.
+* [ASSUMPTION] The Bitcoin balance is confirmed plus mempool (funded minus spent, both), so a faucet payment shows as soon as it is broadcast. Revisit if confirmed-only is needed.
+* The balance is shown in the coin with full precision (the tx lookup's amount format), with "fetched HH:MM" in local time and the full time in a `<time datetime>`.
+* Balances live in memory for the session only (architecture section 2), keyed by network and address, so two entries for one address share a balance, and editing an entry's address or network starts from "Not fetched". Leaving the page aborts a request in flight (NFR-019).
+* Error states follow FR-042: the same codes and wording, adapted to an address ("Could not reach <host>. The balance could not be read."). The error shows in the row, takes focus (AC-6), and the button reads Retry. A previous value stays, with a "stale" badge (AC-3).
+* While a refresh runs, the button stays focusable (`aria-disabled`) and a second click is ignored, so keyboard focus is not lost.
+* An entry on a network this version does not know (possible after an import) shows "No endpoint for this network" and has no Refresh.
+* Trade-off for the owner: with a full address, an 18-decimal balance, and four row actions, the table is wider than the content area at 1280 px (about 160 px) and scrolls sideways, as the data table is built to. Not changed here; options are listed in the T-045 report.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

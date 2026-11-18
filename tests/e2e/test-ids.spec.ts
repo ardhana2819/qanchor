@@ -198,6 +198,15 @@ test('testnet wallets', async ({ page }) => {
 	await each(page, 'wallets-row', 1);
 	await each(page, 'wallets-edit', 1);
 	await each(page, 'wallets-delete', 1);
+	await each(page, 'wallets-balance', 1);
+	await each(page, 'wallets-refresh', 1);
+	// No endpoint is reached in this test: the refresh fails and shows its error.
+	await page.route(
+		(url) => url.hostname !== 'localhost',
+		(route) => route.abort()
+	);
+	await page.getByTestId('wallets-refresh').click();
+	await once(page, ['wallets-balance-error']);
 
 	await page.getByTestId('wallets-add').click();
 	await page.getByTestId('wallets-label').fill('Two');

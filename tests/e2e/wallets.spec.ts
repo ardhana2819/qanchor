@@ -7,6 +7,7 @@ import { appOpened, putRecords, scanA11y } from './helpers.ts';
 
 const EVM = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
 const BTC_TESTNET = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
+const SOLANA = 'So11111111111111111111111111111111111111112';
 const BTC_MAINNET = '1PMycacnJaSqwwJqjawXBErnLsZ7RkXUAs';
 const TRON = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const EVM_2 = '0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB';
@@ -563,5 +564,273 @@ test.describe('FR-072: faucet links', () => {
 		await page.keyboard.type('https://faucet.example.dev');
 		await page.keyboard.press('Enter');
 		await expect(faucetsOf(page, 'Base').getByTestId('wallets-own-faucet')).toHaveCount(1);
+	});
+});
+
+test.describe('FR-073: on-demand balance', () => {
+	// Fetch times are shown in local time; pin it so "fetched 14:02" is the same everywhere.
+	test.use({ timezoneId: 'UTC' });
+
+	const BASE_RPC = 'https://base-sepolia.gateway.tenderly.co';
+	const balanceOf = (page: Page, label: string) =>
+		page.getByTestId('wallets-row').filter({ hasText: label }).getByTestId('wallets-balance');
+	const refreshOf = (page: Page, label: string) =>
+		page.getByRole('button', { name: `Refresh balance of ${label}` });
+
+	type Reply = { status?: number; body: unknown } | 'abort';
+
+	/**
+	 * Stubs the Base Sepolia endpoint: the chain ID is right, and each eth_getBalance gets the
+	 * next reply. Returns every JSON-RPC method sent to any host but the app's own.
+	 */
+	async function stubBase(page: Page, replies: Reply[]): Promise<string[]> {
+		const sent: string[] = [];
+		await page.route(
+			(url) => url.hostname !== 'localhost',
+			async (route) => {
+				const request = route.request();
+				const body = request.postDataJSON() as { method?: string } | null;
+				sent.push(`${new URL(request.url()).host} ${body?.method ?? request.method()}`);
+				if (!request.url().startsWith(BASE_RPC)) return route.abort();
+				if (body?.method === 'eth_chainId') {
+					return route.fulfill({ json: { jsonrpc: '2.0', id: 1, result: '0x14a34' } });
+				}
+				const reply = replies.shift();
+				if (!reply || reply === 'abort') return route.abort();
+				return route.fulfill({ status: reply.status ?? 200, json: reply.body });
+			}
+		);
+		return sent;
+	}
+
+	const wei = (hex: string) => ({ body: { jsonrpc: '2.0', id: 1, result: hex } });
+
+	test('AC-1: Refresh fetches the balance once and shows it with the fetch time', async ({
+		page
+	}) => {
+		await page.clock.setFixedTime(new Date('2026-11-18T14:02:00Z'));
+		const sent = await stubBase(page, [wei('0xde0b6b3a7640000')]);
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		await expect(balanceOf(page, 'Base')).toHaveText('Not fetched');
+
+		await refreshOf(page, 'Base').click();
+		await expect(balanceOf(page, 'Base')).toHaveText(/^\s*1 ETH\s*fetched 14:02\s*$/);
+		await expect(balanceOf(page, 'Base').locator('time')).toHaveAttribute(
+			'datetime',
+			'2026-11-18T14:02:00.000Z'
+		);
+		expect(sent).toEqual([
+			'base-sepolia.gateway.tenderly.co eth_chainId',
+			'base-sepolia.gateway.tenderly.co eth_getBalance'
+		]);
+	});
+
+	test('AC-2: nothing is requested without a click, however long the page is open', async ({
+		page
+	}) => {
+		await page.clock.install();
+		const sent = await stubBase(page, [wei('0x1')]);
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		await expect(page.getByTestId('wallets-row')).toHaveCount(1);
+		await page.clock.runFor(10 * 60_000);
+		expect(sent).toEqual([]);
+
+		await refreshOf(page, 'Base').click();
+		await expect(balanceOf(page, 'Base')).toContainText('0.000000000000000001 ETH');
+		await page.clock.runFor(10 * 60_000);
+		expect(sent).toHaveLength(2);
+	});
+
+	test('AC-3: a failed refresh keeps the old value, marks it stale, and moves focus to the error', async ({
+		page
+	}) => {
+		await stubBase(page, [
+			wei('0xde0b6b3a7640000'),
+			{ status: 429, body: 'Too Many Requests' },
+			wei('0x1bc16d674ec80000')
+		]);
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		await refreshOf(page, 'Base').click();
+		await expect(balanceOf(page, 'Base')).toContainText('1 ETH');
+		await expect(balanceOf(page, 'Base')).not.toContainText('stale');
+
+		await refreshOf(page, 'Base').click();
+		const error = balanceOf(page, 'Base').getByRole('alert');
+		await expect(error).toHaveText(
+			'base-sepolia.gateway.tenderly.co is rate-limiting requests. Try again later or set your own endpoint in Settings.'
+		);
+		await expect(error).toBeFocused();
+		await expect(balanceOf(page, 'Base')).toContainText('1 ETH');
+		await expect(balanceOf(page, 'Base')).toContainText('stale');
+
+		// Retry is the same control, now named for what it does.
+		await page.getByRole('button', { name: 'Retry balance of Base' }).click();
+		await expect(balanceOf(page, 'Base')).toContainText('2 ETH');
+		await expect(balanceOf(page, 'Base')).not.toContainText('stale');
+		await expect(balanceOf(page, 'Base').getByRole('alert')).toHaveCount(0);
+	});
+
+	for (const [name, reply, message] of [
+		[
+			'a connection failure',
+			'abort',
+			'Could not reach base-sepolia.gateway.tenderly.co. The balance could not be read.'
+		],
+		[
+			'an unreadable answer',
+			wei('0xnope'),
+			'base-sepolia.gateway.tenderly.co returned a response QAnchor could not read.'
+		]
+	] as const) {
+		test(`${name} with no earlier value shows the error only`, async ({ page }) => {
+			await stubBase(page, [reply]);
+			await open(page);
+			await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+			await refreshOf(page, 'Base').click();
+			await expect(balanceOf(page, 'Base')).toHaveText(message);
+			await expect(balanceOf(page, 'Base').getByRole('alert')).toBeFocused();
+		});
+	}
+
+	test('an endpoint on another chain is caught before any balance is shown', async ({ page }) => {
+		await page.route(`${BASE_RPC}/`, (route) =>
+			route.fulfill({ json: { jsonrpc: '2.0', id: 1, result: '0x1' } })
+		);
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		await refreshOf(page, 'Base').click();
+		await expect(balanceOf(page, 'Base')).toHaveText(
+			'This endpoint serves chain ID 1, but Base Sepolia is chain ID 84532.'
+		);
+	});
+
+	test('the endpoint set in Settings is used instead of the default (FR-041)', async ({ page }) => {
+		const hosts: string[] = [];
+		await page.route('https://rpc.example.dev/**', (route) => {
+			hosts.push(new URL(route.request().url()).host);
+			const { method } = route.request().postDataJSON() as { method: string };
+			return route.fulfill({
+				json: { jsonrpc: '2.0', id: 1, result: method === 'eth_chainId' ? '0x14a34' : '0x0' }
+			});
+		});
+		await open(page);
+		await putRecords(page, 'endpoints', [
+			{ networkId: 'base-sepolia', url: 'https://rpc.example.dev/base' }
+		]);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		await refreshOf(page, 'Base').click();
+		await expect(balanceOf(page, 'Base')).toContainText('0 ETH');
+		expect(hosts).toEqual(['rpc.example.dev', 'rpc.example.dev']);
+	});
+
+	test('Solana, Tron, and Bitcoin balances are read and shown in their coin', async ({ page }) => {
+		await page.route('https://api.devnet.solana.com/', (route) =>
+			route.fulfill({
+				json: { jsonrpc: '2.0', id: 1, result: { context: {}, value: 2_500_000_000 } }
+			})
+		);
+		await page.route('https://nile.trongrid.io/wallet/getaccount', (route) =>
+			route.fulfill({ json: { address: TRON, balance: 1_000_000 } })
+		);
+		await page.route(`https://mempool.space/testnet4/api/address/${BTC_TESTNET}`, (route) =>
+			route.fulfill({
+				json: {
+					chain_stats: { funded_txo_sum: 5000, spent_txo_sum: 1000 },
+					mempool_stats: { funded_txo_sum: 250, spent_txo_sum: 0 }
+				}
+			})
+		);
+		await open(page);
+		await add(page, { label: 'Sol', chain: 'Solana', address: SOLANA });
+		await add(page, { label: 'Trx', chain: 'Tron', address: TRON });
+		await add(page, { label: 'Btc', chain: 'Bitcoin', address: BTC_TESTNET });
+		await expect(page.getByTestId('wallets-row')).toHaveCount(3);
+		for (const label of ['Sol', 'Trx', 'Btc']) await refreshOf(page, label).click();
+		await expect(balanceOf(page, 'Sol')).toContainText('2.5 SOL');
+		await expect(balanceOf(page, 'Trx')).toContainText('1 TRX');
+		await expect(balanceOf(page, 'Btc')).toContainText('0.0000425 BTC');
+	});
+
+	test('an entry on a network this version does not know has no Refresh', async ({ page }) => {
+		await open(page);
+		await putRecords(page, 'wallets', [
+			{
+				id: 'x',
+				label: 'Old',
+				chain: 'evm',
+				networkId: 'eth-goerli',
+				address: EVM,
+				notes: '',
+				createdAt: 1,
+				updatedAt: 1
+			}
+		]);
+		await page.reload();
+		await appOpened(page);
+		await expect(balanceOf(page, 'Old')).toHaveText('No endpoint for this network');
+		await expect(page.getByTestId('wallets-refresh')).toHaveCount(0);
+	});
+
+	test('a second click while a refresh runs sends no second request', async ({ page }) => {
+		let release: () => void = () => {};
+		const held = new Promise<void>((resolve) => (release = resolve));
+		const methods: string[] = [];
+		await page.route(`${BASE_RPC}/`, async (route) => {
+			const { method } = route.request().postDataJSON() as { method: string };
+			methods.push(method);
+			if (method === 'eth_getBalance') await held;
+			await route.fulfill({
+				json: { jsonrpc: '2.0', id: 1, result: method === 'eth_chainId' ? '0x14a34' : '0x0' }
+			});
+		});
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		await refreshOf(page, 'Base').click();
+		await expect.poll(() => methods).toEqual(['eth_chainId', 'eth_getBalance']);
+		// Still focusable while busy, so keyboard focus is not lost; the click does nothing.
+		await expect(refreshOf(page, 'Base')).toHaveAttribute('aria-disabled', 'true');
+		// force: Playwright would otherwise wait for aria-disabled to clear; a person can click.
+		await refreshOf(page, 'Base').click({ force: true });
+		await expect(balanceOf(page, 'Base')).toHaveText('Refreshing…');
+		release();
+		await expect(balanceOf(page, 'Base')).toContainText('0 ETH');
+		expect(methods).toEqual(['eth_chainId', 'eth_getBalance']);
+	});
+
+	test('leaving the page cancels a refresh in flight (NFR-019)', async ({ page }) => {
+		let release: () => void = () => {};
+		const held = new Promise<void>((resolve) => (release = resolve));
+		const failed: string[] = [];
+		page.on('requestfailed', (request) => failed.push(request.url()));
+		await page.route(`${BASE_RPC}/`, async (route) => {
+			await held;
+			await route.fulfill({ json: { jsonrpc: '2.0', id: 1, result: '0x14a34' } }).catch(() => {});
+		});
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		await refreshOf(page, 'Base').click();
+		await expect(balanceOf(page, 'Base')).toHaveText('Refreshing…');
+		await page
+			.getByRole('navigation', { name: 'Main' })
+			.getByRole('link', { name: 'Unit converter' })
+			.click();
+		await expect(page).toHaveURL(/\/units$/);
+		await expect.poll(() => failed).toEqual([`${BASE_RPC}/`]);
+		release();
+	});
+
+	test('the balance, stale mark, and error have no WCAG 2.1 AA violations', async ({ page }) => {
+		await stubBase(page, [wei('0xde0b6b3a7640000'), { status: 429, body: 'Too Many Requests' }]);
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		await refreshOf(page, 'Base').click();
+		await expect(balanceOf(page, 'Base')).toContainText('1 ETH');
+		await refreshOf(page, 'Base').click();
+		await expect(balanceOf(page, 'Base')).toContainText('stale');
+		await settled(page);
+		expect(await scanA11y(page)).toEqual([]);
 	});
 });
