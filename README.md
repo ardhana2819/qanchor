@@ -1,10 +1,10 @@
 # QAnchor
 
-QA toolkit for blockchain and crypto testing: valid and invalid test addresses, amount edge cases, unit conversion, transaction lookup, calldata decoding, Indonesian dummy data, and QA checklists for crypto and stock flows. Runs entirely in the browser; there is no backend and nothing leaves the browser except requests you trigger to chain endpoints.
+QA toolkit for blockchain and crypto testing: valid and invalid test addresses, amount edge cases, unit conversion, transaction lookup, calldata decoding, a testnet wallet tracker with faucet links and balances, Indonesian dummy data, and QA checklists for crypto and stock flows. Runs entirely in the browser; there is no backend and nothing leaves the browser except requests you trigger to chain endpoints.
 
 Live: https://qanchor.pages.dev
 
-Status: in development (Phase 1, slice 1a done).
+Status: Phase 1 (blockchain toolkit and dummy data) is complete: all eight tools are live. Phase 2 (test cases, test runs, bug reports) is next.
 
 ## Tools
 
@@ -44,7 +44,7 @@ npm run preview   # serve the built site
 npm run check     # svelte-check type checking
 npm run lint      # Prettier check + ESLint
 npm run format    # Prettier write
-npm test          # unit tests (Vitest)
+npm test          # unit tests (Vitest), including a check that every requirement has a test
 npm run test:e2e  # E2E tests (Playwright) against the production build
 ```
 
