@@ -176,6 +176,40 @@ test('tx lookup hand-off to the calldata decoder', async ({ page }) => {
 	await once(page, ['tx-decode-input']);
 });
 
+test('testnet wallets', async ({ page }) => {
+	await page.goto('/wallets');
+	await appOpened(page);
+	await once(page, ['wallets-add', 'wallets-count', 'wallets-empty']);
+
+	await page.getByTestId('wallets-add').click();
+	await once(page, [
+		'wallets-form',
+		'wallets-label',
+		'wallets-chain',
+		'wallets-network',
+		'wallets-address',
+		'wallets-notes',
+		'wallets-save'
+	]);
+	const address = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
+	await page.getByTestId('wallets-label').fill('One');
+	await page.getByTestId('wallets-address').fill(address);
+	await page.getByTestId('wallets-save').click();
+	await each(page, 'wallets-row', 1);
+	await each(page, 'wallets-edit', 1);
+	await each(page, 'wallets-delete', 1);
+
+	await page.getByTestId('wallets-add').click();
+	await page.getByTestId('wallets-label').fill('Two');
+	await page.getByTestId('wallets-address').fill(address);
+	await page.getByTestId('wallets-save').click();
+	await once(page, ['wallets-duplicate']);
+	await page.keyboard.press('Escape');
+
+	await page.getByTestId('wallets-delete').click();
+	await once(page, ['wallets-confirm-delete']);
+});
+
 test('settings', async ({ page }) => {
 	await page.goto('/settings');
 	await appOpened(page);

@@ -316,6 +316,19 @@ Decided by the owner.
 * Earlier commits carry the owner's personal email as author; they stay as they are (no history rewrite, no force-push). New commits use the GitHub noreply address, and GitHub blocks pushes that would expose the personal email.
 * The "Cloudflare Pages" kickoff entry and the review 2 note that GitHub Free cannot enforce required status checks both assumed a private repository. Branch protection with required checks is now available, but merge-on-green stays a manual rule until the owner decides otherwise.
 
+### 2026-11-18: Testnet wallets (T-043)
+
+Implementation choices inside FR-070, FR-071, EC-021, EC-025, and design S-08; none changes a requirement.
+
+* The form has Label, Chain, Network, Address, and Notes. The Network list holds only the testnets of the chosen chain (Ethereum Sepolia, BSC Testnet, Polygon Amoy, Arbitrum Sepolia, Base Sepolia, Bitcoin Testnet4, Solana Devnet, Tron Nile), since the tracker is for testnet wallets. An imported entry on another network keeps it and can still be edited.
+* The address is checked with the address validator (`verdictFor`) against the chosen chain. A valid address of another chain says which chain it is. A Bitcoin address is accepted only if it matches a testnet format; one that matches only mainnet gets the design's "testnet only" error. Surrounding whitespace is removed before checking and saving; invisible characters inside are not, so they fail validation.
+* [ASSUMPTION] Bitcoin entries accept the formats the validator knows: P2PKH, P2SH, P2WPKH, and P2TR. A testnet P2WSH address (`tb1q…` of 62 characters) is rejected as another address type. Revisit if multisig test wallets are needed.
+* Duplicates (FR-070 AC-6) compare chain, network, and address. EVM and Bech32 addresses are compared without case (`0xAbC…` and `0xabc…` are one address); Base58 is case-sensitive. The first Save shows a warning naming the existing entry and turns the button into "Save anyway"; changing any field withdraws the warning.
+* Limits: label up to 80 characters (required), notes up to 2,000. The notes hint says not to paste a key or seed phrase and that notes are exported as typed (EC-021).
+* Notes show under the label in the table, cut to one line. Faucet links (T-044) and the balance (T-045) are not part of this task.
+* Delete opens a destructive dialog with Cancel focused first, matching the import dialog.
+* The wallets route loads the address validators (noble), like the address tool; the crypto-free routes are unchanged.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
