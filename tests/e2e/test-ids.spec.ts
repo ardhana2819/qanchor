@@ -120,6 +120,62 @@ test('tx lookup', async ({ page }) => {
 	await once(page, ['tx-error', 'tx-retry']);
 });
 
+test('calldata decoder', async ({ page }) => {
+	const word = (n: number) => n.toString(16).padStart(64, '0');
+	const transfer = `0xa9059cbb${word(1)}${word(2)}`;
+	await page.goto('/calldata');
+	await appOpened(page);
+	await once(page, ['calldata-input', 'calldata-abi', 'calldata-decode']);
+
+	await page.getByTestId('calldata-input').fill(`${transfer}ff`);
+	await page.getByTestId('calldata-decode').click();
+	await once(page, [
+		'calldata-result',
+		'calldata-signature',
+		'calldata-function',
+		'calldata-selector',
+		'calldata-extra'
+	]);
+	await each(page, 'calldata-arg-row', 2);
+
+	await page.getByTestId('calldata-input').fill(`0xdeadbeef${word(1)}`);
+	await page.getByTestId('calldata-decode').click();
+	await once(page, ['calldata-unknown']);
+	await each(page, 'calldata-word-row', 1);
+
+	await page.getByTestId('calldata-input').fill('0x');
+	await page.getByTestId('calldata-decode').click();
+	await once(page, ['calldata-no-selector']);
+
+	await page.getByTestId('calldata-input').fill(transfer);
+	await page.getByTestId('calldata-abi').fill('approve(address,uint256)');
+	await page.getByTestId('calldata-decode').click();
+	await once(page, ['calldata-error']);
+});
+
+test('tx lookup hand-off to the calldata decoder', async ({ page }) => {
+	const call = JSON.parse(readFileSync('src/lib/core/tx/fixtures/evm-success-call.json', 'utf8'));
+	const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' };
+	await page.route('https://sepolia.gateway.tenderly.co/**', async (route) => {
+		if (route.request().method() === 'OPTIONS')
+			return route.fulfill({ status: 204, headers: cors });
+		const method = route.request().postDataJSON()?.method;
+		const result =
+			method === 'eth_chainId'
+				? '0xaa36a7'
+				: method === 'eth_getTransactionByHash'
+					? call.transaction
+					: call.receipt;
+		await route.fulfill({ headers: cors, body: JSON.stringify({ jsonrpc: '2.0', id: 1, result }) });
+	});
+	await page.goto('/tx');
+	await appOpened(page);
+	await page.getByTestId('tx-network').selectOption('eth-sepolia');
+	await page.getByTestId('tx-hash').fill(call.hash);
+	await page.getByTestId('tx-lookup').click();
+	await once(page, ['tx-decode-input']);
+});
+
 test('settings', async ({ page }) => {
 	await page.goto('/settings');
 	await appOpened(page);

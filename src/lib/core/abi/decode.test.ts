@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeCall, decodeParams, splitCalldata, type Calldata } from './decode.ts';
+import { dataWords, decodeCall, decodeParams, splitCalldata, type Calldata } from './decode.ts';
 import { parseSignature } from './parse.ts';
 import type { AbiFunction } from './types.ts';
 
@@ -481,5 +481,24 @@ describe('decodeCall', () => {
 			ok: false,
 			error: { kind: 'invalid', message: 'Argument 2 (amount): data ends before this value.' }
 		});
+	});
+});
+
+describe('dataWords (FR-051 AC-2)', () => {
+	it('splits argument data into 32-byte words with their offsets', () => {
+		const data = calldata(`0x12345678${num(1)}${num(0x20)}`).data;
+		expect(dataWords(data)).toEqual([
+			{ offset: 0, hex: `0x${num(1)}` },
+			{ offset: 32, hex: `0x${num(0x20)}` }
+		]);
+	});
+
+	it('keeps a short last word as it is', () => {
+		const data = calldata(`0x12345678${num(1)}abcd`).data;
+		expect(dataWords(data).at(-1)).toEqual({ offset: 32, hex: '0xabcd' });
+	});
+
+	it('gives no words for selector-only calldata', () => {
+		expect(dataWords(calldata('0x12345678').data)).toEqual([]);
 	});
 });

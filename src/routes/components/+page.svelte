@@ -17,6 +17,7 @@
 	import SegmentedControl from '#lib/ui/SegmentedControl.svelte';
 	import Select from '#lib/ui/Select.svelte';
 	import Tabs from '#lib/ui/Tabs.svelte';
+	import Textarea from '#lib/ui/Textarea.svelte';
 	import TextInput from '#lib/ui/TextInput.svelte';
 
 	// A living reference for docs/design.md section 6 and the page the component E2E tests run
@@ -49,6 +50,7 @@
 	let chain = $state('evm');
 	let count = $state('12');
 	let fee = $state('');
+	let notes = $state('');
 	let selectedVariants = $state(['checksum']);
 	let family: (typeof families)[number]['value'] = $state('ether');
 	let mode: (typeof modes)[number]['id'] = $state('generate');
@@ -183,6 +185,11 @@
 			<Field label="Fee (gwei)">
 				{#snippet children(control)}
 					<TextInput {...control} mono suffix="gwei" placeholder="0.0" bind:value={fee} />
+				{/snippet}
+			</Field>
+			<Field label="Calldata" hint="Textarea, monospace. Ctrl+Enter submits.">
+				{#snippet children(control)}
+					<Textarea {...control} mono rows={2} placeholder="0x" bind:value={notes} />
 				{/snippet}
 			</Field>
 			<Field label="Network" hint="Only mainnet for this chain.">

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { functionSelector, functionSignature, parseAbiJson, parseSignature } from './parse.ts';
+import {
+	functionSelector,
+	functionSignature,
+	parseAbiJson,
+	parseAbiOrSignature,
+	parseSignature
+} from './parse.ts';
 import type { AbiFunction } from './types.ts';
 
 function sig(text: string): AbiFunction {
@@ -215,5 +221,25 @@ describe('parseAbiJson', () => {
 		]
 	])('rejects %j: %s', (text, message) => {
 		expect(parseAbiJson(text)).toEqual({ ok: false, error: message });
+	});
+});
+
+describe('parseAbiOrSignature', () => {
+	it('reads a signature as one function', () => {
+		const result = parseAbiOrSignature('  transfer(address,uint256)\n');
+		expect(result.ok && result.value.map(functionSignature)).toEqual(['transfer(address,uint256)']);
+	});
+
+	it('reads text starting with [ or { as a JSON ABI', () => {
+		const abi = '[{"name":"f","inputs":[{"type":"bool"}]}]';
+		for (const text of [abi, ` ${abi}`, `{"abi":${abi}}`]) {
+			const result = parseAbiOrSignature(text);
+			expect(result.ok && result.value.map(functionSignature)).toEqual(['f(bool)']);
+		}
+	});
+
+	it('gives the JSON or signature error for its form', () => {
+		expect(parseAbiOrSignature('[{')).toEqual({ ok: false, error: 'The ABI is not valid JSON.' });
+		expect(parseAbiOrSignature('f(uint7)')).toEqual({ ok: false, error: 'Unknown type "uint7".' });
 	});
 });

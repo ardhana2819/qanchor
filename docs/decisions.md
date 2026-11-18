@@ -295,6 +295,18 @@ Implementation choices inside FR-050, FR-052, EC-014, and ADR-005; none changes 
 * Error messages name the argument path, for example `Argument 1 (orders)[2].maker: address has non-zero padding.`
 * Test vectors: the five examples of the Solidity ABI specification, the ERC-20 and Uniswap V3 selectors, and hand-encoded nested tuples, with expected words written out in the tests rather than produced by an encoder. Decoding 384 KB of calldata takes 4.4 ms in Node, so the decoder runs on the main thread.
 
+### 2026-11-18: Calldata decoder page (T-042)
+
+Implementation choices inside FR-050 to FR-053, EC-015, and design S-06; none changes a requirement.
+
+* One optional input takes either a signature or a JSON ABI: text starting with `[` or `{` is read as JSON. Why: design S-06 has one "ABI or signature" field, and the two forms cannot be confused.
+* The built-in table (`lib/core/abi/selectors.ts`) has eight entries: ERC-20 `transfer`, `approve`, `transferFrom`; ERC-721 both `safeTransferFrom`s; `setApprovalForAll` (ERC-721 and ERC-1155); ERC-1155 `safeTransferFrom` and `safeBatchTransferFrom`. ERC-20 and ERC-721 share the `approve` and `transferFrom` selectors with the same types, so those entries use the ERC-20 argument names and show a note that in ERC-721 the last argument is the token ID.
+* A supplied ABI or signature replaces the built-in table for that decode; a selector it does not contain is a mismatch (FR-052 AC-3), not a fallback to the table.
+* Nested values are shown as one table row per item, named by path (`order.ids[0]`), under their argument's number. An empty array is one row reading "Empty array".
+* "Decode input" (FR-053) sits beside the copy button of an EVM result's input row, and only when the input is not `0x`. The calldata travels in SvelteKit's history state (`goto` with `state`), not in the URL, so kilobytes of calldata never end up in the address bar or the browser history list. On arrival the decoder fills the field and decodes at once, since decoding is local and instant.
+* A new `Textarea` primitive (`lib/ui/Textarea.svelte`) shares the `.control` box with `TextInput`; Ctrl+Enter (⌘+Enter on Mac) submits its form, because Enter adds a line. It is listed on `/components`.
+* Field errors move focus to the invalid field; a decoding error or mismatch moves focus to its alert, as in tx lookup.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

@@ -270,3 +270,11 @@ export function functionSignature(fn: AbiFunction): string {
 export function functionSelector(fn: AbiFunction): string {
 	return encodeHex(keccak_256(new TextEncoder().encode(functionSignature(fn))).subarray(0, 4));
 }
+
+/** One input field for either form: text starting with `[` or `{` is a JSON ABI. */
+export function parseAbiOrSignature(text: string): Result<AbiFunction[], string> {
+	const trimmed = text.trim();
+	if (trimmed.startsWith('[') || trimmed.startsWith('{')) return parseAbiJson(trimmed);
+	const fn = parseSignature(trimmed);
+	return fn.ok ? ok([fn.value]) : fn;
+}

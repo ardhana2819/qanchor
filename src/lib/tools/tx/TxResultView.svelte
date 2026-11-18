@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import type { Network } from '#lib/config/networks.ts';
 	import type { BitcoinInput, BitcoinOutput, TxResult } from '#lib/core/tx/types.ts';
 	import type { Endpoint } from '#lib/net/endpoint.ts';
 	import Badge from '#lib/ui/Badge.svelte';
+	import Button from '#lib/ui/Button.svelte';
 	import CopyButton from '#lib/ui/CopyButton.svelte';
 	import DataTable, { type Column } from '#lib/ui/DataTable.svelte';
 	import { amount, utc } from './present.ts';
@@ -29,6 +32,8 @@
 		detail?: string;
 		/** Monospace with a copy button. */
 		copy?: boolean;
+		/** EVM input data that can be opened in the calldata decoder (FR-053). */
+		decode?: boolean;
 	}
 
 	const PENDING = 'Not available while pending';
@@ -96,7 +101,14 @@
 						copy: true
 					});
 				}
-				list.push({ key: 'input', label: 'Input data', value: e.input, copy: true });
+				list.push({
+					key: 'input',
+					label: 'Input data',
+					value: e.input,
+					copy: true,
+					// "0x" is a plain transfer: there is nothing to decode.
+					decode: e.input !== '0x'
+				});
 				break;
 			case 'solana':
 				list.push(
@@ -142,6 +154,11 @@
 		}
 		return list;
 	});
+
+	/** The input travels in history state, so long calldata never ends up in the URL. */
+	function decodeInput(calldata: string): void {
+		void goto(resolve('/calldata'), { state: { calldata } });
+	}
 
 	const btc = (value: bigint | null) => (value === null ? '' : amount(value, network).display);
 
@@ -194,7 +211,19 @@
 						{/if}
 					</span>
 					{#if row.copy && row.value !== null}
-						<CopyButton value={row.value} label="Copy {row.label.toLowerCase()}" size="sm" />
+						<span class="row-actions">
+							{#if row.decode}
+								{@const calldata = row.value}
+								<Button
+									size="sm"
+									onclick={() => decodeInput(calldata)}
+									data-testid="tx-decode-input"
+								>
+									Decode input
+								</Button>
+							{/if}
+							<CopyButton value={row.value} label="Copy {row.label.toLowerCase()}" size="sm" />
+						</span>
 					{/if}
 				</dd>
 			</div>
@@ -280,6 +309,13 @@
 	[data-field='input'] .value {
 		max-height: 7.5rem;
 		overflow-y: auto;
+	}
+
+	.row-actions {
+		display: flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: var(--space-2);
 	}
 
 	.detail,
