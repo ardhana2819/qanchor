@@ -89,7 +89,7 @@ How this plan is used:
 | T-042 | Calldata decoder page: built-in selector table, raw-word fallback, errors, hand-off from tx lookup | FR-050, FR-051, FR-052, FR-053, US-006; EC-015 | T-040, T-041 | "Decode input" opens the decoder pre-filled; an unknown selector calls no external service | E2E with request recording | Low | done |
 | T-043 | Testnet wallets: add, edit, delete with confirmation, validation, Bitcoin testnet-only rule, duplicate warning, notes hint | FR-070, FR-071, US-008; EC-021, EC-025 | T-010, T-020 | Entries persist across reload; schema and export contain no key or mnemonic field | E2E; schema review | Low | done |
 | T-044 | Faucet links: built-in per network plus user-added, "no faucet listed" state | FR-072 | T-035, T-043 | Links open in a new tab with `rel="noopener noreferrer"` and submit nothing | E2E | Low | done |
-| T-045 | On-demand balance with fetch time; stale marking on error | FR-073 | T-036, T-043 | No balance request without a user action; failed refresh keeps the old value marked stale | E2E with stubs and idle check | Low | todo |
+| T-045 | On-demand balance with fetch time; stale marking on error | FR-073 | T-036, T-043 | No balance request without a user action; failed refresh keeps the old value marked stale | E2E with stubs and idle check | Low | done |
 | T-046 | Cross-cutting E2E for slice 1c, README update, Phase 1 completion check against every FR | NFR-003, NFR-009, NFR-011, NFR-019 | T-040, T-042, T-044, T-045 | Traceability check: every Phase 1 FR has at least one passing test; live site lists all eight tools | CI; review of the FR list | Low | todo |
 
 ## Coverage check
