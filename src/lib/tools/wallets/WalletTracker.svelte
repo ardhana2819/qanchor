@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { CHAIN_NAMES } from '#lib/core/chains/catalog.ts';
+	import { faucets } from '#lib/state/faucets.svelte.ts';
 	import { notify } from '#lib/state/notify.svelte.ts';
 	import { wallets } from '#lib/state/wallets.svelte.ts';
 	import type { Wallet } from '#lib/storage/schema.ts';
@@ -11,6 +12,8 @@
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import { networkName, WRITE_ERRORS } from './present.ts';
+	import FaucetDialog from './FaucetDialog.svelte';
+	import FaucetLinks from './FaucetLinks.svelte';
 	import WalletDialog from './WalletDialog.svelte';
 
 	// Testnet wallets (FR-070, FR-071, design S-08): entries live in IndexedDB and hold a public
@@ -21,9 +24,12 @@
 	let deleteOpen = $state(false);
 	let deleting = $state<Wallet | null>(null);
 	let removing = $state(false);
+	let faucetOpen = $state(false);
+	let faucetNetwork = $state('');
 
 	onMount(() => {
 		void wallets.load();
+		void faucets.load();
 	});
 
 	function add(): void {
@@ -34,6 +40,11 @@
 	function edit(wallet: Wallet): void {
 		editing = wallet;
 		formOpen = true;
+	}
+
+	function addFaucet(networkId: string): void {
+		faucetNetwork = networkId;
+		faucetOpen = true;
 	}
 
 	function confirmDelete(wallet: Wallet): void {
@@ -61,6 +72,7 @@
 {#snippet labelCell(wallet: Wallet)}
 	<span class="label">{wallet.label}</span>
 	{#if wallet.notes.trim()}<span class="notes">{wallet.notes}</span>{/if}
+	<FaucetLinks networkId={wallet.networkId} walletLabel={wallet.label} onadd={addFaucet} />
 {/snippet}
 
 <div class="toolbar">
@@ -113,6 +125,8 @@
 {/if}
 
 <WalletDialog bind:open={formOpen} {editing} />
+
+<FaucetDialog bind:open={faucetOpen} networkId={faucetNetwork} />
 
 <Dialog bind:open={deleteOpen} title={`Delete "${deleting?.label ?? ''}"?`} destructive>
 	<p>

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
-import { appOpened, scanA11y } from './helpers.ts';
+import { appOpened, putRecords, scanA11y } from './helpers.ts';
 
 // Testnet wallets (T-043): FR-070, FR-071, EC-021, EC-025. Entries live in the app's IndexedDB,
 // so persistence is checked with a real reload.
@@ -9,6 +9,7 @@ const EVM = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
 const BTC_TESTNET = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
 const BTC_MAINNET = '1PMycacnJaSqwwJqjawXBErnLsZ7RkXUAs';
 const TRON = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+const EVM_2 = '0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB';
 
 async function open(page: Page): Promise<void> {
 	await page.goto('/wallets');
@@ -315,5 +316,252 @@ test.describe('keyboard and accessibility (NFR-009)', () => {
 		await expect(dialog(page)).toContainText('Not a valid EVM address.');
 		await settled(page);
 		expect(await scanA11y(page)).toEqual([]);
+	});
+});
+
+test.describe('FR-072: faucet links', () => {
+	const faucetsOf = (page: Page, label: string) =>
+		page.getByTestId('wallets-row').filter({ hasText: label }).getByTestId('wallets-faucets');
+
+	async function expand(page: Page, label: string) {
+		const details = faucetsOf(page, label);
+		await details.locator('summary').click();
+		return details;
+	}
+
+	/** An entry as an imported backup can hold it, on any network id. */
+	const stored = (id: string, label: string, networkId: string, createdAt: number) => ({
+		id,
+		label,
+		chain: 'evm',
+		networkId,
+		address: EVM,
+		notes: '',
+		createdAt,
+		updatedAt: createdAt
+	});
+
+	test("AC-1: the network's faucets are listed and open in a new tab without an opener", async ({
+		page
+	}) => {
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		const details = faucetsOf(page, 'Base');
+		await expect(details.locator('summary')).toHaveText(/^\s*Faucets \(2\)/);
+		await expect(details.getByTestId('wallets-faucet-link').first()).toBeHidden();
+
+		await expand(page, 'Base');
+		const links = details.getByTestId('wallets-faucet-link');
+		await expect(links).toHaveCount(2);
+		expect(
+			await links.evaluateAll((as) =>
+				as.map((a) => [
+					a.textContent?.trim(),
+					a.getAttribute('href'),
+					a.getAttribute('target'),
+					a.getAttribute('rel')
+				])
+			)
+		).toEqual([
+			[
+				'Alchemy (opens in a new tab)',
+				'https://www.alchemy.com/faucets/base-sepolia',
+				'_blank',
+				'noopener noreferrer'
+			],
+			[
+				'Coinbase CDP (opens in a new tab)',
+				'https://portal.cdp.coinbase.com/onchain-tools/faucet',
+				'_blank',
+				'noopener noreferrer'
+			]
+		]);
+		await expect(details).toContainText('www.alchemy.com');
+	});
+
+	test('AC-2: a faucet link only navigates: no opener, no referrer, nothing sent', async ({
+		page,
+		context
+	}) => {
+		const faucetRequests: { method: string; url: string; referer?: string; body: string | null }[] =
+			[];
+		// Stub the faucet so the test never reaches the real site.
+		await context.route('https://www.alchemy.com/**', (route) => {
+			const request = route.request();
+			faucetRequests.push({
+				method: request.method(),
+				url: request.url(),
+				referer: request.headers()['referer'],
+				body: request.postData()
+			});
+			return route.fulfill({ contentType: 'text/html', body: '<title>Faucet</title>' });
+		});
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		const details = await expand(page, 'Base');
+
+		const [popup] = await Promise.all([
+			context.waitForEvent('page'),
+			details.getByRole('link', { name: /^Alchemy/ }).click()
+		]);
+		await popup.waitForLoadState();
+		expect(popup.url()).toBe('https://www.alchemy.com/faucets/base-sepolia');
+		expect(await popup.evaluate(() => window.opener)).toBeNull();
+		expect(faucetRequests).toEqual([
+			{
+				method: 'GET',
+				url: 'https://www.alchemy.com/faucets/base-sepolia',
+				referer: undefined,
+				body: null
+			}
+		]);
+		// The app stays where it was.
+		await expect(page).toHaveURL(/\/wallets$/);
+	});
+
+	test('AC-3: an entry on a network with no faucet says so', async ({ page }) => {
+		await open(page);
+		await putRecords(page, 'wallets', [stored('m', 'Mainnet entry', 'eth', 1)]);
+		await page.reload();
+		await appOpened(page);
+		const details = faucetsOf(page, 'Mainnet entry');
+		await expect(details.locator('summary')).toHaveText(/^\s*No faucet listed/);
+		await expand(page, 'Mainnet entry');
+		await expect(details.getByTestId('wallets-no-faucet')).toHaveText(
+			'No faucet is listed for this network. Add one you use below.'
+		);
+		await expect(details.getByTestId('wallets-faucet-link')).toHaveCount(0);
+	});
+
+	test('a user-added link is listed on every entry of its network and survives a reload', async ({
+		page
+	}) => {
+		await open(page);
+		await add(page, { label: 'First', network: 'Base Sepolia', address: EVM });
+		await add(page, { label: 'Second', network: 'Base Sepolia', address: EVM_2 });
+		await add(page, { label: 'Other', network: 'Ethereum Sepolia', address: EVM });
+		await expect(page.getByTestId('wallets-row')).toHaveCount(3);
+		await expect(dialog(page)).toHaveCount(0);
+
+		await (await expand(page, 'First')).getByTestId('wallets-faucet-add').click();
+		await expect(dialog(page)).toContainText('Add faucet link: Base Sepolia');
+		await dialog(page).getByLabel('Faucet address').fill(' https://faucet.example.dev/base ');
+		await dialog(page).getByLabel('Label (optional)').fill('Team faucet');
+		await dialog(page).getByRole('button', { name: 'Add link' }).click();
+		await expect(dialog(page)).toHaveCount(0);
+		await expect(page.locator('.toast')).toHaveText('Added a faucet link for Base Sepolia');
+
+		await expect(faucetsOf(page, 'First').locator('summary')).toHaveText(/Faucets \(3\)/);
+		await expect(faucetsOf(page, 'Second').locator('summary')).toHaveText(/Faucets \(3\)/);
+		await expect(faucetsOf(page, 'Other').locator('summary')).toHaveText(/Faucets \(3\)/);
+		const own = faucetsOf(page, 'First').getByTestId('wallets-own-faucet');
+		await expect(own.getByRole('link')).toHaveAttribute('href', 'https://faucet.example.dev/base');
+		await expect(own.getByRole('link')).toHaveAttribute('rel', 'noopener noreferrer');
+		await expect(own.getByRole('link')).toHaveAttribute('target', '_blank');
+		await expect(faucetsOf(page, 'Other').getByTestId('wallets-own-faucet')).toHaveCount(0);
+
+		await page.reload();
+		await appOpened(page);
+		await expand(page, 'Second');
+		await expect(
+			faucetsOf(page, 'Second').getByTestId('wallets-own-faucet').getByRole('link')
+		).toHaveText(/^Team faucet/);
+	});
+
+	for (const [name, url, message] of [
+		['an empty address', '', "Paste the faucet's web address."],
+		[
+			'text that is not a web address',
+			'faucet.example.dev',
+			'Not a web address. Paste the full address, starting with https://.'
+		],
+		['a javascript: link', 'javascript:alert(1)', 'Only http and https links can be added.'],
+		[
+			'a built-in faucet',
+			'https://www.alchemy.com/faucets/base-sepolia',
+			'This faucet is already listed for Base Sepolia.'
+		]
+	] as const) {
+		test(`${name} is refused with a field error`, async ({ page }) => {
+			await open(page);
+			await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+			await (await expand(page, 'Base')).getByTestId('wallets-faucet-add').click();
+			const field = dialog(page).getByLabel('Faucet address');
+			await field.fill(url);
+			await dialog(page).getByRole('button', { name: 'Add link' }).click();
+			await expect(dialog(page)).toContainText(message);
+			await expect(field).toBeFocused();
+			await expect(field).toHaveAttribute('aria-invalid', 'true');
+			await page.keyboard.press('Escape');
+			await expect(faucetsOf(page, 'Base').getByTestId('wallets-own-faucet')).toHaveCount(0);
+		});
+	}
+
+	test('a user-added link can be removed, and stays removed', async ({ page }) => {
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		await putRecords(page, 'faucets', [
+			{ id: 'f1', networkId: 'base-sepolia', label: '', url: 'https://faucet.example.dev/' }
+		]);
+		await page.reload();
+		await appOpened(page);
+		const details = await expand(page, 'Base');
+		// An unlabelled link is named by its host.
+		await expect(details.getByTestId('wallets-own-faucet').getByRole('link')).toHaveText(
+			/^faucet\.example\.dev/
+		);
+		await details.getByRole('button', { name: 'Remove https://faucet.example.dev/' }).click();
+		await expect(page.locator('.toast')).toHaveText('Removed "faucet.example.dev"');
+		await expect(details.getByTestId('wallets-own-faucet')).toHaveCount(0);
+
+		await page.reload();
+		await appOpened(page);
+		await expand(page, 'Base');
+		await expect(faucetsOf(page, 'Base').getByTestId('wallets-own-faucet')).toHaveCount(0);
+	});
+
+	test('an imported link that is not a web address is shown but never linked', async ({ page }) => {
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		await putRecords(page, 'faucets', [
+			{ id: 'bad', networkId: 'base-sepolia', label: 'Sneaky', url: 'javascript:alert(1)' }
+		]);
+		await page.reload();
+		await appOpened(page);
+		const details = await expand(page, 'Base');
+		const own = details.getByTestId('wallets-own-faucet');
+		await expect(own).toContainText('Sneaky');
+		await expect(own).toContainText('not a web link');
+		await expect(own.getByRole('link')).toHaveCount(0);
+		await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
+	});
+
+	test('the open faucet list and its form have no WCAG 2.1 AA violations', async ({ page }) => {
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		await expand(page, 'Base');
+		await settled(page);
+		expect(await scanA11y(page)).toEqual([]);
+		await faucetsOf(page, 'Base').getByTestId('wallets-faucet-add').click();
+		await dialog(page).getByRole('button', { name: 'Add link' }).click();
+		await expect(dialog(page)).toContainText("Paste the faucet's web address.");
+		await settled(page);
+		expect(await scanA11y(page)).toEqual([]);
+	});
+
+	test('a faucet link can be added from the keyboard alone', async ({ page }) => {
+		await open(page);
+		await add(page, { label: 'Base', network: 'Base Sepolia', address: EVM });
+		await expect(dialog(page)).toHaveCount(0);
+		const summary = faucetsOf(page, 'Base').locator('summary');
+		await summary.focus();
+		await page.keyboard.press('Enter');
+		await expect(faucetsOf(page, 'Base').getByTestId('wallets-faucet-link')).toHaveCount(2);
+		await faucetsOf(page, 'Base').getByTestId('wallets-faucet-add').focus();
+		await page.keyboard.press('Enter');
+		await expect(dialog(page).getByLabel('Faucet address')).toBeFocused();
+		await page.keyboard.type('https://faucet.example.dev');
+		await page.keyboard.press('Enter');
+		await expect(faucetsOf(page, 'Base').getByTestId('wallets-own-faucet')).toHaveCount(1);
 	});
 });

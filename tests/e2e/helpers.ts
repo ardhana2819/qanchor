@@ -27,3 +27,29 @@ export async function scanA11y(page: Page): Promise<string[]> {
 		.analyze();
 	return results.violations.map((v) => `${v.id}: ${v.nodes[0].target}`);
 }
+
+/**
+ * Adds records to one store of the app's database directly, the way an imported backup would
+ * leave them. Call once the app has opened the database, then reload so the page reads them.
+ */
+export function putRecords(
+	page: Page,
+	store: 'endpoints' | 'wallets' | 'faucets',
+	records: object[]
+): Promise<void> {
+	return page.evaluate(
+		({ store, records }) =>
+			new Promise<void>((resolve, reject) => {
+				const request = indexedDB.open('qanchor');
+				request.onsuccess = () => {
+					const db = request.result;
+					const tx = db.transaction(store, 'readwrite');
+					for (const record of records) tx.objectStore(store).put(record);
+					tx.oncomplete = () => (db.close(), resolve());
+					tx.onerror = () => reject(tx.error);
+				};
+				request.onerror = () => reject(request.error);
+			}),
+		{ store, records }
+	);
+}

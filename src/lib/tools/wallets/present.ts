@@ -1,6 +1,7 @@
 import { NETWORKS, networkById } from '#lib/config/networks.ts';
 import { CHAIN_NAMES } from '#lib/core/chains/catalog.ts';
 import type { ChainId } from '#lib/core/chains/types.ts';
+import type { FaucetUrlProblem } from '#lib/core/faucets.ts';
 import type { AddressProblem } from '#lib/core/wallets.ts';
 import type { StorageErrorCode } from '#lib/storage/db.ts';
 import { defectText } from '#lib/tools/address/verdict-text.ts';
@@ -45,4 +46,10 @@ export const WRITE_ERRORS: Record<StorageErrorCode, string> = {
 	unavailable: 'Storage is unavailable in this browser session, so nothing was saved.',
 	closed: 'QAnchor was updated in another tab. Reload this tab, then try again.',
 	failed: 'The change could not be saved.'
+};
+
+export const FAUCET_URL_ERRORS: Record<FaucetUrlProblem, string> = {
+	empty: "Paste the faucet's web address.",
+	invalid: 'Not a web address. Paste the full address, starting with https://.',
+	scheme: 'Only http and https links can be added.'
 };

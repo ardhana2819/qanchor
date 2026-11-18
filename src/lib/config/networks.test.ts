@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { explorerTxUrl, NETWORKS, networkById } from './networks.ts';
+import { builtinFaucets, explorerTxUrl, NETWORKS, networkById } from './networks.ts';
 
 describe('NETWORKS', () => {
 	it('has a mainnet and one testnet for each of the eight chains (OQ-29)', () => {
@@ -51,5 +51,43 @@ describe('NETWORKS', () => {
 	it('finds a network by id, and nothing for an unknown id', () => {
 		expect(networkById('polygon')?.chainId).toBe('0x89');
 		expect(networkById('nope')).toBeUndefined();
+	});
+});
+
+describe('builtinFaucets (FR-072, architecture 5.2)', () => {
+	it('lists at least one https faucet for every testnet and none for a mainnet', () => {
+		for (const n of NETWORKS) {
+			const list = builtinFaucets(n.id);
+			if (!n.testnet) {
+				expect(list, n.id).toEqual([]);
+				continue;
+			}
+			expect(list.length, n.id).toBeGreaterThan(0);
+			for (const f of list) {
+				expect(f.label.trim(), n.id).not.toBe('');
+				expect(new URL(f.url).protocol, f.url).toBe('https:');
+				// Stored the way checkFaucetUrl stores user links, so duplicates are caught.
+				expect(new URL(f.url).href).toBe(f.url);
+			}
+			expect(new Set(list.map((f) => f.url)).size, n.id).toBe(list.length);
+		}
+	});
+
+	it('lists nothing for an unknown id, including inherited object keys', () => {
+		expect(builtinFaucets('eth-goerli')).toEqual([]);
+		expect(builtinFaucets('constructor')).toEqual([]);
+		expect(builtinFaucets('__proto__')).toEqual([]);
+	});
+
+	it('keeps the faucets checked in T-035', () => {
+		expect(builtinFaucets('eth-sepolia').map((f) => f.url)).toEqual([
+			'https://cloud.google.com/application/web3/faucet/ethereum/sepolia',
+			'https://faucets.chain.link/sepolia',
+			'https://www.alchemy.com/faucets/ethereum-sepolia'
+		]);
+		expect(builtinFaucets('bitcoin-testnet4').map((f) => f.url)).toEqual([
+			'https://mempool.space/testnet4/faucet',
+			'https://coinfaucet.eu/en/btc-testnet4/'
+		]);
 	});
 });
