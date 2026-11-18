@@ -358,6 +358,12 @@ Implementation choices inside FR-073, FR-042, and design S-08; none changes a re
 * An entry on a network this version does not know (possible after an import) shows "No endpoint for this network" and has no Refresh.
 * The table was about 160 px wider than the content area at 1280 px (full address, an 18-decimal balance, four row actions). Owner's choice of the options offered: shorten the address in the middle, `0x5aAe…eAed` (first six, last four characters; 13 or fewer are left as they are). The full address stays in the accessible name (a visually hidden copy; the short form is `aria-hidden`), in the tooltip, in the table's text form, and in Copy. Rejected: moving Edit and Delete into a "⋯" menu (one more click for common actions), and leaving the sideways scroll. At 1280 px the table now fits.
 
+### 2026-11-18: Phase 1 completion check (T-046)
+
+* Phase 1 is complete as far as the plan's tasks go: all 46 tasks are done, all eight tools are on the live site, and every active Phase 1 functional requirement (33; FR-013 retired) is named by at least one test, now enforced by `src/traceability.test.ts`.
+* Two owner checks remain open and are not blocking: the checklist content review (deferred from T-032), and opening by hand the explorer and faucet pages that show a bot check to automation (bscscan, testnet.bscscan, sepolia.basescan, tronscan, faucet.polygon.technology) or refused the test network (Coinbase CDP faucet).
+* The traceability check works at requirement level (each FR named in a test). Acceptance criteria were reviewed by hand in this task, not enforced, because tests name them inconsistently ("AC-5", "(AC-6)", or in a describe title); a stricter check would first need one naming rule across every spec.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

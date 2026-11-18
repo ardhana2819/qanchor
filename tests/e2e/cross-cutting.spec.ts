@@ -1,11 +1,12 @@
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { expect, test, type Locator, type Page, type Request } from '@playwright/test';
 import { base58check } from '@scure/base';
-import { appOpened, scanA11y } from './helpers.ts';
+import { appOpened, putRecords, scanA11y } from './helpers.ts';
 
-// Cross-cutting checks for Phase 1 (T-023 for slice 1a, T-034 for slice 1b): every shipped route
-// and tool against the non-functional requirements that apply to all of them. Per-tool behaviour
+// Cross-cutting checks for Phase 1 (T-023 for slice 1a, T-034 for slice 1b, T-046 for slice 1c):
+// every shipped route and tool against the non-functional requirements that apply to all of them. Per-tool behaviour
 // lives in each tool's own spec.
 
 const ROUTES = [
@@ -131,6 +132,81 @@ async function filterChecklists(page: Page, text: string): Promise<void> {
 	);
 }
 
+// Slice 1c tools call chain endpoints. These stubs answer with recorded responses, so no test
+// reaches a real chain; anything else outside this origin is refused and recorded.
+const EVM_TX = JSON.parse(readFileSync('src/lib/core/tx/fixtures/evm-success-call.json', 'utf8'));
+const SEPOLIA_HOST = 'sepolia.gateway.tenderly.co';
+const BASE_SEPOLIA_HOST = 'base-sepolia.gateway.tenderly.co';
+const WALLET = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
+const TRANSFER_CALLDATA =
+	'0xa9059cbb0000000000000000000000005aaeb6053f3e94c9b9a09f33669435e7ef1beaed' +
+	'00000000000000000000000000000000000000000000000000000000000f4240';
+
+/** Stubs the two chain endpoints slice 1c uses; returns "host method" for every outbound call. */
+async function stubChains(page: Page): Promise<string[]> {
+	const outbound: string[] = [];
+	await page.route(
+		(url) => url.hostname !== 'localhost',
+		async (route) => {
+			const request = route.request();
+			const host = new URL(request.url()).host;
+			const method = (request.postDataJSON() as { method?: string } | null)?.method ?? '';
+			outbound.push(`${host} ${method}`.trim());
+			const result =
+				host === SEPOLIA_HOST
+					? ({ eth_chainId: '0xaa36a7', eth_getTransactionByHash: EVM_TX.transaction }[method] ??
+						EVM_TX.receipt)
+					: host === BASE_SEPOLIA_HOST
+						? { eth_chainId: '0x14a34', eth_getBalance: '0xde0b6b3a7640000' }[method]
+						: undefined;
+			if (result === undefined) return route.abort();
+			return route.fulfill({ json: { jsonrpc: '2.0', id: 1, result } });
+		}
+	);
+	return outbound;
+}
+
+async function lookUpTx(page: Page): Promise<void> {
+	await page.goto('/tx');
+	await appOpened(page);
+	await page.getByLabel('Network', { exact: true }).selectOption({ label: 'Ethereum Sepolia' });
+	await fillUntil(page.getByLabel('Transaction hash'), EVM_TX.hash, () =>
+		expect(page.getByLabel('Transaction hash')).toHaveValue(EVM_TX.hash, { timeout: 1000 })
+	);
+	await page.getByRole('button', { name: 'Look up' }).click();
+	await expect(page.getByTestId('tx-result')).toBeVisible();
+}
+
+async function decodeCalldata(page: Page): Promise<void> {
+	await page.goto('/calldata');
+	await appOpened(page);
+	await fillUntil(page.getByLabel('Calldata', { exact: true }), TRANSFER_CALLDATA, () =>
+		expect(page.getByLabel('Calldata', { exact: true })).toHaveValue(TRANSFER_CALLDATA, {
+			timeout: 1000
+		})
+	);
+	await page.getByRole('button', { name: 'Decode' }).click();
+	await expect(page.getByTestId('calldata-function')).toHaveText('transfer');
+}
+
+/** Adds a Base Sepolia wallet, reads its balance, and opens its faucet list. */
+async function trackWallet(page: Page): Promise<void> {
+	await page.goto('/wallets');
+	await appOpened(page);
+	await expect(page.getByTestId('wallets-loading')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Add wallet' }).click();
+	const form = page.getByRole('dialog');
+	await form.getByLabel('Label').fill('QA main');
+	await form.getByLabel('Network').selectOption({ label: 'Base Sepolia' });
+	await form.getByLabel('Address').fill(WALLET);
+	await form.getByRole('button', { name: 'Save' }).click();
+	await expect(form).toHaveCount(0);
+	await page.getByRole('button', { name: 'Refresh balance of QA main' }).click();
+	await expect(page.getByTestId('wallets-balance')).toContainText('1 ETH');
+	await page.getByTestId('wallets-faucets').locator('summary').click();
+	await expect(page.getByTestId('wallets-faucet-link').first()).toBeVisible();
+}
+
 test.describe('no network activity while idle (NFR-003)', () => {
 	for (const path of ROUTES) {
 		test(`${path}: no request in 10 s after load`, async ({ page }) => {
@@ -204,6 +280,90 @@ test('every request while using each tool goes to this origin only (NFR-011)', a
 	);
 	expect(foreign.map((r) => r.url())).toEqual([]);
 	expect(requests.length).toBeGreaterThan(0);
+});
+
+test('the only outbound requests are user-initiated calls to the chain endpoints (NFR-011)', async ({
+	page
+}) => {
+	test.slow();
+	const outbound = await stubChains(page);
+	await page.goto('/');
+	await appOpened(page);
+	expect(outbound).toEqual([]);
+
+	await lookUpTx(page);
+	expect(outbound).toEqual([
+		`${SEPOLIA_HOST} eth_chainId`,
+		`${SEPOLIA_HOST} eth_getTransactionByHash`,
+		`${SEPOLIA_HOST} eth_getTransactionReceipt`
+	]);
+
+	// Decoding is local, including the hand-off from a looked-up transaction (FR-053).
+	await decodeCalldata(page);
+	await page.goto('/tx');
+	expect(outbound).toHaveLength(3);
+
+	await trackWallet(page);
+	// Let anything the open faucet list or the balance might load arrive before the check.
+	await page.waitForLoadState('networkidle');
+	expect(outbound.slice(3)).toEqual([
+		`${BASE_SEPOLIA_HOST} eth_chainId`,
+		`${BASE_SEPOLIA_HOST} eth_getBalance`
+	]);
+});
+
+test.describe('no network activity while idle after a chain call (NFR-003)', () => {
+	test('a looked-up transaction and a fetched balance are never refreshed on their own', async ({
+		page
+	}) => {
+		test.slow();
+		const outbound = await stubChains(page);
+		await lookUpTx(page);
+		const afterLookup = outbound.length;
+		await page.waitForTimeout(5000);
+		expect(outbound).toHaveLength(afterLookup);
+
+		await trackWallet(page);
+		const afterRefresh = outbound.length;
+		await page.waitForTimeout(5000);
+		expect(outbound).toHaveLength(afterRefresh);
+	});
+});
+
+test('stored wallets show a loading state, never the empty state, until read (FR-003 AC-5)', async ({
+	page
+}) => {
+	await page.goto('/wallets');
+	await appOpened(page);
+	await putRecords(page, 'wallets', [
+		{
+			id: 'w1',
+			label: 'Stored',
+			chain: 'evm',
+			networkId: 'eth-sepolia',
+			address: WALLET,
+			notes: '',
+			createdAt: 1,
+			updatedAt: 1
+		}
+	]);
+	// Watch every state the page shows from the first paint, not just the last one.
+	await page.addInitScript(() => {
+		const seen = new Set<string>();
+		(window as unknown as { seenStates: Set<string> }).seenStates = seen;
+		new MutationObserver(() => {
+			for (const id of ['wallets-loading', 'wallets-empty', 'wallets-row']) {
+				if (document.querySelector(`[data-testid="${id}"]`)) seen.add(id);
+			}
+		}).observe(document, { childList: true, subtree: true });
+	});
+	await page.reload();
+	await expect(page.getByTestId('wallets-row')).toHaveCount(1);
+	const seen = await page.evaluate(() => [
+		...(window as unknown as { seenStates: Set<string> }).seenStates
+	]);
+	expect(seen).toContain('wallets-row');
+	expect(seen).not.toContain('wallets-empty');
 });
 
 test('the WIF check finds a real key and ignores a Bech32m fragment of the same shape', () => {
@@ -305,7 +465,14 @@ test.describe('crypto code loads only where and when it is needed (FR-001 AC-5, 
 		await page.waitForLoadState('networkidle');
 		expect(hasCrypto(await scriptBodies(page, requests))).toBe(false);
 
-		for (const name of ['Amount edge cases', 'Unit converter', 'Dummy data', 'Checklists']) {
+		for (const name of [
+			'Amount edge cases',
+			'Unit converter',
+			'Tx lookup',
+			'Calldata decoder',
+			'Dummy data',
+			'Checklists'
+		]) {
 			await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name }).click();
 			await page.waitForLoadState('networkidle');
 		}
@@ -411,6 +578,38 @@ test.describe('accessibility in both themes (NFR-009)', () => {
 
 			expect(await scanA11y(page)).toEqual([]);
 		});
+
+		test(`tx result in ${colorScheme}`, async ({ page }) => {
+			await page.emulateMedia({ colorScheme });
+			await stubChains(page);
+			await lookUpTx(page);
+			await page.evaluate(() =>
+				Promise.allSettled(document.getAnimations().map((a) => a.finished))
+			);
+
+			expect(await scanA11y(page)).toEqual([]);
+		});
+
+		test(`decoded calldata in ${colorScheme}`, async ({ page }) => {
+			await page.emulateMedia({ colorScheme });
+			await decodeCalldata(page);
+			await page.evaluate(() =>
+				Promise.allSettled(document.getAnimations().map((a) => a.finished))
+			);
+
+			expect(await scanA11y(page)).toEqual([]);
+		});
+
+		test(`a wallet with balance and faucets in ${colorScheme}`, async ({ page }) => {
+			await page.emulateMedia({ colorScheme });
+			await stubChains(page);
+			await trackWallet(page);
+			await page.evaluate(() =>
+				Promise.allSettled(document.getAnimations().map((a) => a.finished))
+			);
+
+			expect(await scanA11y(page)).toEqual([]);
+		});
 	}
 });
 
@@ -471,11 +670,15 @@ test.describe('motion (NFR-006)', () => {
 		await generateDummy(page, '20');
 		await page.goto('/checklists');
 		await filterChecklists(page, 'memo');
+		await lookUpTx(page);
+		await decodeCalldata(page);
+		await trackWallet(page);
 	}
 
 	test('with reduced motion, nothing animates for any length of time', async ({ page }) => {
-		// Uses two tools end to end; WebKit in CI needs more than the default 30 s.
+		// Uses every tool end to end; WebKit in CI needs more than the default 30 s.
 		test.slow();
+		await stubChains(page);
 		await page.emulateMedia({ reducedMotion: 'reduce' });
 		await useEveryTool(page);
 
@@ -582,6 +785,33 @@ test.describe('every tool works from the keyboard alone (NFR-008)', () => {
 		await tabTo(page, page.getByRole('button', { name: 'Download' }));
 		const [file] = await Promise.all([page.waitForEvent('download'), page.keyboard.press('Enter')]);
 		expect(file.suggestedFilename()).toMatch(/^qanchor-dummy-v1-[0-9a-f]{16}\.csv$/);
+	});
+
+	test('Tx lookup: pick a network, look up, and hand the input to the decoder', async ({
+		page
+	}) => {
+		await stubChains(page);
+		await page.goto('/tx');
+		await appOpened(page);
+		await tabTo(page, page.getByLabel('Network', { exact: true }));
+		await page.getByLabel('Network', { exact: true }).selectOption({ label: 'Ethereum Sepolia' });
+		await tabTo(page, page.getByLabel('Transaction hash'));
+		await page.keyboard.type(EVM_TX.hash);
+		await page.keyboard.press('Enter');
+		await expect(page.getByTestId('tx-result')).toBeVisible();
+		await tabTo(page, page.getByTestId('tx-decode-input'));
+		await page.keyboard.press('Enter');
+		await expect(page).toHaveURL(/\/calldata$/);
+	});
+
+	test('Calldata decoder: paste and decode', async ({ page }) => {
+		await page.goto('/calldata');
+		await appOpened(page);
+		await tabTo(page, page.getByLabel('Calldata', { exact: true }));
+		await page.keyboard.type(TRANSFER_CALLDATA);
+		await tabTo(page, page.getByRole('button', { name: 'Decode' }));
+		await page.keyboard.press('Enter');
+		await expect(page.getByTestId('calldata-function')).toHaveText('transfer');
 	});
 
 	for (const path of TOOL_ROUTES) {
