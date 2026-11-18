@@ -232,3 +232,19 @@ const member =
 	(at: string): Label =>
 	(param, i) =>
 		`${at}.${param.name || i}`;
+
+export interface DataWord {
+	/** Byte offset from the start of the argument data. */
+	offset: number;
+	/** 0x hex; the last word is shorter when the data is not a whole number of words. */
+	hex: string;
+}
+
+/** Argument data split into 32-byte words, for a selector nothing can decode (FR-051 AC-2). */
+export function dataWords(data: Uint8Array): DataWord[] {
+	const words: DataWord[] = [];
+	for (let offset = 0; offset < data.length; offset += WORD) {
+		words.push({ offset, hex: encodeHex(data.subarray(offset, offset + WORD)) });
+	}
+	return words;
+}

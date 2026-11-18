@@ -57,6 +57,14 @@ export const tools: readonly ToolEntry[] = [
 		icon: 'search'
 	},
 	{
+		route: '/calldata',
+		name: 'Calldata decoder',
+		description:
+			'Function and arguments of EVM calldata, from a signature, a JSON ABI, or the built-in token functions. Nothing is looked up online.',
+		group: 'Blockchain',
+		icon: 'code'
+	},
+	{
 		route: '/dummy-data',
 		name: 'Dummy data',
 		description:
