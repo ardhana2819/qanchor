@@ -307,6 +307,15 @@ Implementation choices inside FR-050 to FR-053, EC-015, and design S-06; none ch
 * A new `Textarea` primitive (`lib/ui/Textarea.svelte`) shares the `.control` box with `TextInput`; Ctrl+Enter (⌘+Enter on Mac) submits its form, because Enter adds a line. It is listed on `/components`.
 * Field errors move focus to the invalid field; a decoding error or mismatch moves focus to its alert, as in tx lookup.
 
+### 2026-11-18: Repository made public
+
+Decided by the owner.
+
+* `ardhana2819/qanchor` is public. Why: GitHub Actions minutes for a private repository on GitHub Free ran out (about 94 CI runs in November at about 32 billed minutes each), so CI jobs stopped starting. Actions on standard runners are free for public repositories, and the code is a portfolio piece meant to be shown. Alternatives considered: a spending limit (keeps the repo private, costs per run), running Firefox and WebKit E2E only on `main` (about half the minutes, later browser feedback), and merging on local checks until the monthly reset (WebKit untested).
+* Before the switch, every tracked file and the full commit history were scanned for secrets: no API keys, tokens, real private keys, mnemonics, or `.env` files. The only WIF-shaped string is the public Bitcoin wiki example used in a test.
+* Earlier commits carry the owner's personal email as author; they stay as they are (no history rewrite, no force-push). New commits use the GitHub noreply address, and GitHub blocks pushes that would expose the personal email.
+* The "Cloudflare Pages" kickoff entry and the review 2 note that GitHub Free cannot enforce required status checks both assumed a private repository. Branch protection with required checks is now available, but merge-on-green stays a manual rule until the owner decides otherwise.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
