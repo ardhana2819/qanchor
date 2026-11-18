@@ -198,6 +198,7 @@ test('testnet wallets', async ({ page }) => {
 	await each(page, 'wallets-row', 1);
 	await each(page, 'wallets-edit', 1);
 	await each(page, 'wallets-delete', 1);
+	await each(page, 'wallets-address-cell', 1);
 	await each(page, 'wallets-balance', 1);
 	await each(page, 'wallets-refresh', 1);
 	// No endpoint is reached in this test: the refresh fails and shows its error.

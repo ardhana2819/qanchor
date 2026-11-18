@@ -356,7 +356,7 @@ Implementation choices inside FR-073, FR-042, and design S-08; none changes a re
 * Error states follow FR-042: the same codes and wording, adapted to an address ("Could not reach <host>. The balance could not be read."). The error shows in the row, takes focus (AC-6), and the button reads Retry. A previous value stays, with a "stale" badge (AC-3).
 * While a refresh runs, the button stays focusable (`aria-disabled`) and a second click is ignored, so keyboard focus is not lost.
 * An entry on a network this version does not know (possible after an import) shows "No endpoint for this network" and has no Refresh.
-* Trade-off for the owner: with a full address, an 18-decimal balance, and four row actions, the table is wider than the content area at 1280 px (about 160 px) and scrolls sideways, as the data table is built to. Not changed here; options are listed in the T-045 report.
+* The table was about 160 px wider than the content area at 1280 px (full address, an 18-decimal balance, four row actions). Owner's choice of the options offered: shorten the address in the middle, `0x5aAe…eAed` (first six, last four characters; 13 or fewer are left as they are). The full address stays in the accessible name (a visually hidden copy; the short form is `aria-hidden`), in the tooltip, in the table's text form, and in Copy. Rejected: moving Edit and Delete into a "⋯" menu (one more click for common actions), and leaving the sideways scroll. At 1280 px the table now fits.
 
 ## Architecture decision records
 
