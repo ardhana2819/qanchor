@@ -15,7 +15,13 @@
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import { amount } from '#lib/tools/tx/present.ts';
-	import { balanceErrorText, clockTime, networkName, WRITE_ERRORS } from './present.ts';
+	import {
+		balanceErrorText,
+		clockTime,
+		networkName,
+		shortAddress,
+		WRITE_ERRORS
+	} from './present.ts';
 	import FaucetDialog from './FaucetDialog.svelte';
 	import FaucetLinks from './FaucetLinks.svelte';
 	import WalletDialog from './WalletDialog.svelte';
@@ -90,7 +96,7 @@
 		{ key: 'label', label: 'Label', value: (w) => w.label, cell: labelCell },
 		{ key: 'chain', label: 'Chain', value: (w) => CHAIN_NAMES[w.chain] },
 		{ key: 'network', label: 'Network', value: (w) => networkName(w.networkId) },
-		{ key: 'address', label: 'Address', value: (w) => w.address, mono: true },
+		{ key: 'address', label: 'Address', value: (w) => w.address, mono: true, cell: addressCell },
 		{ key: 'balance', label: 'Balance', value: balanceText, cell: balanceCell }
 	];
 </script>
@@ -127,6 +133,14 @@
 				</span>
 			{/if}
 		{/if}
+	</span>
+{/snippet}
+
+{#snippet addressCell(wallet: Wallet)}
+	<!-- Shortened on screen; the full address is what screen readers and the tooltip give. -->
+	<span title={wallet.address} data-testid="wallets-address-cell">
+		<span aria-hidden="true">{shortAddress(wallet.address)}</span>
+		<span class="visually-hidden">{wallet.address}</span>
 	</span>
 {/snippet}
 

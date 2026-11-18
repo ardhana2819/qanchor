@@ -81,3 +81,11 @@ export function clockTime(ms: number): string {
 	const pad = (n: number) => String(n).padStart(2, '0');
 	return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+
+/**
+ * "0x5aAe…eAed": the start and end people compare an address by, so the table fits the page.
+ * The full address stays available to screen readers, on hover, and through Copy.
+ */
+export function shortAddress(address: string): string {
+	return address.length <= 13 ? address : `${address.slice(0, 6)}…${address.slice(-4)}`;
+}

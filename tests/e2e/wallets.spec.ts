@@ -47,7 +47,7 @@ async function add(page: Page, entry: Entry): Promise<void> {
 	await dialog(page).getByRole('button', { name: 'Save' }).click();
 }
 
-/** Table rows as [label, chain, network, address]. */
+/** Table rows as [label, chain, network, full address]. */
 async function rows(page: Page): Promise<string[][]> {
 	return page
 		.getByTestId('wallets-row')
@@ -58,7 +58,9 @@ async function rows(page: Page): Promise<string[][]> {
 					.map((td, i) =>
 						i === 0
 							? (td.querySelector('.label')?.textContent ?? '')
-							: (td.textContent?.trim() ?? '')
+							: i === 3
+								? (td.querySelector('.visually-hidden')?.textContent ?? '')
+								: (td.textContent?.trim() ?? '')
 					)
 			)
 		);
@@ -98,6 +100,20 @@ test('AC-2: an added entry is listed and survives a reload', async ({ page }) =>
 	await expect(page.getByTestId('wallets-row')).toHaveCount(2);
 	expect(await rows(page)).toEqual(expected);
 	await expect(page.getByTestId('wallets-row').first()).toContainText('Funded');
+});
+
+test('the address is shortened on screen, and given in full to screen readers and on hover', async ({
+	page
+}) => {
+	await open(page);
+	await add(page, { label: 'QA main', address: EVM });
+	const cell = page.getByTestId('wallets-address-cell');
+	await expect(cell).toHaveAttribute('title', EVM);
+	await expect(cell.locator('[aria-hidden="true"]')).toHaveText('0x5aAe…eAed');
+	await expect(cell.locator('.visually-hidden')).toHaveText(EVM);
+	expect(await cell.evaluate((el) => el.getBoundingClientRect().width)).toBeLessThan(140);
+	// Copy still gives the full address.
+	await expect(page.getByRole('button', { name: 'Copy address of QA main' })).toBeVisible();
 });
 
 test.describe('AC-3, AC-4: saving is blocked with a field error', () => {
