@@ -37,7 +37,10 @@ jobs:
   e2e:
     name: E2E (${{ matrix.browser }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # A job usually takes 4 to 11 minutes, but WebKit reached 18 and then hit 20 when the
+    # runner's `playwright install` was slow (PR #58, #59). 30 leaves room for that while still
+    # stopping a hung run.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
