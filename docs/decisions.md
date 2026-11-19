@@ -364,6 +364,21 @@ Implementation choices inside FR-073, FR-042, and design S-08; none changes a re
 * Two owner checks remain open and are not blocking: the checklist content review (deferred from T-032), and opening by hand the explorer and faucet pages that show a bot check to automation (bscscan, testnet.bscscan, sepolia.basescan, tronscan, faucet.polygon.technology) or refused the test network (Coinbase CDP faucet).
 * The traceability check works at requirement level (each FR named in a test). Acceptance criteria were reviewed by hand in this task, not enforced, because tests name them inconsistently ("AC-5", "(AC-6)", or in a describe title); a stricter check would first need one naming rule across every spec.
 
+### 2026-11-19: Phase 2 discovery
+
+Decided by the owner before the Phase 2 requirements were drafted (`docs/prd.md` section 10).
+
+* Scope: every feature in the Phase 2 outline, in three slices, each ending deployed and tested. 2a: test cases and test runs. 2b: screenshots and the bug report generator. 2c: exploratory session notes, release summary, and the Phase 1 hooks (checklist to test cases, test data into steps). Rejected: moving session notes and release summary to after the MVP; one slice for everything (no deploy point in between).
+* Result granularity: one status per case in a run (pass, fail, blocked), and on Fail the tester marks which step failed and writes the actual result. Why: fast to execute, and the bug report can still be filled from the failed step. Rejected: a status per step (slower to run, heavier data model); case only (the bug report could not know the failed step).
+* Bug report output: both Markdown and Jira wiki markup, chosen at copy time. Why: Markdown for the Jira Cloud editor, wiki markup for Jira Server/Data Center and plain text fields. No Jira API: the report is copied, not posted.
+* Screenshots are part of the JSON export and import, base64-encoded, so one file is a complete backup. The export shows its size before download. Rejected: an "include screenshots" option (more UI and tests for little gain); leaving them out (lost when restoring in another browser).
+
+### 2026-11-19: Phase 2 requirements approved (PRD v0.4)
+
+* The owner approved `docs/prd.md` section 10 as a block: FR-090 to FR-151, US-013 to US-019, NFR-023 to NFR-026, EC-027 to EC-039, the limits in section 10.5, and the three slices. Every proposal and assumption in the draft is approved with it, including: runs keep a snapshot of their cases; bug reports are generated on demand and not stored, with a linked-issue field on the result instead; releases are free text grouped without regard to letter case, and the release summary uses the latest result per case; persistent storage is requested only from a Settings button; a checklist item becomes one test case without steps; no zip download of attachments.
+* The [VERIFY] items in section 10.7 are facts, not decisions, and are checked before the related code ships.
+* Next: user flows and UI direction for the P2 screens in `docs/design.md`, then the tech plan for slice 2a.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

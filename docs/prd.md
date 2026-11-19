@@ -1,13 +1,13 @@
 # QAnchor: Product Requirements Document
 
-* Status: APPROVED (owner, 2026-11-12)
-* Version: 0.3
+* Status: Phase 1 (sections 1 to 9) APPROVED (owner, 2026-11-12); Phase 2 (section 10) APPROVED (owner, 2026-11-19)
+* Version: 0.4
 * Date: 2026-11-12
 * Sources: `CLAUDE.md` (project context), `docs/decisions.md` (agreed features, kickoff decisions, PRD reviews 1 and 2)
 
 Conventions used in this document:
 
-* Every requirement in this document is approved. Items that were proposals or assumptions in earlier drafts were approved as a block in review 2.
+* Every requirement in sections 1 to 9 is approved. Items that were proposals or assumptions in earlier drafts were approved as a block in review 2. Section 10 (Phase 2) was approved the same way on 2026-11-19.
 * **[VERIFY]**: a factual detail that must be confirmed against a primary source before the related code ships. All are listed in [section 9.3](#93-to-verify-before-implementation). Approval of this PRD does not make these facts true.
 * **OQ-nn**: a reference to an entry in [Open questions](#9-open-questions).
 * Requirement IDs: `US-` user story, `FR-` functional requirement, `NFR-` non-functional requirement, `EC-` edge case. IDs are stable from this version on; retired IDs are not reused (FR-013 is retired).
@@ -87,8 +87,8 @@ Phase 1 is delivered in three slices, each ending in a working, tested state:
 * Exploratory session notes (timeboxed session, charter, findings).
 * Release summary (run results rolled up per release).
 * Phase 1 hooks: checklists convertible to test cases or test runs; generated data insertable into steps.
-* Routing note: pages for user-created records (one test case, one run) have IDs unknown at build time and cannot be prerendered. They need the client-rendered fallback page (NFR-022) or IDs carried in the query string. To be settled in the tech plan for this phase.
-* Requirement IDs to be assigned when this phase is detailed.
+* Routing note: pages for user-created records (one test case, one run) have IDs unknown at build time and cannot be prerendered. They use IDs carried in the query string (ADR-011, FR-090 AC-2).
+* Detailed in [section 10](#10-requirements-phase-2) (approved): FR-090 to FR-151, slices 2a, 2b, 2c.
 
 ### Phase 3: PRD generator (outline)
 
@@ -578,3 +578,280 @@ No product question is open. The items below are facts, not decisions; each must
 * Tron protocol choice: Ethereum-compatible JSON-RPC or native HTTP API (tx lookup).
 * Cloudflare Pages fallback behavior for unknown URLs with prerendered output (NFR-022).
 * Availability of the `qanchor` project name on Cloudflare Pages, which sets the `*.pages.dev` URL (NFR-021).
+
+---
+
+## 10. Requirements (Phase 2)
+
+* Status: APPROVED (owner, 2026-11-19), v0.4. Sections 1 to 9 (Phase 1) are unchanged.
+* Sources: the Phase 2 outline in section 4, the Phase 2 discovery decisions in `docs/decisions.md` (2026-11-19), `docs/design.md` section 3 (screens P2-01 to P2-07).
+* Every proposal and assumption in the draft was approved as a block by the owner on 2026-11-19, as in review 2, so the markers are removed.
+* **[VERIFY]** items are browser facts to check against a primary source before the related code ships (section 10.7).
+* Section 10 is placed after section 9 so that section numbers and links used across the repository stay valid; `src/traceability.test.ts` reads Phase 1 requirements from section 5.2 only and gets a Phase 2 counterpart when slice 2a ships.
+
+### 10.1 Slices
+
+| Slice | Content | Requirements | Ends with |
+| --- | --- | --- | --- |
+| 2a | QA navigation group, storage schema v2, test cases, test runs (no screenshots yet) | FR-090, FR-091 (cases and runs), FR-100 to FR-102, FR-110, FR-111, FR-113 | Deployed; a run can be created and executed end to end |
+| 2b | Screenshots, persistent storage, bug report generator | FR-091 (screenshots), FR-092, FR-112, FR-120 to FR-123 | Deployed; journey J-8 in `docs/design.md` works without the Phase 1 hooks |
+| 2c | Exploratory sessions, release summary, Phase 1 hooks | FR-130 to FR-132, FR-140, FR-141, FR-150, FR-151 | Phase 2 complete |
+
+### 10.2 User stories
+
+| ID | Story |
+| --- | --- |
+| US-013 | As a QA engineer, I want to write and maintain reusable test cases with steps, expected results, tags, and priority so that I do not rewrite the same checks for every release. |
+| US-014 | As a QA engineer, I want to run a selected set of test cases and record pass, fail, or blocked for each so that I know what was tested and what is left. |
+| US-015 | As a QA engineer, I want to attach screenshots to a result straight from the clipboard so that evidence is captured without saving files by hand. |
+| US-016 | As a QA engineer, I want a bug report generated from a failed case, in a format I can paste into Jira, so that the steps, expected and actual result, and environment are never retyped. |
+| US-017 | As a QA engineer, I want timeboxed exploratory sessions with a charter and timestamped findings so that unscripted testing leaves a record. |
+| US-018 | As a QA engineer, I want the results of a release rolled up in one summary I can share so that I can report test status without counting by hand. |
+| US-019 | As a QA engineer, I want to turn a Phase 1 checklist into test cases, and insert generated test data into a step, so that the toolkit and the QA flow work together. |
+
+### 10.3 Functional requirements
+
+Acceptance criteria use Given/When/Then. Text limits are in section 10.5.
+
+#### App shell (Phase 2)
+
+**FR-090: QA navigation and record routes** (US-013 to US-018)
+
+* AC-1: Given the app is loaded, When I look at the navigation, Then a "QA" group lists the shipped Phase 2 pages (Test cases, Test runs, and, from slice 2c, Sessions and Releases), after the Phase 1 groups. Unshipped pages are not listed (FR-001 AC-1 rule).
+* AC-2: Given a page for one record (a test case, a run, a session), When I open, reload, or share its URL, Then the record is identified by a query-string ID on a prerendered route (for example `/runs/view?id=<id>`; final names in the tech plan, ADR-011), and the record is shown after IndexedDB is read.
+* AC-3: Given a record URL whose ID does not exist (deleted, or from another browser), When it loads, Then a "not found" state names the record type and links to its list. It is not the app's 404 page.
+* AC-4: Given a page that shows stored records, When it loads, Then FR-003 AC-5 applies: a loading state until IndexedDB has been read, the empty state only when there is no data.
+* AC-5: Given IndexedDB is unavailable (EC-001), When I open a QA page, Then it explains that test cases, runs, and sessions cannot be saved in this browser and offers no form that would lose input on submit.
+
+**FR-091: Storage schema v2 and backup** (US-010, US-013 to US-017)
+
+* AC-1: Given a database at schema v1, When the app with schema v2 loads, Then a migration adds the Phase 2 stores and keeps every v1 record (NFR-016).
+* AC-2: Given saved Phase 2 records, When I export, Then the JSON file carries `schemaVersion` 2 and every test case, run, result, session, and finding, and (from slice 2b) every screenshot as base64 with its media type.
+* AC-3: Given a file with schema version 1, When I import it, Then it is accepted, the Phase 1 records are imported, and the Phase 2 stores end up empty ("replace all", FR-003 AC-3).
+* AC-4: Given an export that includes screenshots, When I choose Export, Then the expected file size is shown before the download starts.
+* AC-5: Given a file with a screenshot that is not valid base64, has a media type other than the ones the app writes, or a reference to a missing result, When I import it, Then nothing is written and the error names the record (FR-003 AC-4).
+* AC-6: Given an export or import of up to the limits in section 10.5, When it runs, Then no main-thread task exceeds 200 ms (NFR-005, NFR-023).
+
+**FR-092: Persistent storage** (US-015)
+
+Browsers may evict IndexedDB under storage pressure unless the site has persistent storage. With screenshots and run history this would be real data loss.
+
+* AC-1: Given the Settings page, When it loads, Then it shows the storage used and available (from `navigator.storage.estimate()`) and whether storage is persistent.
+* AC-2: Given storage is not persistent, When I activate "Keep data persistent", Then the app calls `navigator.storage.persist()` and shows the browser's answer. The app never requests it without a user action, because Firefox shows a permission prompt.
+* AC-3: Given a screenshot save fails for quota (EC-002), When the error shows, Then it names the storage used and links to Settings.
+
+#### Test cases
+
+**FR-100: Create and edit a test case** (US-013)
+
+A test case has: a key, a title, preconditions, ordered steps (each an action and an optional expected result), a case-level expected result, tags, and priority.
+
+* AC-1: Given the Test cases page with no cases, When it loads, Then I see an empty state with a New test case control.
+* AC-2: Given a new case, When I save it with a title and at least one expected result (case-level or on any step), Then it is stored with the next key in the sequence `TC-1`, `TC-2`, … and persists across reloads. Keys are never reused, also after a delete; after an import the next key continues from the highest imported key.
+* AC-3: Given the title is empty, or no expected result is given anywhere, or a limit in section 10.5 is exceeded, When I save, Then saving is blocked with a field error and focus moves to the first error (NFR-008).
+* AC-4: Given the steps editor, When I add, remove, or reorder a step with the keyboard only, Then the step numbers update and focus stays on the moved or neighbouring step. Reordering uses Move up and Move down controls, not drag and drop only.
+* AC-5: Given tags, When I enter them, Then they are trimmed, lowercased, and de-duplicated; existing tags are suggested as I type.
+* AC-6: Given priority, When I create a case, Then it defaults to Medium. Values: Critical, High, Medium, Low.
+* AC-7: Given unsaved changes, When I navigate away, Then I am asked to confirm discarding them.
+* AC-8: Given free text in any field, When it is stored, exported, or shown, Then it is kept exactly as typed and rendered as text, never as HTML (EC-021 applies: the app cannot detect pasted secrets).
+
+**FR-101: List and filter test cases** (US-013)
+
+* AC-1: Given saved cases, When the list loads, Then each row shows key, title, priority, tags, step count, and last update, sorted by key.
+* AC-2: Given the filter, When I type text, pick tags (all must match), or pick priorities (any may match), Then only matching cases are shown with a count, and the filter state is kept in the URL query so it survives a reload.
+* AC-3: Given a filter with no match, When it applies, Then an empty-filter state offers Clear filter, which returns focus to the filter field (as in FR-060).
+* AC-4: Given 1,000 cases (tested size), When I type in the filter, Then the list updates without a main-thread task over 200 ms.
+
+**FR-102: Duplicate and delete a test case** (US-013)
+
+* AC-1: Given a case, When I duplicate it, Then a new case with a new key and the title prefixed "Copy of " opens in the editor.
+* AC-2: Given a case, When I delete it, Then I must confirm; the confirmation says how many runs include it and that those runs keep their copy (FR-110 AC-3).
+
+#### Test runs
+
+**FR-110: Create a run** (US-014)
+
+A run has: a name, an optional release, an optional environment (free text: build, device, OS, browser, network), the selected cases, and a status (in progress, completed).
+
+* AC-1: Given at least one test case, When I create a run, Then I can select cases with the FR-101 filter and Select all matching, and the run cannot be created with zero cases.
+* AC-2: Given a run is created, When it opens, Then every case starts as Untested, in the order of the selection.
+* AC-3: Given a run exists, When the source case is later edited or deleted, Then the run keeps the case as it was when the run was created (a snapshot). Why: a result must describe the steps that were actually executed; otherwise editing a case would silently rewrite past results.
+* AC-4: Given the release field, When I type, Then releases already used on other runs and sessions are suggested; values are trimmed, and two releases that differ only in letter case are treated as the same release (EC-031).
+
+**FR-111: Execute a run** (US-014, US-016)
+
+* AC-1: Given a run, When I open it, Then I see one case at a time with its preconditions, steps, and expected results, plus the run's progress (counts per status) and a way to go to the next and previous case and to any case from a list.
+* AC-2: Given a case, When I set its status to Pass, Fail, or Blocked, Then the result is saved immediately with the time, and the progress counts update.
+* AC-3: Given I set Fail, When the result form shows, Then I can pick the failed step (or "Not step-specific") and must enter the actual result before the result is saved; until then the case stays at its previous status.
+* AC-4: Given I set Blocked, When the result form shows, Then I must enter the reason.
+* AC-5: Given any result, When I add notes, Then they are saved with the result.
+* AC-6: Given a saved result, When I change the status, Then the new status replaces the old one, and fields that no longer apply (failed step, actual result) are kept until I save, so an accidental change can be undone. No result history: only the latest result per case in a run is kept.
+* AC-7: Given the keyboard only, When I execute a run, Then I can set every status, fill the forms, and move between cases without a pointer. Single-key shortcuts (P, F, B, and J/K for next and previous) when focus is not in a text field, listed on the page.
+* AC-8: Given the run is open in two tabs, When both save a result for the same case, Then the last write wins and neither tab corrupts the run (EC-003).
+
+**FR-112: Screenshots** (US-015) — slice 2b
+
+* AC-1: Given a result form, When I paste an image (Ctrl/Cmd+V), drop an image file, or pick one with a file control, Then it is compressed and attached to the result, with a thumbnail.
+* AC-2: Given an image, When it is compressed, Then its long edge is at most 1,920 px and it is stored as WebP, or JPEG where the browser cannot encode WebP [VERIFY], and the compression runs off the main thread (NFR-023). Quality 0.8.
+* AC-3: Given a thumbnail, When I open it, Then the full image opens in a dialog that closes with Escape and returns focus to the thumbnail.
+* AC-4: Given a screenshot, When I delete it, Then I must confirm, and the stored image is removed (no orphan blobs, EC-034).
+* AC-5: Given a paste without an image, a file that is not an image, an image the browser cannot decode (for example HEIC outside Safari [VERIFY]), or one over the input limit, When I add it, Then nothing is attached and an error names the reason.
+* AC-6: Given the result already has the maximum number of screenshots (section 10.5), When I add another, Then it is refused with that limit in the message.
+
+**FR-113: Run list and completion** (US-014)
+
+* AC-1: Given saved runs, When the Test runs page loads, Then each row shows name, release, status, created date, and counts per status with a compact bar, newest first.
+* AC-2: Given an in-progress run, When I mark it completed, Then I am told how many cases are still Untested and must confirm; a completed run is read-only.
+* AC-3: Given a completed run, When I reopen it, Then it becomes in progress again.
+* AC-4: Given a run, When I delete it, Then I must confirm, and its results and screenshots are deleted with it.
+* AC-5: Given a run, When I copy its summary, Then I get Markdown with the run name, release, environment, counts per status, and the failed and blocked cases with their actual result or reason.
+
+#### Bug report
+
+**FR-120: Generate a bug report from a failed result** (US-016) — slice 2b
+
+* AC-1: Given a result with status Fail, When I choose Create bug report, Then a report opens pre-filled with: summary, environment, preconditions, steps to reproduce, expected result, actual result, attachments, priority, labels, and a reference to the run and case key.
+* AC-2: Given the failed step is step n, When the report is built, Then "Steps to reproduce" holds steps 1 to n, "Expected result" is step n's expected result (or the case-level one if step n has none), and "Actual result" is the result's actual text.
+* AC-3: Given "Not step-specific" was chosen, When the report is built, Then all steps are listed and the case-level expected result is used.
+* AC-4: Given the summary, When it is pre-filled, Then it reads "<case title>: <first line of the actual result>", shortened to the summary limit.
+* AC-5: Given every field, When I edit it before copying, Then the copy uses my edits. The report is not stored; generating it again starts from the result. Why: one source of truth (the result); the filed issue lives in Jira.
+* AC-6: Given priority and labels, When pre-filled, Then priority comes from the case and labels from its tags.
+
+**FR-121: Report formats** (US-016)
+
+* AC-1: Given a report, When I copy it, Then I choose Markdown or Jira wiki markup, and the last choice is remembered.
+* AC-2: Given Jira wiki markup, When copied, Then it uses `h3.` headings, `#` numbered steps, and `*bold*` labels, and characters with markup meaning in user text (`{ } [ ] | * _ - + ^ ~ ? #` where they would format) are escaped so the text shows as typed. [VERIFY] exact escaping rules against Atlassian's text formatting notation.
+* AC-3: Given Markdown, When copied, Then it uses `###` headings and a numbered list, and Markdown characters in user text are escaped.
+* AC-4: Given a fixed set of reports with awkward text (braces, pipes, asterisks, backticks, leading `#`, line breaks inside a step), When rendered in each format, Then the output matches golden files (unit tests).
+* AC-5: [VERIFY] Given the Markdown output pasted into the Jira Cloud editor, When rendered, Then headings and the numbered list appear as formatting. Checked by hand once on the owner's Jira Cloud site; the result is recorded in `docs/decisions.md`.
+
+**FR-122: Attachments** (US-015, US-016)
+
+* AC-1: Given a report from a result with screenshots, When it shows, Then each screenshot is listed by file name `<case key>-<run id short>-<n>.<ext>` and the report text refers to these names.
+* AC-2: Given a listed screenshot, When I download it, Then the file has that name. No zip download (it would need a dependency or an own zip writer); files are downloaded one by one or with Download all, which saves each file.
+
+**FR-123: Linked issue** (US-016)
+
+* AC-1: Given a failed or blocked result, When I enter an issue key or URL (for example `PAY-123`), Then it is saved with the result and shown in the run, the run summary, and the release summary.
+* AC-2: Given a linked issue that is a URL, When shown, Then it is a link that opens in a new tab with `rel="noopener noreferrer"`; only `http:` and `https:` URLs become links.
+
+#### Exploratory sessions — slice 2c
+
+**FR-130: Session with charter and timebox** (US-017)
+
+* AC-1: Given the Sessions page, When I start a session, Then I must enter a charter and pick a timebox (30, 60, 90 minutes, or a custom value within section 10.5); the release and environment fields work as in FR-110.
+* AC-2: Given a running session, When it is shown, Then elapsed and remaining time are visible. The clock is derived from stored timestamps, so it stays correct across a reload, a closed tab, or a sleeping laptop (EC-036).
+* AC-3: Given a running session, When the page is hidden, Then the clock stops updating, and it catches up when the page is visible again (`CLAUDE.md` runtime rules, NFR-003).
+* AC-4: Given the timebox is reached, When it happens, Then a non-blocking notice says so and the session keeps running until I end it. No sound, no system notification.
+* AC-5: Given a running session, When I pause and resume it, Then paused time is not counted.
+* AC-6: Given a running session, When I end it, Then it is stored with its total time, and it can be edited but not restarted.
+
+**FR-131: Findings** (US-017)
+
+* AC-1: Given a running or ended session, When I add a finding, Then it has a type (Bug, Question, Idea, Note), text, and the session time at which it was added, and it can have screenshots (FR-112 rules).
+* AC-2: Given findings, When listed, Then they are in time order with their type, and can be filtered by type.
+* AC-3: Given a Bug finding, When I choose Create bug report, Then a report in the FR-121 formats opens with the finding text as the description, the session's environment, and the finding's screenshots; steps to reproduce start empty for me to fill in.
+* AC-4: Given the keyboard only, When I add a finding, Then focus returns to the finding field after saving, ready for the next one.
+
+**FR-132: Session export** (US-017)
+
+* AC-1: Given a session, When I copy it, Then I get Markdown with the charter, release, environment, timebox, total time, and the findings grouped by type with their session time.
+
+#### Release summary — slice 2c
+
+**FR-140: Release rollup** (US-018)
+
+* AC-1: Given runs and sessions with a release, When I open Releases, Then each release is listed once (FR-110 AC-4 grouping) with its run count, session count, and latest activity.
+* AC-2: Given a release, When I open it, Then I see each run with its counts per status, the totals summed over its runs, and the sessions with their count of Bug findings.
+* AC-3: Given a case that appears in more than one run of the release, When the summary is built, Then a "Latest result per case" section shows each case once with its most recent result, so a retest that passed after a fix is not reported as an open failure. Cases are matched by key.
+* AC-4: Given failed and blocked latest results, When listed, Then each shows the case key, title, actual result or reason, and the linked issue (FR-123).
+* AC-5: Given runs and sessions with no release, When Releases loads, Then they appear under "No release" rather than being hidden.
+
+**FR-141: Release summary export** (US-018)
+
+* AC-1: Given a release, When I copy its summary, Then I get Markdown with the totals, the pass rate over executed cases (Untested excluded, and stated as such), the per-run table, the open failures and blocks with linked issues, and the session findings counts.
+* AC-2: Given the totals, When the pass rate is shown, Then it is a percentage with one decimal and the numbers it was computed from.
+
+#### Phase 1 hooks — slice 2c
+
+**FR-150: Checklist to test cases** (US-019)
+
+* AC-1: Given a checklist page (S-07), When I choose Create test cases, Then I can pick items (all selected by default, grouped by section) and create one test case per item.
+* AC-2: Given a created case, When it is stored, Then its title and case-level expected result are the item text, its tags are the checklist slug and the section heading as a tag, its priority is Medium, and it has no steps. Why: checklist items are written as expected behaviour (T-032); the tester adds steps where needed.
+* AC-3: Given the same checklist converted twice, When I convert, Then I am warned how many items already exist as cases with the same title and tag, and can skip them or create duplicates.
+* AC-4: Given cases were created, When it finishes, Then a message gives the count and links to the Test cases list filtered by the checklist tag.
+
+**FR-151: Insert test data into a step** (US-019)
+
+* AC-1: Given the step editor, When I choose Insert test data, Then a dialog offers: an address (chain, type, valid or one invalid variant with its reason, FR-010 and FR-011), an amount edge case (FR-020), and one dummy-data field (FR-080), using the Phase 1 generators.
+* AC-2: Given a value is chosen, When I insert it, Then it is inserted at the cursor in the focused step field as plain text, followed, for an invalid sample, by its reason in parentheses.
+* AC-3: Given the dialog, When it opens, Then the generator code for the chosen kind is loaded on demand, not with the test case editor (NFR-015).
+* AC-4: Given an inserted address, When stored, Then only the public address is stored; key material is discarded as in FR-010 (NFR-012).
+
+### 10.4 Non-functional requirements (Phase 2)
+
+NFR-001 to NFR-022 apply to every Phase 2 page. NFR-022 applies with FR-090 AC-2 (query-string IDs on prerendered routes). Additions:
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| NFR-023 | Image decoding and compression, and the base64 encoding and decoding of screenshots for export and import, run in a Web Worker; no main-thread task over 200 ms while adding a 12-megapixel image or exporting and importing the section 10.5 test data set. | Chromium long-task E2E, as in T-034. |
+| NFR-024 | Deleting a record deletes everything it owns (results, findings, screenshots) in the same transaction; no orphan blob remains. | Unit tests on the storage layer; E2E that counts blobs after deletes. |
+| NFR-025 | Initial JS for `/` stays within NFR-001; Phase 2 code loads only on its own routes; the screenshot worker loads on the first image only. | Bundle-size check in CI; network assertions as in NFR-015. |
+| NFR-026 | Writes that change several records (a run with its results, an import, a cascade delete) are atomic: on failure nothing is half-written. | Unit tests with `fake-indexeddb` (decisions 2026-11-13). |
+
+### 10.5 Limits
+
+Values picked to make the acceptance criteria testable, not measured; revise with real data like the NFR targets.
+
+| Item | Limit |
+| --- | --- |
+| Title, run name, session charter | 1 to 200 characters |
+| Preconditions, step action, step expected, case expected, notes, actual result, reason, finding text | up to 5,000 characters each |
+| Steps per case | 0 to 50 (FR-150 cases start with 0) |
+| Tags per case; tag length | up to 10; 1 to 32 characters, letters, digits, `-`, `_`, `.` |
+| Cases per run | 1 to 500 |
+| Test cases in the database | up to 5,000 |
+| Screenshots per result or finding | up to 5 |
+| Screenshot input | up to 25 MB and 50 megapixels |
+| Screenshot output | long edge up to 1,920 px |
+| Session timebox | 5 to 480 minutes |
+| Performance test data set | 1,000 cases, 20 runs of 100 cases, 200 screenshots |
+
+### 10.6 Edge cases (Phase 2)
+
+| ID | Edge case | Expected handling |
+| --- | --- | --- |
+| EC-027 | A test case is edited or deleted after a run that includes it was created. | The run keeps its snapshot (FR-110 AC-3); the case list and the run never disagree silently. |
+| EC-028 | A record URL is opened with an unknown, malformed, or missing ID. | Record "not found" state (FR-090 AC-3); a missing ID redirects to the list. |
+| EC-029 | The clipboard holds both text and an image, or several images. | The image wins in a result form's paste target; text paste in text fields is unaffected; several images are attached up to the limit. |
+| EC-030 | An animated GIF, a transparent PNG, or a very tall screenshot (full-page capture) is added. | GIF: first frame only, stated in the thumbnail. Transparency: flattened on white for JPEG. Tall: the long edge rule keeps the aspect ratio, so text may become small; stated as a known limit. |
+| EC-031 | Release names that differ only in letter case or surrounding spaces (`v2.3.0`, `V2.3.0 `). | Treated as one release (FR-110 AC-4); the first spelling used is shown. Different spellings (`2.3.0` vs `v2.3.0`) are different releases. |
+| EC-032 | Storage quota is exceeded while saving a screenshot or importing. | The write fails with FR-092 AC-3; the result text already saved stays; an import writes nothing (FR-003 AC-4). |
+| EC-033 | A run or session is open in two tabs. | Last write wins per result or finding (FR-111 AC-8). |
+| EC-034 | A screenshot is removed, or its run, result, session, or finding is deleted. | Its blob is deleted in the same transaction (NFR-024). |
+| EC-035 | User text contains Jira or Markdown markup characters, or looks like a Jira macro (`{code}`, `{panel}`). | Escaped in the copied report (FR-121); never interpreted by the app. |
+| EC-036 | The laptop sleeps or the tab is closed during a running session. | Elapsed time comes from timestamps (FR-130 AC-2), so the time asleep counts as session time unless the session was paused. Stated in the session UI. |
+| EC-037 | A v1 backup file is imported after the upgrade to v2. | Accepted; Phase 2 stores end empty (FR-091 AC-3). |
+| EC-038 | A large export (hundreds of screenshots) is downloaded or imported. | Size shown first (FR-091 AC-4); work in a worker (NFR-023); an import above the browser's quota fails as EC-032. |
+| EC-039 | A test case key collides after importing a file from another browser. | Not possible: import replaces all data, and the key counter continues from the highest imported key (FR-100 AC-2). |
+
+### 10.7 To verify before implementation
+
+* WebP encoding from a canvas (`OffscreenCanvas.convertToBlob` with `image/webp`) in the latest Safari; otherwise JPEG there (FR-112 AC-2).
+* `OffscreenCanvas` and `createImageBitmap` in a worker in the latest Chrome, Firefox, and Safari (NFR-023).
+* Which image formats each browser decodes with `createImageBitmap` (HEIC, AVIF) (FR-112 AC-5).
+* `navigator.storage.persist()` behaviour per browser: prompt, silent grant, or refusal (FR-092 AC-2).
+* Jira wiki markup escaping rules (FR-121 AC-2), from Atlassian's text formatting notation.
+* Pasting Markdown into the Jira Cloud editor (FR-121 AC-5), checked by hand by the owner.
+
+### 10.8 Out of scope (Phase 2)
+
+* Posting to Jira or any tracker through its API (needs a token in the browser and CORS access; copy only).
+* Test case folders, suites, or nested projects (tags only).
+* Custom fields, test case version history, result history per case in a run.
+* Attachments other than images (video, logs, HAR files).
+* Automated test execution or importing automated results (JUnit XML).
+* Importing from TestRail, Qase, or CSV; merge import (OQ-17 stays).
+* Rich text or Markdown rendering inside test cases; text is plain.
+* Zip download of attachments (FR-122 AC-2).
+* Requirement traceability matrix (Phase 3).
