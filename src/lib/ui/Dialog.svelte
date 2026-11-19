@@ -25,8 +25,10 @@
 		else if (!open && dialog.open) dialog.close();
 	});
 
+	// The close event is queued, so it can arrive after the dialog has already been shown again
+	// (a guard that reopens on the next navigation). Only an actually closed dialog ends `open`.
 	function onclose(): void {
-		open = false;
+		if (!dialog?.open) open = false;
 	}
 </script>
 
