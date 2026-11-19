@@ -379,6 +379,12 @@ Decided by the owner before the Phase 2 requirements were drafted (`docs/prd.md`
 * The [VERIFY] items in section 10.7 are facts, not decisions, and are checked before the related code ships.
 * Next: user flows and UI direction for the P2 screens in `docs/design.md`, then the tech plan for slice 2a.
 
+### 2026-11-19: Phase 2 design approved (design brief v0.5)
+
+* The owner approved `docs/design.md` section 13: screens and routes P2-01 to P2-07, a "QA" sidebar group after "Blockchain" and "Data", flows J-8 and J-10 to J-12, the two-pane run execution screen, single-key shortcuts on that screen only, the new components (result control, results bar, screenshot area, image viewer, tag chip, steps editor, sticky footer bar), the motion additions, and the copy. No new design token.
+* Decided with it, as recommended (section 13.9): a static prototype `prototype/run-execution.html` is reviewed before slice 2a code; the session clock shows minutes and updates once a minute while visible (rejected: `mm:ss` every second, which keeps a timer running for the whole session); the bug report is a dialog on the run, not its own route; a new run lists its cases by key, whatever order they were ticked in (reading of FR-110 AC-2).
+* Next: the prototype, then the tech plan for slice 2a (`docs/plan.md`).
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

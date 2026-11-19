@@ -1,7 +1,7 @@
 # QAnchor: Design Brief
 
-* Status: APPROVED (owner; v0.3 on 2026-11-12, v0.4 polish layer on 2026-11-13)
-* Version: 0.4
+* Status: APPROVED (owner; v0.3 on 2026-11-12, v0.4 polish layer on 2026-11-13); v0.5 Phase 2 on 2026-11-19)
+* Version: 0.5
 * Date: 2026-11-13
 * Sources: `CLAUDE.md` (project context), `docs/prd.md` v0.3, `docs/decisions.md`
 * Visual direction: **B "Anchor"**, chosen by the owner on 2026-11-12; refined as **A "Anchor, refined"** (polish layer) on 2026-11-13 after the project rules moved to "polished & optimized" (`docs/decisions.md`)
@@ -14,7 +14,7 @@ Conventions:
 * **[PROPOSAL]**: suggested by the designer, not yet approved.
 * **[ASSUMPTION]**: assumed, to be confirmed.
 * **[VERIFY]**: a fact that must be measured or checked before it is relied on.
-* Phases 2 to 4 have no FR IDs yet. Every screen in those phases is a [PROPOSAL] and is described at outline level only.
+* Phase 2 is designed in section 13. Phases 3 and 4 have no FR IDs yet; their screens are a [PROPOSAL] at outline level only.
 
 ## 0. Input
 
@@ -165,7 +165,7 @@ Route names are [PROPOSAL] and are confirmed in the tech plan.
 
 Slice mapping: 1a = S-00, S-01, S-02, S-03, S-04, S-10 (theme and export/import), S-11. 1b = S-07, S-09. 1c = S-05, S-06, S-08, S-10 (endpoints).
 
-### Phases 2 to 4 (all [PROPOSAL], outline only)
+### Phases 2 to 4 (all [PROPOSAL], outline only; Phase 2 is detailed in section 13)
 
 | ID | Screen | Purpose | PRD source |
 | --- | --- | --- | --- |
@@ -254,7 +254,7 @@ flowchart TD
 
 ### Later phases [PROPOSAL]
 
-* J-8 (Phase 2): checklist or test cases, start a run, mark each case, paste a screenshot on a failure, generate a bug report from the failed step, copy it to Jira.
+* J-8 (Phase 2): detailed in section 13.2, with J-10 to J-12.
 * J-9 (Phase 3): paste or upload a PRD, edit the numbered requirements, review PM questions, generate test cases with source quotes, open the traceability matrix, start a run.
 
 ## 5. Layout per screen
@@ -478,3 +478,194 @@ All four items below were approved by the owner on 2026-11-13, as recommended.
 12. **Where the polish layer is built**: tokens and motion as part of T-008 (UI primitives), which builds the components the catalogue applies to; the small-screen menu animation comes with the first tool (T-013), when the menu first renders. Recommended, because no new task and no rework of merged work is needed. Alternative: a separate task right after T-006.
 
 No design decision is open.
+
+---
+
+## 13. Phase 2: test cases, runs, bug reports (v0.5)
+
+* Status: APPROVED (owner, 2026-11-19), with every recommendation in 13.9. Sections 0 to 12 are unchanged.
+* Requirements: `docs/prd.md` section 10 (approved 2026-11-19). This section designs every Phase 2 screen at the same level as Phase 1 and replaces the outline rows P2-01 to P2-07 in section 3.
+* Everything here reuses the Phase 1 tokens, shell, and components. No new colour, font, or spacing token is added. New components are listed in 13.5.
+* The owner's decisions on this section are in 13.9.
+
+### 13.1 Screens and routes
+
+Record pages use query-string IDs on prerendered routes (FR-090 AC-2, ADR-011). Route names may still change in the tech plan for a technical reason (decision 5 in section 12).
+
+| ID | Screen | Route | Slice | Requirements |
+| --- | --- | --- | --- | --- |
+| P2-01 | Test cases | `/cases` | 2a | FR-101, FR-102 |
+| P2-02 | Test case editor | `/cases/new`, `/cases/edit?id=<id>` | 2a | FR-100, FR-102, FR-151 (2c) |
+| P2-03 | Test runs | `/runs` | 2a | FR-113 |
+| P2-03a | New run | `/runs/new` | 2a | FR-110 |
+| P2-04 | Run execution | `/runs/view?id=<id>` | 2a; screenshots 2b | FR-111, FR-112, FR-113, FR-123 |
+| P2-05 | Bug report | dialog on P2-04 and P2-06 | 2b | FR-120 to FR-122, FR-131 AC-3 |
+| P2-06 | Sessions | `/sessions`, `/sessions/view?id=<id>` | 2c | FR-130 to FR-132 |
+| P2-07 | Releases | `/releases`, `/releases/view?name=<release>` | 2c | FR-140, FR-141 |
+| S-07 (added) | Checklist detail: Create test cases | dialog on `/checklists/<slug>` | 2c | FR-150 |
+| S-10 (added) | Settings: Storage section | `/settings` | 2b | FR-092 |
+
+Sidebar: a third group **"QA"** after "Blockchain" and "Data" (FR-090 AC-1), with Test cases, Test runs, and from slice 2c Sessions and Releases. New 16 px inline icons in the existing style: `cases` (list with ticks), `run` (play triangle), `session` (stopwatch), `release` (flag), `image`, `bug`, `arrow-up`, `arrow-down`, `trash`. Each is a few path commands, well under 1 KB together.
+
+The empty `/runs/view` or `/cases/edit` without an `id` redirects to its list (EC-028). An unknown ID shows a record not-found state inside the page (FR-090 AC-3), not S-11.
+
+### 13.2 User flows
+
+#### J-8: Run test cases and file a bug (US-014 to US-016)
+
+```mermaid
+flowchart TD
+  A[Test cases: filter by tag] --> B[New run: name, release, environment]
+  B --> C[Select all matching / pick cases]
+  C --> D{At least one case?}
+  D -- no --> E[Create run disabled, hint shown]
+  D -- yes --> F[Create run: opens Run execution on case 1]
+  F --> G{Result}
+  G -- Pass --> H[Saved, next case]
+  G -- Blocked --> I[Reason required, then saved]
+  G -- Fail --> J[Pick failed step, write actual result]
+  J --> K[Paste screenshot: Ctrl/Cmd+V]
+  K --> L[Create bug report: dialog pre-filled]
+  L --> M[Pick Markdown or Jira, Copy report]
+  M --> N[Download screenshots, file in Jira]
+  N --> O[Paste issue key into Linked issue]
+  O --> H
+  H --> P{Untested left?}
+  P -- yes --> G
+  P -- no --> Q[Complete run, copy run summary]
+```
+
+#### J-10: Exploratory session (US-017)
+
+1. Sessions, Start session: charter, timebox (60 min default), release, environment.
+2. The session page shows the charter and "0 min elapsed · 60 min left". Focus is in the finding field.
+3. Type a finding, pick its type (Note by default), optionally paste a screenshot, press Ctrl/Cmd+Enter or Add finding. Focus returns to the field (FR-131 AC-4).
+4. At 60 minutes a callout says the timebox is reached; the session keeps running (FR-130 AC-4).
+5. End session. Copy the session as Markdown, or open a Bug finding's bug report.
+
+#### J-11: Release report (US-018)
+
+1. Releases lists every release used on runs and sessions, plus "No release".
+2. Open one: totals, pass rate, runs, latest result per case (open failures first), sessions.
+3. Copy summary as Markdown and paste it into the release ticket or chat.
+
+#### J-12: Checklist to run (US-019)
+
+1. Checklists, open Deposit, Create test cases. All items are ticked; untick a few; Create.
+2. Message "Created 24 test cases." links to Test cases filtered by `deposit`.
+3. New run, Select all matching, Create run (J-8).
+
+### 13.3 Layout per screen
+
+**P2-01 Test cases.** Page header with New test case (primary) on the right. Filter bar in a form panel: text filter, Tags (a `<details>` dropdown with checkboxes, "2 tags" when closed), Priority (checkbox group inline). Output toolbar: "124 test cases" (or "12 of 124 match"), New run with these (secondary; opens P2-03a with the same filter). Table: Key (mono), Title (link to editor), Priority badge, Tags (neutral chips, at most 3 then "+2"), Steps, Updated (relative date with the full date in `<time>`). Row actions: Duplicate, Delete. The filter is in the URL query (FR-101 AC-2).
+
+**P2-02 Test case editor.** Page header: "TC-12" in mono above the title "Edit test case" (or "New test case"); Duplicate and Delete as ghost buttons on the right (edit only). One form panel, max-width 820 px like S-04, sections top to bottom:
+
+1. Title (full width).
+2. Priority (select) and Tags (text input with chips; existing tags offered through a native `<datalist>`; Enter or comma adds a chip; Backspace in an empty field removes the last chip).
+3. Preconditions (textarea, 3 rows, grows with content).
+4. Steps: an ordered list. Each step is a row: number, Action textarea, Expected result textarea (optional, labelled so), and three icon buttons (Move up, Move down, Remove step) with names that include the number ("Move step 3 up"). Add step (secondary) under the list. In 2c, each step row also has Insert test data (FR-151).
+5. Expected result (case level; hint: "Required if no step has an expected result.").
+
+A footer bar sticks to the bottom of the viewport while the form is longer than the screen: "Unsaved changes" status text on the left, Cancel and Save on the right. Leaving with unsaved changes opens the native `beforeunload` prompt for reloads and a QAnchor dialog for in-app links (FR-100 AC-7).
+
+**P2-03 Test runs.** Header with New run (primary). Table: Name (link), Release, Status badge (In progress: neutral; Completed: success), Progress (13.5 results bar plus "18 / 40"), Created. Row action: Delete.
+
+**P2-03a New run.** Form panel: Name (default "Run <YYYY-MM-DD>", editable), Release (input with `<datalist>` of known releases), Environment (textarea, 2 rows, hint "Build, device, OS, browser, network."). Below it the case picker: the P2-01 filter bar, then a table with a checkbox column, a header checkbox for "Select all matching (n)", and the selected count in the toolbar ("40 selected"). Create run (primary) sits in a footer bar with the count, disabled with the hint "Select at least one test case." when nothing is selected. Selected cases keep their order by key.
+
+**P2-04 Run execution.** The main screen of Phase 2.
+
+* Header: run name, then a meta line (release, environment on one line, truncated with the full text in a disclosure), the results bar with counts in words ("18 passed, 3 failed, 2 blocked, 17 untested"), and actions: Copy summary, Complete run (secondary). A completed run shows a "Completed" badge and Reopen; every control below is read-only.
+* Body: two panes inside the 1120 px column. **Case list** on the left (280 px, own scroll): one row per case with key, title (one line, truncated), and a status badge; the current case has the accent-subtle background and `aria-current="true"`; a type-filter select above it (All, Untested, Failed, Blocked, Passed). **Case pane** on the right:
+  1. Case header: key, title, priority badge, "Case 19 of 40", Previous and Next buttons.
+  2. Preconditions (if any), then the steps as a numbered table: #, Action, Expected result. Case-level expected result below it.
+  3. **Result panel** (form panel with focus glow): the result control (13.5), then fields by status: Fail shows Failed step (select: "Step 1: <first words>" … "Not step-specific") and Actual result (required); Blocked shows Reason (required); every status shows Notes. Fail and Blocked also show Linked issue (FR-123). From 2b: the screenshot area (13.5) and, for Fail, Create bug report (secondary).
+  4. "Saved 14:02" status text in the result panel footer; there is no Save button for the status itself (FR-111 AC-2), while required text is saved with Save result (primary), which appears only when Fail or Blocked is chosen and the text is not yet saved.
+* Below 1024 px the case list moves into a `<details>` disclosure above the case pane ("Case 19 of 40 · show all").
+* The URL carries the current case (`&case=<key>`), so a reload returns to it.
+
+**P2-05 Bug report (dialog).** A large native dialog (max-width 880 px, max-height 90vh, body scrolls). Title "Bug report: TC-12". Fields, all pre-filled and editable (FR-120): Summary, Priority (select), Labels, Environment, Preconditions, Steps to reproduce (one textarea, numbered lines), Expected result, Actual result, Notes. Then Attachments: thumbnails with their file names and a download icon each, plus Download all. Footer: format segmented control (Markdown | Jira), Preview (a disclosure showing the exact text that will be copied, mono, read-only), Close (ghost), Copy report (primary). Closing after an edit asks "Discard your edits to this report?" because the report is not stored (FR-120 AC-5).
+
+**P2-06 Sessions.** List page: a Start session form panel at the top (Charter, Timebox segmented control 30 / 60 / 90 / Custom with a minutes field for Custom, Release, Environment, Start session primary) and the sessions table below (Charter, Release, Status badge Running / Paused / Ended, Time, Findings by type as "3 bugs · 2 questions"). Session page: header with the charter, meta line, and a clock line in tabular numbers, "23 min elapsed · 37 min left" (13.9 decision 2), with Pause / Resume and End session. Below it the finding composer (form panel): type segmented control (Bug, Question, Idea, Note), finding textarea, screenshot area, Add finding (primary, Ctrl/Cmd+Enter). Then the findings list, newest last, each with "at 12 min", a type badge, the text, thumbnails, and for Bug findings Create bug report. Copy session in the header.
+
+**P2-07 Releases.** List: table of releases (Release, Runs, Sessions, Pass rate, Last activity), "No release" last. Release page: a stat row of five figures (Executed, Pass rate with "from 112 of 120 executed", Failed, Blocked, Untested), then three sections: Runs (table with the results bar per run), Latest result per case (table: key, title, status, actual result or reason, linked issue; failed and blocked first, then the rest collapsed in a disclosure "Show 96 passed"), Sessions (charter, time, findings counts). Copy summary (primary) in the header.
+
+**S-10 Storage section (2b).** Under Data: "Storage" with a determinate bar ("38 MB of about 2 GB used", from the estimate), a status line with a badge ("Persistent" success, or "Not persistent" warning plus "The browser may delete this data when disk space runs low."), and Keep data persistent (secondary), hidden once persistent.
+
+### 13.4 Keyboard
+
+Phase 1 had no app shortcuts (section 10). Phase 2 adds them on P2-04 only (FR-111 AC-7):
+
+| Key | Action |
+| --- | --- |
+| `P`, `F`, `B` | Set Pass, Fail, Blocked on the current case. `F` and `B` move focus to the first required field. |
+| `J`, `K` | Next, previous case |
+| `?` | Opens the shortcut list (a dialog) |
+
+They work only when focus is not in a text field, select, or dialog, and never with a modifier, so browser and screen-reader shortcuts are untouched. A "Keyboard shortcuts" link in the header lists them. On P2-06, Ctrl/Cmd+Enter in the finding field adds the finding. Everywhere else, Tab order follows section 9.
+
+### 13.5 New components
+
+| Component | Variants | Notes |
+| --- | --- | --- |
+| Result control | Pass, Fail, Blocked; read-only | A segmented control (radio inputs) whose selected option takes the status colours: success, danger, warning tint with the status text colour and an icon (check, cross, warning). Untested is the state with nothing selected, shown as "Untested" text beside it. Arrow keys move within it as in section 9. |
+| Results bar | default | A static stacked bar (pass, fail, blocked, untested segments, 6 px high, `--radius-full`), always paired with the counts in words, so colour is never the only carrier (NFR-009). It is not animated (width changes are not transitioned, section 2.3). `role="img"` with the counts as its name. |
+| Status badge (extended) | + Pass, Fail, Blocked, Untested, Running, Paused, Ended, Completed | Same rules as Phase 1 badges. |
+| Priority badge | Critical (danger), High (warning), Medium (neutral), Low (neutral, subtle text) | Text always shown. |
+| Tag chip | neutral; removable | Removable chips have a 24 px remove button named "Remove tag <tag>". |
+| Steps editor | edit, read-only table | See P2-02. |
+| Screenshot area | empty, compressing, thumbnails, full, error | A dashed-border drop target that is also a button ("Add screenshot: paste, drop, or choose a file"). Paste works anywhere inside the result panel or finding composer when the clipboard holds an image, also with focus in a text field; a text-only paste behaves as usual (EC-029). While compressing: a placeholder tile with "Compressing…". Thumbnails are 96 × 64 px, `object-fit: cover`, each a button that opens the viewer, with a remove icon button. At the limit the target is replaced by "5 of 5 screenshots". |
+| Image viewer | dialog | The image at up to 90vw × 85vh, file name and size below, Download, Close. Escape closes; focus returns to the thumbnail (FR-112 AC-3). |
+| Sticky footer bar | default | Editor and New run: stays at the viewport bottom while the form is taller than the screen; `--color-surface` with a top border, no shadow. |
+
+### 13.6 Motion additions
+
+Same rules as section 2.4; reduced motion makes all of them instant.
+
+| Interaction | Job | What moves | Duration / easing | Where |
+| --- | --- | --- | --- | --- |
+| Case switch | Show that the case pane changed | Case pane crossfade (`opacity`) | fast, ease-out | P2-04 |
+| Result set | Confirm the choice at the control | Status icon in the selected option scales 0.5 to 1 | base, ease-spring | Result control |
+| Thumbnail added | Show where the screenshot went | `opacity` 0 to 1, `scale` 0.96 to 1 | base, ease-out | Screenshot area |
+| Finding added | Show the new entry | Same as "Results enter", one row | base, ease-out | P2-06 |
+| Timebox reached | Draw attention once | Callout `opacity`, `translateY` 4 px | base, ease-out | P2-06 |
+
+The results bar, the counts, and the clock never animate.
+
+### 13.7 Screen states and copy
+
+| Screen | Empty | Loading | Error | Success |
+| --- | --- | --- | --- | --- |
+| P2-01 | "No test cases yet. Write one, or create them from a checklist." + New test case, and from 2c a link to Checklists. Filter with no match: "No test case matches these filters." + Clear filters | "Loading test cases…" | Storage unavailable: "Test cases need storage, which is unavailable in this tab." | "Deleted TC-12." toast; "Duplicated as TC-31." |
+| P2-02 | n/a | "Loading TC-12…" | "Enter a title." / "Add an expected result to a step or to the case." / "A tag can be up to 32 characters: letters, digits, - _ ." / "Up to 50 steps." Record missing: "Test case not found. It may have been deleted, or it was created in another browser." + Back to test cases | Toast "Saved TC-12." |
+| P2-03 | "No runs yet. Start one from your test cases." + New run (disabled with "Write a test case first." when there is none) | "Loading runs…" | as P2-01 | Toast "Deleted run "<name>"." |
+| P2-03a | No cases: "There are no test cases to run yet." + New test case | "Loading test cases…" | "Select at least one test case." / "Up to 500 test cases per run." | Navigates to P2-04 |
+| P2-04 | n/a | "Loading run…" | "Write the actual result to save a failure." / "Write the reason to save a block." Record missing: "Run not found…" as P2-02 | "Saved 14:02"; complete: "Run completed: 36 passed, 3 failed, 1 blocked." |
+| P2-04 complete dialog | Title "Complete this run?" Body "4 test cases are still untested. They will stay untested in the run and the release summary." Buttons: Cancel (focused), Complete run | | | |
+| P2-05 | n/a | "Preparing screenshots…" while thumbnails decode | Clipboard failure: section 7 shared dialog | Toast "Copied as Jira markup" / "Copied as Markdown" |
+| Screenshot area | "Paste, drop, or choose an image." | "Compressing…" | "The clipboard has no image." / "<file> is not an image." / "This browser cannot open <file> (HEIC)." / "Images up to 25 MB and 50 megapixels." / "Not enough storage to save this screenshot. 1.9 GB of 2 GB used." + link to Settings | Thumbnail appears; live region "Screenshot added, 2 of 5." |
+| P2-06 list | "No sessions yet. Start one with a charter and a timebox." | "Loading sessions…" | "Enter a charter." / "Timebox from 5 to 480 minutes." | Navigates to the session |
+| P2-06 session | Findings: "No findings yet. Note what you observe as you go." | "Loading session…" | Record missing as P2-02 | Timebox: info callout "Timebox reached. The session keeps running until you end it." |
+| P2-07 | "No releases yet. Add a release to a run or a session to see it here." | "Loading releases…" | Unknown release: "No run or session uses the release "<name>"." | Toast "Copied release summary" |
+| S-07 create dialog | n/a | "Creating 24 test cases…" | Duplicate warning (warning callout): "6 of these items already exist as test cases with the tag deposit." + Skip existing (default) / Create anyway | "Created 18 test cases." + link "View them" |
+| S-10 storage | n/a | "Checking storage…" | Refused: "The browser did not make storage persistent." plus one line on how that browser decides, written after the PRD 10.7 check of `navigator.storage.persist()` [VERIFY] | Badge "Persistent" |
+
+Destructive dialogs (danger variant, Cancel focused first): "Delete TC-12?" with "It is in 3 runs. Those runs keep their own copy." / "Delete run "<name>"?" with "Its 40 results and 6 screenshots are deleted too. This cannot be undone." / "Remove this screenshot?" / "Discard your edits to this report?".
+
+### 13.8 Accessibility and layout notes
+
+* P2-04's two panes are a `nav` (case list, labelled "Cases in this run") and a `section` labelled by the case title. Moving to another case moves focus to the case heading and announces "Case 19 of 40: <title>".
+* A status change is announced through the live region: "TC-12 marked Failed. 18 passed, 3 failed, 2 blocked, 17 untested."
+* Step tables in P2-04 have a caption ("Steps for TC-12") and `<th scope="col">`.
+* Thumbnails have alt text "Screenshot 2 of TC-12" (or of the finding), as the app cannot describe the image.
+* Text areas grow with content up to 12 rows, then scroll; a textarea never resizes the page while typing a single line.
+* Below 640 px, P2-04 stacks (case list disclosure, case pane), the editor's step buttons wrap under the textareas, and the bug report dialog is full-screen.
+
+### 13.9 Owner decisions
+
+All four items below were approved by the owner on 2026-11-19, as recommended.
+
+1. **Prototype before slice 2a code.** Recommended: a static `prototype/run-execution.html` (P2-04 with the result panel, screenshot area, and the bug report dialog, light and dark), like the Phase 1 prototypes, reviewed before the tech plan is final. Why: it is the screen used most, and its two-pane layout is the one new layout in the app. Alternative: go straight to implementation and review on the PR preview.
+2. **Session clock resolution.** Recommended: minutes ("23 min elapsed · 37 min left"), updated once a minute while the page is visible. Why: timeboxes are planned in minutes, and a per-second timer keeps the page busy for the whole session (idle CPU rule, NFR-003). Alternative: `mm:ss`, updated every second while visible.
+3. **Bug report as a dialog.** Recommended: a large dialog on the run (P2-05). Why: the tester returns to the same case right after copying, and the report is not stored, so a page of its own adds a route without adding state. Alternative: its own route `/runs/report?id=&case=`.
+4. **Order of cases in a new run.** FR-110 AC-2 says "in the order of the selection". Recommended reading: the order of the case list (by key), whatever order they were ticked in. Why: predictable, and it matches how the cases are listed everywhere else. Alternative: the order in which they were ticked.
