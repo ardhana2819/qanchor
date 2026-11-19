@@ -593,8 +593,8 @@ No product question is open. The items below are facts, not decisions; each must
 
 | Slice | Content | Requirements | Ends with |
 | --- | --- | --- | --- |
-| 2a | QA navigation group, storage schema v2, test cases, test runs (no screenshots yet) | FR-090, FR-091 (cases and runs), FR-100 to FR-102, FR-110, FR-111, FR-113 | Deployed; a run can be created and executed end to end |
-| 2b | Screenshots, persistent storage, bug report generator | FR-091 (screenshots), FR-092, FR-112, FR-120 to FR-123 | Deployed; journey J-8 in `docs/design.md` works without the Phase 1 hooks |
+| 2a | QA navigation group, storage schema v2, test cases, test runs (no screenshots yet), linked issue | FR-090, FR-091 (cases and runs), FR-100 to FR-102, FR-110, FR-111, FR-113, FR-123 | Deployed; a run can be created and executed end to end |
+| 2b | Screenshots, persistent storage, bug report generator | FR-091 (screenshots), FR-092, FR-112, FR-120 to FR-122 | Deployed; journey J-8 in `docs/design.md` works without the Phase 1 hooks |
 | 2c | Exploratory sessions, release summary, Phase 1 hooks | FR-130 to FR-132, FR-140, FR-141, FR-150, FR-151 | Phase 2 complete |
 
 ### 10.2 User stories
@@ -730,7 +730,7 @@ A run has: a name, an optional release, an optional environment (free text: buil
 * AC-1: Given a report from a result with screenshots, When it shows, Then each screenshot is listed by file name `<case key>-<run id short>-<n>.<ext>` and the report text refers to these names.
 * AC-2: Given a listed screenshot, When I download it, Then the file has that name. No zip download (it would need a dependency or an own zip writer); files are downloaded one by one or with Download all, which saves each file.
 
-**FR-123: Linked issue** (US-016)
+**FR-123: Linked issue** (US-016), slice 2a (moved from 2b on 2026-11-19, plan finding F-3)
 
 * AC-1: Given a failed or blocked result, When I enter an issue key or URL (for example `PAY-123`), Then it is saved with the result and shown in the run, the run summary, and the release summary.
 * AC-2: Given a linked issue that is a URL, When shown, Then it is a link that opens in a new tab with `rel="noopener noreferrer"`; only `http:` and `https:` URLs become links.
