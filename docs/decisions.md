@@ -385,6 +385,12 @@ Decided by the owner before the Phase 2 requirements were drafted (`docs/prd.md`
 * Decided with it, as recommended (section 13.9): a static prototype `prototype/run-execution.html` is reviewed before slice 2a code; the session clock shows minutes and updates once a minute while visible (rejected: `mm:ss` every second, which keeps a timer running for the whole session); the bug report is a dialog on the run, not its own route; a new run lists its cases by key, whatever order they were ticked in (reading of FR-110 AC-2).
 * Next: the prototype, then the tech plan for slice 2a (`docs/plan.md`).
 
+### 2026-11-19: Run execution prototype approved
+
+* The owner approved `prototype/run-execution.html` (P2-04 and P2-05) as built, with no layout change to design section 13.
+* It was checked in Chromium only: the shortcuts, required text for Fail and Blocked, the bug report in both formats, completing and reopening a run, the dark theme, and 375 px width without horizontal scroll. Its escaping is a stand-in; the real rules wait for the PRD 10.7 check.
+* Next: the tech plan for slice 2a (`docs/plan.md`).
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

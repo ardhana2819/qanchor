@@ -1,0 +1,2400 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Run execution · QAnchor prototype</title>
+		<style>
+			/* QAnchor PROTOTYPE for flow J-8 on P2-04 Run execution and P2-05 Bug report
+			   (docs/design.md section 13, docs/prd.md FR-111, FR-112, FR-113, FR-120 to FR-123).
+			   Tokens and components copied from docs/design.md v0.5 and src/app.css.
+			   Not app code: data is fake, nothing is stored, screenshots are not compressed. */
+
+			:root {
+				color-scheme: light dark;
+				--color-bg: light-dark(#ffffff, #0b1017);
+				--color-surface: light-dark(#f6f8fa, #131a22);
+				--color-surface-raised: light-dark(#eef1f4, #1b242e);
+				--color-border: light-dark(#d8dee4, #2a3440);
+				--color-border-strong: light-dark(#7d8590, #6b7785);
+				--color-text: light-dark(#0f172a, #e6edf3);
+				--color-text-muted: light-dark(#475569, #a9b4c0);
+				--color-text-subtle: light-dark(#5a6472, #8693a1);
+				--color-accent: light-dark(#0f766e, #2dd4bf);
+				--color-accent-hover: light-dark(#115e59, #5eead4);
+				--color-on-accent: light-dark(#ffffff, #042f2b);
+				--color-accent-subtle: light-dark(#e6f4f1, #0f2e2b);
+				--color-success: light-dark(#1a7f37, #3fb950);
+				--color-success-bg: light-dark(#e8f5ec, #12261a);
+				--color-danger: light-dark(#cf222e, #f85149);
+				--color-danger-bg: light-dark(#ffebe9, #2d1416);
+				--color-warning: light-dark(#8a5a00, #d29922);
+				--color-warning-bg: light-dark(#fff4d6, #2a2110);
+				--color-info: light-dark(#0969da, #58a6ff);
+				--color-info-bg: light-dark(#ddf4ff, #10243b);
+				--color-focus-glow: light-dark(rgb(15 118 110 / 0.08), rgb(45 212 191 / 0.08));
+				--shadow-overlay: 0 4px 16px light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.5));
+				--shadow-panel:
+					inset 0 1px 0 light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.04)),
+					0 1px 2px light-dark(rgb(15 23 42 / 0.05), rgb(0 0 0 / 0.3));
+				--shadow-button: inset 0 1px 0 rgb(255 255 255 / 0.15), 0 1px 2px rgb(0 0 0 / 0.15);
+				--font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+				--font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+				--space-1: 4px;
+				--space-2: 8px;
+				--space-3: 12px;
+				--space-4: 16px;
+				--space-6: 24px;
+				--space-8: 32px;
+				--space-12: 48px;
+				--radius-sm: 4px;
+				--radius-md: 6px;
+				--radius-full: 9999px;
+				--control-sm: 28px;
+				--control-md: 36px;
+				--duration-fast: 120ms;
+				--duration-base: 180ms;
+				--duration-slow: 240ms;
+				--ease-out: cubic-bezier(0.2, 0, 0, 1);
+				--ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+			}
+
+			:root[data-theme='light'] {
+				color-scheme: light;
+			}
+
+			:root[data-theme='dark'] {
+				color-scheme: dark;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				:root {
+					--duration-fast: 0ms;
+					--duration-base: 0ms;
+					--duration-slow: 0ms;
+				}
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			[hidden] {
+				display: none !important;
+			}
+
+			body {
+				margin: 0;
+				background: var(--color-bg);
+				color: var(--color-text);
+				font: 400 0.875rem/1.375rem var(--font-sans);
+				-webkit-font-smoothing: antialiased;
+			}
+
+			h1,
+			h2,
+			h3,
+			p {
+				margin: 0;
+			}
+
+			:focus-visible {
+				outline: 2px solid var(--color-accent);
+				outline-offset: 2px;
+			}
+
+			.mono {
+				font-family: var(--font-mono);
+				font-size: 0.84375rem;
+			}
+
+			.muted {
+				color: var(--color-text-muted);
+			}
+
+			.subtle {
+				color: var(--color-text-subtle);
+				font-size: 0.8125rem;
+			}
+
+			.visually-hidden {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				overflow: hidden;
+				clip-path: inset(50%);
+				white-space: nowrap;
+			}
+
+			.icon {
+				width: 16px;
+				height: 16px;
+				flex: none;
+			}
+
+			.proto-badge {
+				position: fixed;
+				top: var(--space-3);
+				right: var(--space-3);
+				z-index: 30;
+				padding: 2px var(--space-2);
+				border-radius: var(--radius-sm);
+				background: var(--color-warning-bg);
+				color: var(--color-warning);
+				font-size: 0.75rem;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+			}
+
+			/* Shell (S-00) */
+
+			.shell {
+				display: grid;
+				grid-template-columns: 248px minmax(0, 1fr);
+				min-height: 100vh;
+			}
+
+			.sidebar {
+				position: sticky;
+				top: 0;
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-6);
+				height: 100vh;
+				padding: var(--space-4) var(--space-3);
+				border-right: 1px solid var(--color-border);
+				background: var(--color-surface);
+			}
+
+			.brand {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: 0 var(--space-2);
+				color: var(--color-text);
+				font-size: 0.9375rem;
+				font-weight: 600;
+				text-decoration: none;
+			}
+
+			.brand-mark {
+				display: grid;
+				place-items: center;
+				width: 26px;
+				height: 26px;
+				border-radius: var(--radius-sm);
+				background: var(--color-accent);
+				color: var(--color-on-accent);
+			}
+
+			.nav-group {
+				margin-top: var(--space-6);
+			}
+
+			.nav-group h2 {
+				margin-bottom: var(--space-1);
+				padding: 0 var(--space-2);
+				color: var(--color-text-subtle);
+				font-size: 0.8125rem;
+				font-weight: 500;
+				line-height: 1.125rem;
+			}
+
+			.nav-group ul {
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+				margin: 0;
+				padding: 0;
+				list-style: none;
+			}
+
+			.nav-item {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				height: 34px;
+				padding: 0 10px;
+				border-radius: var(--radius-sm);
+				color: var(--color-text-muted);
+				text-decoration: none;
+			}
+
+			.nav-item:hover {
+				background: var(--color-surface-raised);
+				color: var(--color-text);
+			}
+
+			.nav-item[aria-current='page'] {
+				background: var(--color-accent-subtle);
+				color: var(--color-accent);
+				font-weight: 500;
+			}
+
+			.sidebar-footer {
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-2);
+				margin-top: auto;
+			}
+
+			.main {
+				padding: var(--space-8) 40px var(--space-12);
+			}
+
+			.content {
+				max-width: 1120px;
+				margin: 0 auto;
+			}
+
+			footer {
+				margin-top: var(--space-12);
+				color: var(--color-text-subtle);
+				font-size: 0.8125rem;
+			}
+
+			/* Segmented control */
+
+			.segmented {
+				position: relative;
+				display: inline-grid;
+				grid-auto-columns: minmax(0, 1fr);
+				grid-auto-flow: column;
+				gap: 2px;
+				margin: 0;
+				padding: 2px;
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-md);
+				background: var(--color-surface-raised);
+			}
+
+			.sidebar .segmented {
+				display: grid;
+			}
+
+			.segmented label {
+				position: relative;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+				min-height: var(--control-sm);
+				padding: 0 var(--space-3);
+				border-radius: var(--radius-sm);
+				color: var(--color-text-muted);
+				font-size: 0.8125rem;
+				font-weight: 500;
+				cursor: pointer;
+			}
+
+			.segmented label:has(input:checked) {
+				background: var(--color-bg);
+				color: var(--color-text);
+				box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+			}
+
+			.segmented label:has(input:focus-visible) {
+				outline: 2px solid var(--color-accent);
+				outline-offset: 1px;
+			}
+
+			.segmented input {
+				position: absolute;
+				inset: 0;
+				margin: 0;
+				opacity: 0;
+				cursor: pointer;
+			}
+
+			/* Buttons */
+
+			.button {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+				height: var(--control-md);
+				padding: 0 var(--space-3);
+				border: 1px solid var(--color-border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--color-bg);
+				color: var(--color-text);
+				font: 500 0.875rem/1 var(--font-sans);
+				white-space: nowrap;
+				text-decoration: none;
+				cursor: pointer;
+				transition:
+					background-color var(--duration-fast) var(--ease-out),
+					transform var(--duration-fast) var(--ease-out);
+			}
+
+			.button:hover:not(:disabled) {
+				background: var(--color-surface-raised);
+			}
+
+			.button:active:not(:disabled) {
+				transform: scale(0.97);
+			}
+
+			.button:disabled {
+				border-color: var(--color-border);
+				background: var(--color-surface-raised);
+				color: var(--color-text-subtle);
+				cursor: not-allowed;
+			}
+
+			.button.primary {
+				border-color: var(--color-accent);
+				background: var(--color-accent);
+				box-shadow: var(--shadow-button);
+				color: var(--color-on-accent);
+			}
+
+			.button.primary:hover:not(:disabled) {
+				border-color: var(--color-accent-hover);
+				background: var(--color-accent-hover);
+			}
+
+			.button.ghost {
+				border-color: transparent;
+				background: transparent;
+				color: var(--color-text-muted);
+			}
+
+			.button.ghost:hover:not(:disabled) {
+				color: var(--color-text);
+			}
+
+			.button.danger-fill {
+				border-color: var(--color-danger);
+				background: var(--color-danger);
+				color: #ffffff;
+			}
+
+			.button.sm {
+				height: var(--control-sm);
+				padding: 0 var(--space-2);
+				font-size: 0.8125rem;
+			}
+
+			.icon-button {
+				display: inline-grid;
+				place-items: center;
+				width: var(--control-sm);
+				height: var(--control-sm);
+				padding: 0;
+				border: 1px solid transparent;
+				border-radius: var(--radius-sm);
+				background: transparent;
+				color: var(--color-text-muted);
+				cursor: pointer;
+			}
+
+			.icon-button:hover {
+				background: var(--color-surface-raised);
+				color: var(--color-text);
+			}
+
+			.link-button {
+				padding: 0;
+				border: 0;
+				background: none;
+				color: var(--color-accent);
+				font: inherit;
+				text-decoration: underline;
+				text-underline-offset: 2px;
+				cursor: pointer;
+			}
+
+			/* Fields */
+
+			.field {
+				display: grid;
+				gap: var(--space-1);
+			}
+
+			.field > label,
+			.field > .label {
+				color: var(--color-text-muted);
+				font-size: 0.8125rem;
+				font-weight: 500;
+			}
+
+			.field .req {
+				color: var(--color-text-subtle);
+				font-weight: 400;
+			}
+
+			select,
+			textarea,
+			input[type='text'] {
+				width: 100%;
+				min-height: var(--control-md);
+				padding: 7px 10px;
+				border: 1px solid var(--color-border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--color-bg);
+				color: var(--color-text);
+				font: 400 0.875rem/1.375rem var(--font-sans);
+			}
+
+			select {
+				appearance: none;
+				padding-right: 30px;
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%237d8590' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+				background-position: right 10px center;
+				background-repeat: no-repeat;
+			}
+
+			textarea {
+				field-sizing: content;
+				min-height: calc(2 * 1.375rem + 16px);
+				max-height: calc(12 * 1.375rem + 16px);
+				resize: vertical;
+			}
+
+			select:hover,
+			textarea:hover,
+			input[type='text']:hover {
+				border-color: var(--color-text-muted);
+			}
+
+			[aria-invalid='true'] {
+				border-color: var(--color-danger) !important;
+			}
+
+			.field-error {
+				display: flex;
+				gap: 6px;
+				color: var(--color-danger);
+				font-size: 0.8125rem;
+			}
+
+			.field-error .icon {
+				margin-top: 2px;
+			}
+
+			:disabled,
+			[readonly] {
+				cursor: not-allowed;
+			}
+
+			textarea[readonly],
+			select:disabled {
+				background: var(--color-surface);
+				color: var(--color-text-muted);
+			}
+
+			/* Badges */
+
+			.badge {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				height: 22px;
+				padding: 0 6px;
+				border-radius: var(--radius-sm);
+				font-size: 0.8125rem;
+				font-weight: 500;
+				white-space: nowrap;
+			}
+
+			.badge .icon {
+				width: 13px;
+				height: 13px;
+			}
+
+			.badge.pass {
+				background: var(--color-success-bg);
+				color: var(--color-success);
+			}
+
+			.badge.fail {
+				background: var(--color-danger-bg);
+				color: var(--color-danger);
+			}
+
+			.badge.blocked {
+				background: var(--color-warning-bg);
+				color: var(--color-warning);
+			}
+
+			.badge.untested,
+			.badge.neutral {
+				background: var(--color-surface-raised);
+				color: var(--color-text-muted);
+			}
+
+			.badge.critical {
+				background: var(--color-danger-bg);
+				color: var(--color-danger);
+			}
+
+			.badge.high {
+				background: var(--color-warning-bg);
+				color: var(--color-warning);
+			}
+
+			.badge.low {
+				background: var(--color-surface-raised);
+				color: var(--color-text-subtle);
+			}
+
+			/* Results bar (design 13.5): static, always paired with counts in words */
+
+			.results-bar {
+				display: flex;
+				width: 220px;
+				height: 6px;
+				overflow: hidden;
+				border-radius: var(--radius-full);
+				background: var(--color-surface-raised);
+			}
+
+			.results-bar span {
+				height: 100%;
+			}
+
+			.results-bar .pass {
+				background: var(--color-success);
+			}
+
+			.results-bar .fail {
+				background: var(--color-danger);
+			}
+
+			.results-bar .blocked {
+				background: var(--color-warning);
+			}
+
+			/* Run header */
+
+			.run-header {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: flex-start;
+				justify-content: space-between;
+				gap: var(--space-4);
+				margin-bottom: var(--space-6);
+				padding-bottom: var(--space-6);
+				border-bottom: 1px solid var(--color-border);
+			}
+
+			.run-header h1 {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: var(--space-2);
+				font-size: 1.5rem;
+				font-weight: 600;
+				line-height: 2rem;
+			}
+
+			.run-meta {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: baseline;
+				gap: var(--space-1) var(--space-3);
+				margin-top: var(--space-1);
+				color: var(--color-text-muted);
+			}
+
+			.run-meta details summary {
+				color: var(--color-text-muted);
+				cursor: pointer;
+			}
+
+			.run-meta details p {
+				max-width: 60ch;
+				margin-top: var(--space-1);
+				white-space: pre-line;
+			}
+
+			.progress-line {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: var(--space-3);
+				margin-top: var(--space-3);
+				font-variant-numeric: tabular-nums;
+			}
+
+			.header-actions {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			/* Two panes */
+
+			.panes {
+				display: grid;
+				grid-template-columns: 280px minmax(0, 1fr);
+				gap: var(--space-6);
+				align-items: start;
+			}
+
+			.case-list {
+				position: sticky;
+				top: var(--space-4);
+				display: grid;
+				gap: var(--space-2);
+				max-height: calc(100vh - 2 * var(--space-4));
+			}
+
+			.case-list ol {
+				margin: 0;
+				padding: 0;
+				overflow: auto;
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-md);
+				list-style: none;
+			}
+
+			.case-list li + li {
+				border-top: 1px solid var(--color-border);
+			}
+
+			.case-row {
+				display: grid;
+				grid-template-columns: auto minmax(0, 1fr) auto;
+				align-items: center;
+				gap: var(--space-2);
+				width: 100%;
+				min-height: 44px;
+				padding: var(--space-2) var(--space-3);
+				border: 0;
+				background: var(--color-bg);
+				color: var(--color-text);
+				font: inherit;
+				text-align: left;
+				cursor: pointer;
+			}
+
+			.case-row:hover {
+				background: var(--color-surface-raised);
+			}
+
+			.case-row[aria-current='true'] {
+				background: var(--color-accent-subtle);
+			}
+
+			.case-row[aria-current='true'] .case-key {
+				color: var(--color-accent);
+			}
+
+			.case-row .case-key {
+				color: var(--color-text-subtle);
+				font-size: 0.8125rem;
+			}
+
+			.case-row .case-title {
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.case-list-mobile {
+				display: none;
+			}
+
+			/* Case pane */
+
+			.case-pane {
+				min-width: 0;
+				transition: opacity var(--duration-fast) var(--ease-out);
+			}
+
+			.case-pane.switching {
+				opacity: 0;
+				transition-duration: 0ms;
+			}
+
+			.case-head {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: flex-start;
+				justify-content: space-between;
+				gap: var(--space-3);
+			}
+
+			.case-head h2 {
+				font-size: 1.125rem;
+				font-weight: 600;
+				line-height: 1.625rem;
+			}
+
+			.case-head .eyebrow {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				margin-bottom: 2px;
+				color: var(--color-text-muted);
+			}
+
+			.case-nav {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				font-variant-numeric: tabular-nums;
+			}
+
+			.block {
+				margin-top: var(--space-6);
+			}
+
+			.block h3 {
+				margin-bottom: var(--space-2);
+				font-size: 0.9375rem;
+				font-weight: 600;
+				line-height: 1.375rem;
+			}
+
+			.block p {
+				white-space: pre-line;
+			}
+
+			table.steps {
+				width: 100%;
+				border-collapse: collapse;
+				font-size: 0.875rem;
+			}
+
+			table.steps caption {
+				text-align: left;
+			}
+
+			table.steps th,
+			table.steps td {
+				padding: var(--space-2) var(--space-3);
+				border-bottom: 1px solid var(--color-border);
+				text-align: left;
+				vertical-align: top;
+			}
+
+			table.steps th {
+				height: 40px;
+				background: var(--color-surface);
+				color: var(--color-text-muted);
+				font-size: 0.8125rem;
+				font-weight: 500;
+			}
+
+			table.steps td:first-child,
+			table.steps th:first-child {
+				width: 40px;
+				font-variant-numeric: tabular-nums;
+			}
+
+			table.steps tr.failed td {
+				background: var(--color-danger-bg);
+			}
+
+			table.steps tr.failed td:first-child {
+				box-shadow: inset 3px 0 0 var(--color-danger);
+			}
+
+			/* Result panel: a form panel with the focus glow (design 6, v0.4) */
+
+			.panel {
+				position: relative;
+				padding: var(--space-4);
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-md);
+				background: var(--color-surface);
+				box-shadow: var(--shadow-panel);
+			}
+
+			.panel::after {
+				content: '';
+				position: absolute;
+				inset: -4px;
+				border-radius: 9px;
+				box-shadow: 0 0 0 3px var(--color-focus-glow);
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity var(--duration-base) var(--ease-out);
+			}
+
+			.panel:focus-within::after {
+				opacity: 1;
+			}
+
+			.result-top {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				justify-content: space-between;
+				gap: var(--space-3);
+			}
+
+			.result-top .label-row {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: var(--space-3);
+			}
+
+			/* Result control (design 13.5) */
+
+			.result-control label .icon {
+				transform: scale(1);
+			}
+
+			.result-control label:has(input[value='pass']:checked) {
+				background: var(--color-success-bg);
+				color: var(--color-success);
+			}
+
+			.result-control label:has(input[value='fail']:checked) {
+				background: var(--color-danger-bg);
+				color: var(--color-danger);
+			}
+
+			.result-control label:has(input[value='blocked']:checked) {
+				background: var(--color-warning-bg);
+				color: var(--color-warning);
+			}
+
+			.result-control label:has(input:checked) .icon {
+				animation: pop var(--duration-base) var(--ease-spring);
+			}
+
+			@keyframes pop {
+				from {
+					transform: scale(0.5);
+				}
+			}
+
+			.result-control kbd {
+				color: var(--color-text-subtle);
+				font: 500 0.75rem var(--font-mono);
+			}
+
+			.result-fields {
+				display: grid;
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+				gap: var(--space-4);
+				margin-top: var(--space-4);
+			}
+
+			.result-fields .wide {
+				grid-column: 1 / -1;
+			}
+
+			.result-footer {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				justify-content: space-between;
+				gap: var(--space-3);
+				margin-top: var(--space-4);
+				padding-top: var(--space-3);
+				border-top: 1px solid var(--color-border);
+			}
+
+			.save-status {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				color: var(--color-text-subtle);
+				font-size: 0.8125rem;
+			}
+
+			.save-status.pending {
+				color: var(--color-warning);
+			}
+
+			.save-status .icon {
+				width: 14px;
+				height: 14px;
+			}
+
+			/* Screenshot area (design 13.5) */
+
+			.shots {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--space-2);
+			}
+
+			.drop-target {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: var(--space-2);
+				min-width: 220px;
+				height: 64px;
+				padding: 0 var(--space-4);
+				border: 1px dashed var(--color-border-strong);
+				border-radius: var(--radius-md);
+				background: var(--color-bg);
+				color: var(--color-text-muted);
+				font: 500 0.8125rem var(--font-sans);
+				cursor: pointer;
+			}
+
+			.drop-target:hover,
+			.drop-target.over {
+				border-color: var(--color-accent);
+				color: var(--color-accent);
+			}
+
+			.thumb {
+				position: relative;
+				width: 96px;
+				height: 64px;
+				animation: thumb-in var(--duration-base) var(--ease-out);
+			}
+
+			@keyframes thumb-in {
+				from {
+					opacity: 0;
+					transform: scale(0.96);
+				}
+			}
+
+			.thumb > button:first-child {
+				display: block;
+				width: 100%;
+				height: 100%;
+				padding: 0;
+				overflow: hidden;
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-sm);
+				background: var(--color-surface-raised);
+				cursor: zoom-in;
+			}
+
+			.thumb img {
+				display: block;
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+			}
+
+			.thumb .remove {
+				position: absolute;
+				top: 2px;
+				right: 2px;
+				width: 24px;
+				height: 24px;
+				border: 1px solid var(--color-border);
+				background: var(--color-bg);
+			}
+
+			.thumb.compressing > div {
+				display: grid;
+				place-items: center;
+				width: 100%;
+				height: 100%;
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-sm);
+				background: var(--color-surface-raised);
+				color: var(--color-text-muted);
+				font-size: 0.75rem;
+			}
+
+			.shot-limit {
+				display: flex;
+				align-items: center;
+				height: 64px;
+				color: var(--color-text-subtle);
+				font-size: 0.8125rem;
+			}
+
+			/* Callout */
+
+			.callout {
+				display: flex;
+				gap: var(--space-2);
+				padding: var(--space-3);
+				border: 1px solid transparent;
+				border-radius: var(--radius-md);
+			}
+
+			.callout .icon {
+				margin-top: 3px;
+			}
+
+			.callout.info {
+				border-color: color-mix(in srgb, var(--color-info) 35%, transparent);
+				background: var(--color-info-bg);
+				color: var(--color-text);
+			}
+
+			.callout.info .icon {
+				color: var(--color-info);
+			}
+
+			.callout.danger {
+				border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+				background: var(--color-danger-bg);
+			}
+
+			.callout.danger .icon {
+				color: var(--color-danger);
+			}
+
+			/* Dialogs */
+
+			dialog {
+				width: min(520px, calc(100vw - 32px));
+				padding: 0;
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-md);
+				background: var(--color-bg);
+				box-shadow: var(--shadow-overlay);
+				color: var(--color-text);
+			}
+
+			dialog.wide {
+				width: min(880px, calc(100vw - 32px));
+			}
+
+			dialog.wide[open] {
+				display: flex;
+				flex-direction: column;
+				max-height: 90vh;
+			}
+
+			dialog::backdrop {
+				background: rgb(0 0 0 / 0.4);
+			}
+
+			dialog,
+			dialog::backdrop {
+				opacity: 0;
+				transition:
+					opacity var(--duration-base) var(--ease-out),
+					transform var(--duration-base) var(--ease-out),
+					overlay var(--duration-base) allow-discrete,
+					display var(--duration-base) allow-discrete;
+			}
+
+			dialog {
+				transform: scale(0.98);
+			}
+
+			dialog[open],
+			dialog[open]::backdrop {
+				opacity: 1;
+				transition-duration: var(--duration-slow);
+			}
+
+			dialog[open] {
+				transform: none;
+			}
+
+			@starting-style {
+				dialog[open],
+				dialog[open]::backdrop {
+					opacity: 0;
+				}
+
+				dialog[open] {
+					transform: scale(0.98);
+				}
+			}
+
+			.dialog-head {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: var(--space-3);
+				padding: var(--space-4) var(--space-6);
+				border-bottom: 1px solid var(--color-border);
+			}
+
+			.dialog-head h2,
+			.dialog-body h2 {
+				font-size: 1.125rem;
+				font-weight: 600;
+				line-height: 1.625rem;
+			}
+
+			.dialog-body {
+				padding: var(--space-4) var(--space-6) var(--space-6);
+			}
+
+			dialog.wide .dialog-body {
+				overflow: auto;
+			}
+
+			.dialog-body > p {
+				margin-top: var(--space-2);
+				color: var(--color-text-muted);
+			}
+
+			.dialog-body.danger h2 {
+				color: var(--color-danger);
+			}
+
+			.dialog-actions {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				justify-content: flex-end;
+				gap: var(--space-2);
+				padding: var(--space-3) var(--space-6);
+				border-top: 1px solid var(--color-border);
+				border-radius: 0 0 var(--radius-md) var(--radius-md);
+				background: var(--color-surface);
+			}
+
+			.dialog-actions .spacer {
+				flex: 1;
+			}
+
+			.report-grid {
+				display: grid;
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+				gap: var(--space-4);
+			}
+
+			.report-grid .wide {
+				grid-column: 1 / -1;
+			}
+
+			.report-grid .two {
+				grid-column: span 2;
+			}
+
+			.attachments {
+				display: grid;
+				gap: var(--space-2);
+			}
+
+			.attachment {
+				display: grid;
+				grid-template-columns: 64px minmax(0, 1fr) auto;
+				align-items: center;
+				gap: var(--space-3);
+			}
+
+			.attachment img {
+				width: 64px;
+				height: 42px;
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-sm);
+				object-fit: cover;
+			}
+
+			details.preview {
+				margin-top: var(--space-4);
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-md);
+			}
+
+			details.preview summary {
+				padding: var(--space-2) var(--space-3);
+				color: var(--color-text-muted);
+				font-weight: 500;
+				cursor: pointer;
+			}
+
+			details.preview pre {
+				max-height: 320px;
+				margin: 0;
+				padding: var(--space-3);
+				overflow: auto;
+				border-top: 1px solid var(--color-border);
+				background: var(--color-surface);
+				font: 400 0.8125rem/1.25rem var(--font-mono);
+				white-space: pre-wrap;
+				overflow-wrap: anywhere;
+			}
+
+			.viewer img {
+				display: block;
+				max-width: 100%;
+				max-height: 70vh;
+				margin: 0 auto;
+				border: 1px solid var(--color-border);
+			}
+
+			dl.shortcuts {
+				display: grid;
+				grid-template-columns: auto 1fr;
+				gap: var(--space-2) var(--space-4);
+				margin: var(--space-4) 0 0;
+			}
+
+			dl.shortcuts dt {
+				display: flex;
+				gap: 4px;
+			}
+
+			dl.shortcuts dd {
+				margin: 0;
+				color: var(--color-text-muted);
+			}
+
+			kbd.key {
+				display: inline-grid;
+				place-items: center;
+				min-width: 24px;
+				height: 24px;
+				padding: 0 6px;
+				border: 1px solid var(--color-border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--color-surface);
+				font: 500 0.8125rem var(--font-mono);
+			}
+
+			/* Toast */
+
+			.toast {
+				position: fixed;
+				right: var(--space-6);
+				bottom: var(--space-6);
+				z-index: 20;
+				padding: var(--space-2) var(--space-4);
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-md);
+				background: var(--color-surface-raised);
+				box-shadow: var(--shadow-overlay);
+				font-weight: 500;
+				opacity: 0;
+				transform: translateY(4px);
+				visibility: hidden;
+				transition:
+					opacity var(--duration-base) var(--ease-out),
+					transform var(--duration-base) var(--ease-out),
+					visibility 0s linear var(--duration-base);
+			}
+
+			.toast.visible {
+				opacity: 1;
+				transform: none;
+				visibility: visible;
+				transition-delay: 0s;
+			}
+
+			/* Prototype panel: state switches for the tester, not part of the design. */
+
+			.proto-panel {
+				position: fixed;
+				left: var(--space-3);
+				bottom: var(--space-3);
+				z-index: 25;
+				width: 280px;
+				max-height: calc(100vh - 64px);
+				overflow: auto;
+				border: 2px dashed var(--color-warning);
+				border-radius: var(--radius-md);
+				background: var(--color-bg);
+				box-shadow: var(--shadow-overlay);
+				font-size: 0.8125rem;
+			}
+
+			.proto-panel summary {
+				padding: var(--space-2) var(--space-3);
+				color: var(--color-warning);
+				font-weight: 600;
+				cursor: pointer;
+			}
+
+			.proto-panel .inner {
+				display: grid;
+				gap: var(--space-3);
+				padding: 0 var(--space-3) var(--space-3);
+			}
+
+			.proto-panel fieldset {
+				display: grid;
+				gap: var(--space-1);
+				margin: 0;
+				padding: 0;
+				border: 0;
+			}
+
+			.proto-panel legend {
+				margin-bottom: var(--space-1);
+				color: var(--color-text-muted);
+				font-weight: 600;
+			}
+
+			.proto-panel label {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			/* Layout adaptation (design 8, 13.3) */
+
+			@media (max-width: 1023px) {
+				.shell {
+					grid-template-columns: minmax(0, 1fr);
+				}
+
+				.sidebar {
+					position: static;
+					height: auto;
+				}
+
+				.main {
+					padding: var(--space-6) var(--space-4) 280px;
+				}
+
+				.panes {
+					grid-template-columns: minmax(0, 1fr);
+				}
+
+				.case-list {
+					display: none;
+				}
+
+				.case-list-mobile {
+					display: block;
+					margin-bottom: var(--space-4);
+					border: 1px solid var(--color-border);
+					border-radius: var(--radius-md);
+				}
+
+				.case-list-mobile summary {
+					padding: var(--space-2) var(--space-3);
+					cursor: pointer;
+				}
+
+				.case-list-mobile ol {
+					margin: 0;
+					padding: 0;
+					border-top: 1px solid var(--color-border);
+					list-style: none;
+				}
+			}
+
+			@media (max-width: 639px) {
+				.result-fields,
+				.report-grid {
+					grid-template-columns: minmax(0, 1fr);
+				}
+
+				.report-grid .two {
+					grid-column: auto;
+				}
+
+				dialog.wide {
+					width: 100vw;
+					max-width: 100vw;
+					height: 100vh;
+					max-height: 100vh;
+					border-radius: 0;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<span class="proto-badge">PROTOTYPE</span>
+		<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+			<defs>
+				<symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7" /></symbol>
+				<symbol id="i-cross" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" /></symbol>
+				<symbol id="i-warning" viewBox="0 0 16 16"><path d="M8 2.5l6 11H2zM8 6.5v3M8 11.5v.01" /></symbol>
+				<symbol id="i-dot" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5" /></symbol>
+				<symbol id="i-info" viewBox="0 0 16 16"><path d="M8 14.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM8 7.5v4M8 5v.01" /></symbol>
+				<symbol id="i-image" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.5" /><path d="M2.5 11l3.5-3.5 3 3 2-2 2.5 2.5" /><circle cx="10.5" cy="6" r="1" /></symbol>
+				<symbol id="i-bug" viewBox="0 0 16 16"><rect x="5" y="5" width="6" height="8" rx="3" /><path d="M6 5V4a2 2 0 0 1 4 0v1M2.5 8H5M11 8h2.5M3 12l2-1M13 12l-2-1M3 4.5l2 1.5M13 4.5l-2 1.5" /></symbol>
+				<symbol id="i-download" viewBox="0 0 16 16"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10" /></symbol>
+				<symbol id="i-copy" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" /><path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H4A1.5 1.5 0 0 0 2.5 3v5A1.5 1.5 0 0 0 4 9.5h.5" /></symbol>
+				<symbol id="i-chev-left" viewBox="0 0 16 16"><path d="M10 3.5L5.5 8l4.5 4.5" /></symbol>
+				<symbol id="i-chev-right" viewBox="0 0 16 16"><path d="M6 3.5L10.5 8 6 12.5" /></symbol>
+				<symbol id="i-cases" viewBox="0 0 16 16"><path d="M2.5 4l1 1 2-2M2.5 9l1 1 2-2M7.5 4.5h6M7.5 9.5h6M7.5 13.5h6M2.5 13.5h3" /></symbol>
+				<symbol id="i-run" viewBox="0 0 16 16"><path d="M5 3l8 5-8 5z" /></symbol>
+				<symbol id="i-session" viewBox="0 0 16 16"><circle cx="8" cy="9" r="5" /><path d="M8 9V6.5M6.5 1.5h3M12 4.5l1-1" /></symbol>
+				<symbol id="i-release" viewBox="0 0 16 16"><path d="M3.5 14V2.5M3.5 3h8l-1.5 3 1.5 3h-8" /></symbol>
+				<symbol id="i-trash" viewBox="0 0 16 16"><path d="M2.5 4.5h11M6 4.5V3h4v1.5M4 4.5l.7 9h6.6l.7-9" /></symbol>
+			</defs>
+		</svg>
+
+		<div class="shell">
+			<div class="sidebar">
+				<nav aria-label="Main">
+					<a class="brand" href="#">
+						<span class="brand-mark">
+							<svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+								<circle cx="8" cy="3.5" r="1.5" />
+								<path d="M8 5v9M5 7.5h6M2.5 9.5a5.5 5 0 0 0 11 0" />
+							</svg>
+						</span>
+						QAnchor
+					</a>
+					<div class="nav-group">
+						<h2>Blockchain</h2>
+						<ul>
+							<li><a class="nav-item" href="#">Address generator</a></li>
+							<li><a class="nav-item" href="#">Tx lookup</a></li>
+						</ul>
+					</div>
+					<div class="nav-group">
+						<h2>Data</h2>
+						<ul>
+							<li><a class="nav-item" href="#">Dummy data</a></li>
+							<li><a class="nav-item" href="#">Checklists</a></li>
+						</ul>
+					</div>
+					<div class="nav-group">
+						<h2>QA</h2>
+						<ul>
+							<li><a class="nav-item" href="#"><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-cases" /></svg>Test cases</a></li>
+							<li><a class="nav-item" href="#" aria-current="page"><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-run" /></svg>Test runs</a></li>
+							<li><a class="nav-item" href="#"><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-session" /></svg>Sessions</a></li>
+							<li><a class="nav-item" href="#"><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-release" /></svg>Releases</a></li>
+						</ul>
+					</div>
+				</nav>
+				<div class="sidebar-footer">
+					<a class="nav-item" href="#">Settings</a>
+					<fieldset class="segmented" data-theme-control>
+						<legend class="visually-hidden">Theme</legend>
+						<label><input type="radio" name="theme-side" value="system" checked />System</label>
+						<label><input type="radio" name="theme-side" value="light" />Light</label>
+						<label><input type="radio" name="theme-side" value="dark" />Dark</label>
+					</fieldset>
+				</div>
+			</div>
+
+			<div>
+				<main class="main" id="main">
+					<div class="content">
+						<header class="run-header">
+							<div>
+								<h1><span id="run-name">Withdraw USDT multi-network</span><span id="run-completed" class="badge pass" hidden><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check" /></svg>Completed</span></h1>
+								<div class="run-meta">
+									<span>Release <span class="mono">v2.3.0</span></span>
+									<details>
+										<summary>Environment: Android 14 · build 2.3.0-rc2 · Sepolia</summary>
+										<p>Android 14, Pixel 7, app build 2.3.0-rc2 (4120). Network: Ethereum Sepolia, BNB testnet, Tron Nile. Backend: staging-2.</p>
+									</details>
+								</div>
+								<div class="progress-line">
+									<div class="results-bar" id="results-bar" role="img"></div>
+									<span id="counts-text"></span>
+								</div>
+							</div>
+							<div class="header-actions">
+								<button class="link-button" type="button" id="open-shortcuts">Keyboard shortcuts</button>
+								<button class="button" type="button" id="copy-summary"><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-copy" /></svg>Copy summary</button>
+								<button class="button" type="button" id="complete-run">Complete run</button>
+								<button class="button" type="button" id="reopen-run" hidden>Reopen run</button>
+							</div>
+						</header>
+
+						<details class="case-list-mobile" id="case-list-mobile">
+							<summary id="mobile-summary"></summary>
+							<ol id="case-rows-mobile"></ol>
+						</details>
+
+						<div class="panes">
+							<nav class="case-list" aria-label="Cases in this run">
+								<div class="field">
+									<label for="case-filter">Show</label>
+									<select id="case-filter">
+										<option value="all">All cases</option>
+										<option value="untested">Untested</option>
+										<option value="fail">Failed</option>
+										<option value="blocked">Blocked</option>
+										<option value="pass">Passed</option>
+									</select>
+								</div>
+								<ol id="case-rows"></ol>
+							</nav>
+
+							<section class="case-pane" id="case-pane" aria-labelledby="case-title">
+								<div class="case-head">
+									<div>
+										<div class="eyebrow"><span class="mono" id="case-key"></span><span id="case-priority"></span></div>
+										<h2 id="case-title" tabindex="-1"></h2>
+									</div>
+									<div class="case-nav">
+										<span class="subtle" id="case-position"></span>
+										<button class="button sm" type="button" id="prev-case"><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-chev-left" /></svg>Previous</button>
+										<button class="button sm" type="button" id="next-case">Next<svg class="icon" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-chev-right" /></svg></button>
+									</div>
+								</div>
+
+								<div class="block" id="pre-block">
+									<h3>Preconditions</h3>
+									<p id="case-pre"></p>
+								</div>
+
+								<div class="block">
+									<table class="steps">
+										<caption class="visually-hidden" id="steps-caption"></caption>
+										<thead>
+											<tr><th scope="col">#</th><th scope="col">Action</th><th scope="col">Expected result</th></tr>
+										</thead>
+										<tbody id="steps-body"></tbody>
+									</table>
+								</div>
+
+								<div class="block" id="expected-block">
+									<h3>Expected result</h3>
+									<p id="case-expected"></p>
+								</div>
+
+								<div class="block">
+									<form class="panel" id="result-panel" novalidate>
+										<div class="result-top">
+											<div class="label-row">
+												<fieldset class="segmented result-control" id="result-control">
+													<legend class="visually-hidden">Result</legend>
+													<label><input type="radio" name="status" value="pass" /><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check" /></svg>Pass <kbd aria-hidden="true">P</kbd></label>
+													<label><input type="radio" name="status" value="fail" /><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-cross" /></svg>Fail <kbd aria-hidden="true">F</kbd></label>
+													<label><input type="radio" name="status" value="blocked" /><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning" /></svg>Blocked <kbd aria-hidden="true">B</kbd></label>
+												</fieldset>
+												<span class="subtle" id="untested-label">Untested</span>
+											</div>
+										</div>
+
+										<div class="result-fields">
+											<div class="field" id="f-step" hidden>
+												<label for="failed-step">Failed step</label>
+												<select id="failed-step"></select>
+											</div>
+											<div class="field" id="f-issue" hidden>
+												<label for="linked-issue">Linked issue <span class="req">optional</span></label>
+												<input type="text" id="linked-issue" class="mono" placeholder="PAY-123 or a URL" autocomplete="off" />
+											</div>
+											<div class="field wide" id="f-actual" hidden>
+												<label for="actual">Actual result</label>
+												<textarea id="actual" aria-describedby="actual-error"></textarea>
+												<p class="field-error" id="actual-error" hidden><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><use href="#i-warning" /></svg>Write the actual result to save a failure.</p>
+											</div>
+											<div class="field wide" id="f-reason" hidden>
+												<label for="reason">Reason</label>
+												<textarea id="reason" aria-describedby="reason-error"></textarea>
+												<p class="field-error" id="reason-error" hidden><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><use href="#i-warning" /></svg>Write the reason to save a block.</p>
+											</div>
+											<div class="field wide" id="f-notes" hidden>
+												<label for="notes">Notes <span class="req">optional</span></label>
+												<textarea id="notes"></textarea>
+											</div>
+											<div class="field wide" id="f-shots" hidden>
+												<span class="label" id="shots-label">Screenshots <span class="req">optional, up to 5</span></span>
+												<div class="shots" id="shots" aria-labelledby="shots-label"></div>
+												<p class="field-error" id="shot-error" role="alert" hidden></p>
+												<input type="file" id="shot-file" accept="image/*" multiple hidden />
+											</div>
+										</div>
+
+										<div class="result-footer">
+											<p class="save-status" id="save-status"></p>
+											<div class="header-actions">
+												<button class="button" type="button" id="open-report" hidden><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-bug" /></svg>Create bug report</button>
+												<button class="button primary" type="submit" id="save-result" hidden>Save result</button>
+											</div>
+										</div>
+									</form>
+								</div>
+							</section>
+						</div>
+
+						<footer>Build <span class="mono">e67cd1c</span> · prototype</footer>
+					</div>
+				</main>
+			</div>
+		</div>
+
+		<!-- P2-05 Bug report -->
+		<dialog class="wide" id="report" aria-labelledby="report-title">
+			<div class="dialog-head">
+				<h2 id="report-title">Bug report</h2>
+			</div>
+			<div class="dialog-body">
+				<div class="report-grid">
+					<div class="field wide">
+						<label for="r-summary">Summary</label>
+						<input type="text" id="r-summary" data-report />
+					</div>
+					<div class="field">
+						<label for="r-priority">Priority</label>
+						<select id="r-priority" data-report>
+							<option>Critical</option>
+							<option>High</option>
+							<option>Medium</option>
+							<option>Low</option>
+						</select>
+					</div>
+					<div class="field two">
+						<label for="r-labels">Labels</label>
+						<input type="text" id="r-labels" class="mono" data-report />
+					</div>
+					<div class="field wide">
+						<label for="r-env">Environment</label>
+						<textarea id="r-env" data-report></textarea>
+					</div>
+					<div class="field wide">
+						<label for="r-pre">Preconditions</label>
+						<textarea id="r-pre" data-report></textarea>
+					</div>
+					<div class="field wide">
+						<label for="r-steps">Steps to reproduce</label>
+						<textarea id="r-steps" data-report></textarea>
+					</div>
+					<div class="field wide">
+						<label for="r-expected">Expected result</label>
+						<textarea id="r-expected" data-report></textarea>
+					</div>
+					<div class="field wide">
+						<label for="r-actual">Actual result</label>
+						<textarea id="r-actual" data-report></textarea>
+					</div>
+					<div class="field wide">
+						<label for="r-notes">Notes</label>
+						<textarea id="r-notes" data-report></textarea>
+					</div>
+					<div class="field wide">
+						<span class="label">Attachments</span>
+						<div class="attachments" id="r-attachments"></div>
+					</div>
+				</div>
+				<details class="preview" id="r-preview">
+					<summary>Preview the copied text</summary>
+					<pre id="r-preview-text"></pre>
+				</details>
+			</div>
+			<div class="dialog-actions">
+				<fieldset class="segmented" id="r-format">
+					<legend class="visually-hidden">Format</legend>
+					<label><input type="radio" name="format" value="markdown" checked />Markdown</label>
+					<label><input type="radio" name="format" value="jira" />Jira</label>
+				</fieldset>
+				<span class="spacer"></span>
+				<button class="button ghost" type="button" id="r-close">Close</button>
+				<button class="button primary" type="button" id="r-copy"><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-copy" /></svg>Copy report</button>
+			</div>
+		</dialog>
+
+		<dialog id="discard" aria-labelledby="discard-title">
+			<div class="dialog-body danger">
+				<h2 id="discard-title">Discard your edits to this report?</h2>
+				<p>The report is not saved. Generating it again starts from the result.</p>
+			</div>
+			<div class="dialog-actions">
+				<button class="button" type="button" id="discard-cancel" autofocus>Keep editing</button>
+				<button class="button danger-fill" type="button" id="discard-ok">Discard</button>
+			</div>
+		</dialog>
+
+		<dialog id="complete" aria-labelledby="complete-title">
+			<div class="dialog-body">
+				<h2 id="complete-title">Complete this run?</h2>
+				<p id="complete-text"></p>
+			</div>
+			<div class="dialog-actions">
+				<button class="button" type="button" id="complete-cancel" autofocus>Cancel</button>
+				<button class="button primary" type="button" id="complete-ok">Complete run</button>
+			</div>
+		</dialog>
+
+		<dialog id="remove-shot" aria-labelledby="remove-shot-title">
+			<div class="dialog-body danger">
+				<h2 id="remove-shot-title">Remove this screenshot?</h2>
+				<p>The image is deleted from this result. This cannot be undone.</p>
+			</div>
+			<div class="dialog-actions">
+				<button class="button" type="button" id="remove-cancel" autofocus>Cancel</button>
+				<button class="button danger-fill" type="button" id="remove-ok">Remove</button>
+			</div>
+		</dialog>
+
+		<dialog class="wide viewer" id="viewer" aria-labelledby="viewer-title">
+			<div class="dialog-head">
+				<h2 id="viewer-title"></h2>
+			</div>
+			<div class="dialog-body">
+				<img id="viewer-img" alt="" />
+				<p class="subtle" id="viewer-meta" style="margin-top: 8px"></p>
+			</div>
+			<div class="dialog-actions">
+				<button class="button" type="button" id="viewer-download"><svg class="icon" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-download" /></svg>Download</button>
+				<button class="button primary" type="button" id="viewer-close">Close</button>
+			</div>
+		</dialog>
+
+		<dialog id="shortcuts" aria-labelledby="shortcuts-title">
+			<div class="dialog-body">
+				<h2 id="shortcuts-title">Keyboard shortcuts</h2>
+				<p>They work when focus is not in a text field, a list, or a dialog.</p>
+				<dl class="shortcuts">
+					<dt><kbd class="key">P</kbd><kbd class="key">F</kbd><kbd class="key">B</kbd></dt>
+					<dd>Mark the case Pass, Fail, or Blocked</dd>
+					<dt><kbd class="key">J</kbd><kbd class="key">K</kbd></dt>
+					<dd>Next case, previous case</dd>
+					<dt><kbd class="key">?</kbd></dt>
+					<dd>Show this list</dd>
+				</dl>
+			</div>
+			<div class="dialog-actions">
+				<button class="button primary" type="button" id="shortcuts-close" autofocus>Close</button>
+			</div>
+		</dialog>
+
+		<div class="toast" id="toast" aria-hidden="true"></div>
+		<div class="visually-hidden" id="live" aria-live="polite"></div>
+
+		<details class="proto-panel" open>
+			<summary>Prototype controls</summary>
+			<div class="inner">
+				<fieldset>
+					<legend>Run state</legend>
+					<label><input type="radio" name="proto-state" value="mid" checked />In progress, some results</label>
+					<label><input type="radio" name="proto-state" value="fresh" />Just created, all untested</label>
+					<label><input type="radio" name="proto-state" value="done" />Completed (read-only)</label>
+				</fieldset>
+				<fieldset>
+					<legend>Screenshots</legend>
+					<button class="button sm" type="button" id="proto-shot">Add a sample screenshot</button>
+					<span class="subtle">Or paste a real one with Ctrl/Cmd+V inside the result panel.</span>
+				</fieldset>
+				<fieldset>
+					<legend>Not in the prototype</legend>
+					<span class="subtle">Compression, storage, and real escaping rules (PRD 10.7). The narrow layout shows below 1024 px.</span>
+				</fieldset>
+			</div>
+		</details>
+
+		<script>
+			// PROTOTYPE logic only: fake data in memory, no storage, no image compression.
+			// The app implements FR-111 to FR-123 through lib/storage and a worker (NFR-023).
+
+			const $ = (id) => document.getElementById(id);
+			const icon = (name, width = 1.6) =>
+				`<svg class="icon" fill="none" stroke="currentColor" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-${name}" /></svg>`;
+			const esc = (text) => text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+			// ---- Fake run ---------------------------------------------------------------------
+
+			const ENVIRONMENT = 'Android 14, Pixel 7, app build 2.3.0-rc2 (4120). Network: Ethereum Sepolia, BNB testnet, Tron Nile. Backend: staging-2.';
+			const CASES = [
+				{ key: 'TC-4', title: 'Withdraw USDT on Ethereum with the exact available balance', priority: 'High', tags: ['withdraw', 'usdt', 'boundary'], pre: 'Wallet holds 25.000000 USDT on Ethereum Sepolia.\nWithdrawal limits: 10 to 10,000 USDT.', steps: [['Open Withdraw and pick USDT, network Ethereum (ERC-20).', 'The network fee is shown before the amount is entered.'], ['Tap Max.', 'Amount fills with 25.000000 minus the fee, with 6 decimal places.'], ['Paste a valid Sepolia address and confirm.', 'Confirmation shows amount, fee, and receive amount; they add up exactly.'], ['Submit with the 2FA code.', 'Status Pending, then Completed; balance becomes 0.000000.']], expected: '' },
+				{ key: 'TC-5', title: 'Withdraw USDT on BNB Smart Chain uses 18 decimals', priority: 'Critical', tags: ['withdraw', 'usdt', 'decimals'], pre: 'Wallet holds 50 USDT on BNB Smart Chain testnet.', steps: [['Withdraw 12.5 USDT on BNB Smart Chain (BEP-20).', 'Confirmation shows 12.5 USDT.'], ['Look up the transaction in Tx lookup.', 'Transfer value is 12500000000000000000 (18 decimals).']], expected: 'The amount received equals the amount entered minus the fee.' },
+				{ key: 'TC-6', title: 'Withdraw to an address with a bad EIP-55 checksum is blocked', priority: 'High', tags: ['withdraw', 'address', 'negative'], pre: '', steps: [['Paste 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAeD (last character case flipped).', 'Field error: the address checksum is invalid.'], ['Try to continue.', 'Continue stays disabled.']], expected: '' },
+				{ key: 'TC-7', title: 'Withdraw USDT on Tron below the minimum is rejected', priority: 'Medium', tags: ['withdraw', 'tron', 'boundary'], pre: 'Minimum withdrawal on Tron: 10 USDT.', steps: [['Enter 9.999999 USDT on Tron (TRC-20).', 'Field error names the 10 USDT minimum.'], ['Enter 10 USDT.', 'The error clears and Continue is enabled.']], expected: '' },
+				{ key: 'TC-8', title: 'Network mismatch warning when pasting a Tron address on Ethereum', priority: 'Critical', tags: ['withdraw', 'network-mismatch'], pre: '', steps: [['Pick network Ethereum and paste a Tron address (T…).', 'A network mismatch error is shown and Continue is disabled.']], expected: 'Funds can never be sent to an address of another chain.' },
+				{ key: 'TC-9', title: 'Withdrawal history shows the transaction hash and explorer link', priority: 'Medium', tags: ['withdraw', 'history'], pre: 'One completed withdrawal on Ethereum Sepolia.', steps: [['Open History, then the withdrawal.', 'Detail shows status, amount, fee, address, and hash.'], ['Tap View on explorer.', 'sepolia.etherscan.io opens on that transaction.']], expected: '' },
+				{ key: 'TC-10', title: 'Withdraw with 7 decimal places is rounded or rejected, never truncated silently', priority: 'High', tags: ['withdraw', 'usdt', 'decimals', 'negative'], pre: '', steps: [['Enter 10.1234567 USDT on Ethereum.', 'Field error: USDT allows at most 6 decimal places.']], expected: '' },
+				{ key: 'TC-11', title: 'Daily withdrawal limit counts pending withdrawals', priority: 'Medium', tags: ['withdraw', 'limits'], pre: 'Daily limit 1,000 USDT; one pending withdrawal of 900 USDT.', steps: [['Withdraw 150 USDT.', 'Rejected: it would exceed the daily limit by 50 USDT.']], expected: '' },
+				{ key: 'TC-12', title: 'Address book entry keeps its network', priority: 'Low', tags: ['withdraw', 'address-book'], pre: 'An address book entry "Cold wallet" on Tron.', steps: [['Pick Ethereum, open the address book.', 'The Tron entry is not offered, or is marked as another network.']], expected: '' },
+				{ key: 'TC-13', title: 'Withdraw while offline shows a retry, not a failed withdrawal', priority: 'Medium', tags: ['withdraw', 'offline'], pre: '', steps: [['Turn on airplane mode on the confirmation screen and submit.', 'An offline message with Retry; no withdrawal is created.'], ['Turn off airplane mode and tap Retry.', 'One withdrawal is created, not two.']], expected: '' }
+			];
+
+			const STATES = {
+				fresh: {},
+				mid: {
+					'TC-4': { status: 'pass' },
+					'TC-5': { status: 'fail', step: 2, actual: 'Tx lookup shows a transfer value of 12500000 (6 decimals), so the recipient received 0.0000000000125 USDT.\nThe app shows 12.5 USDT as sent.', issue: 'PAY-482', notes: 'Same build on Ethereum is correct (TC-4).' },
+					'TC-6': { status: 'pass' },
+					'TC-7': { status: 'blocked', reason: 'Tron Nile faucet is down, the test wallet has 0 USDT on Tron.', issue: '' },
+					'TC-8': { status: 'pass' }
+				},
+				done: {}
+			};
+			STATES.done = Object.fromEntries(CASES.map((c, i) => [c.key, { status: i === 1 ? 'fail' : i === 3 ? 'blocked' : 'pass', ...(i === 1 ? STATES.mid['TC-5'] : i === 3 ? STATES.mid['TC-7'] : {}) }]));
+
+			let results = {};
+			let shots = {};
+			let current = 0;
+			let completed = false;
+			let draft = null;
+
+			function loadState(name) {
+				results = structuredClone(STATES[name]);
+				for (const list of Object.values(shots)) list.forEach((s) => URL.revokeObjectURL(s.url));
+				shots = {};
+				completed = name === 'done';
+				current = name === 'fresh' ? 0 : name === 'mid' ? 1 : 0;
+				if (name !== 'fresh') addSampleShot('TC-5', true);
+				render(false);
+			}
+
+			// ---- Rendering --------------------------------------------------------------------
+
+			const LABELS = { pass: 'Passed', fail: 'Failed', blocked: 'Blocked', untested: 'Untested' };
+			const SHORT = { pass: 'Pass', fail: 'Fail', blocked: 'Blocked', untested: 'Untested' };
+			const BADGE_ICON = { pass: 'check', fail: 'cross', blocked: 'warning', untested: 'dot' };
+			const statusOf = (key) => results[key]?.status ?? 'untested';
+			const badge = (status, text = LABELS[status]) => `<span class="badge ${status}">${icon(BADGE_ICON[status], 1.8)}${text}</span>`;
+
+			function counts() {
+				const c = { pass: 0, fail: 0, blocked: 0, untested: 0 };
+				for (const tc of CASES) c[statusOf(tc.key)]++;
+				return c;
+			}
+
+			function countsText(c = counts()) {
+				return `${c.pass} passed, ${c.fail} failed, ${c.blocked} blocked, ${c.untested} untested`;
+			}
+
+			function renderHeader() {
+				const c = counts();
+				const total = CASES.length;
+				$('results-bar').innerHTML = ['pass', 'fail', 'blocked'].map((s) => `<span class="${s}" style="width:${(c[s] / total) * 100}%"></span>`).join('');
+				$('results-bar').setAttribute('aria-label', countsText(c));
+				$('counts-text').textContent = countsText(c);
+				$('run-completed').hidden = !completed;
+				$('complete-run').hidden = completed;
+				$('reopen-run').hidden = !completed;
+			}
+
+			function caseRowsHtml() {
+				const filter = $('case-filter').value;
+				return CASES.map((tc, i) => ({ tc, i }))
+					.filter(({ tc }) => filter === 'all' || statusOf(tc.key) === filter)
+					.map(({ tc, i }) => {
+						const status = statusOf(tc.key);
+						return `<li><button class="case-row" type="button" data-index="${i}" ${i === current ? 'aria-current="true"' : ''}>
+							<span class="case-key mono">${tc.key}</span>
+							<span class="case-title" title="${esc(tc.title)}">${esc(tc.title)}</span>
+							${badge(status, SHORT[status])}
+						</button></li>`;
+					})
+					.join('') || `<li class="subtle" style="padding:12px">No case with this result.</li>`;
+			}
+
+			function renderList() {
+				$('case-rows').innerHTML = caseRowsHtml();
+				$('case-rows-mobile').innerHTML = caseRowsHtml();
+				$('mobile-summary').textContent = `Case ${current + 1} of ${CASES.length} · show all`;
+			}
+
+			function renderCase() {
+				const tc = CASES[current];
+				const result = results[tc.key] ?? { status: 'untested' };
+				draft = structuredClone(result);
+				$('case-key').textContent = tc.key;
+				$('case-priority').innerHTML = `<span class="badge ${tc.priority.toLowerCase()}">${tc.priority}</span>`;
+				$('case-title').textContent = tc.title;
+				$('case-position').textContent = `Case ${current + 1} of ${CASES.length}`;
+				$('prev-case').disabled = current === 0;
+				$('next-case').disabled = current === CASES.length - 1;
+				$('pre-block').hidden = !tc.pre;
+				$('case-pre').textContent = tc.pre;
+				$('steps-caption').textContent = `Steps for ${tc.key}`;
+				$('steps-body').innerHTML = tc.steps
+					.map(([action, expected], i) => `<tr class="${result.status === 'fail' && result.step === i + 1 ? 'failed' : ''}"><td>${i + 1}</td><td>${esc(action)}</td><td>${expected ? esc(expected) : '<span class="subtle">None</span>'}</td></tr>`)
+					.join('');
+				$('expected-block').hidden = !tc.expected;
+				$('case-expected').textContent = tc.expected;
+				$('failed-step').innerHTML =
+					tc.steps.map(([action], i) => `<option value="${i + 1}">Step ${i + 1}: ${esc(action.split(' ').slice(0, 5).join(' '))}…</option>`).join('') + '<option value="0">Not step-specific</option>';
+				$('failed-step').value = String(result.step ?? tc.steps.length);
+				$('actual').value = result.actual ?? '';
+				$('reason').value = result.reason ?? '';
+				$('notes').value = result.notes ?? '';
+				$('linked-issue').value = result.issue ?? '';
+				for (const input of document.querySelectorAll('input[name="status"]')) input.checked = input.value === result.status;
+				$('actual-error').hidden = true;
+				$('reason-error').hidden = true;
+				$('actual').removeAttribute('aria-invalid');
+				$('reason').removeAttribute('aria-invalid');
+				renderResultForm(true);
+			}
+
+			function renderResultForm(saved) {
+				const status = draft.status;
+				const tc = CASES[current];
+				$('untested-label').hidden = status !== 'untested';
+				$('f-step').hidden = status !== 'fail';
+				$('f-actual').hidden = status !== 'fail';
+				$('f-reason').hidden = status !== 'blocked';
+				$('f-issue').hidden = status !== 'fail' && status !== 'blocked';
+				$('f-notes').hidden = status === 'untested';
+				$('f-shots').hidden = status === 'untested';
+				$('open-report').hidden = !(status === 'fail' && saved && results[tc.key]?.status === 'fail');
+				$('save-result').hidden = completed || !(status === 'fail' || status === 'blocked') || saved;
+				for (const el of $('result-panel').querySelectorAll('input, select, textarea')) {
+					if (el.type === 'radio' || el.tagName === 'SELECT') el.disabled = completed;
+					else el.readOnly = completed;
+				}
+				const status_el = $('save-status');
+				status_el.classList.toggle('pending', !saved);
+				if (completed) status_el.innerHTML = `${icon('info')}This run is completed. Reopen it to change results.`;
+				else if (!saved) status_el.innerHTML = `${icon('dot', 3)}Not saved yet: ${status === 'fail' ? 'write the actual result' : 'write the reason'}, then save.`;
+				else if (results[tc.key]) status_el.innerHTML = `${icon('check')}Saved ${results[tc.key].time ?? '09:41'}`;
+				else status_el.textContent = 'Pick a result. Pass is saved at once.';
+				renderShots();
+			}
+
+			function render(focusHeading) {
+				renderHeader();
+				renderList();
+				renderCase();
+				if (focusHeading) $('case-title').focus();
+			}
+
+			// ---- Navigation (FR-111 AC-1) -----------------------------------------------------
+
+			function goTo(index) {
+				if (index < 0 || index >= CASES.length || index === current) return;
+				current = index;
+				const pane = $('case-pane');
+				pane.classList.add('switching');
+				render(true);
+				requestAnimationFrame(() => pane.classList.remove('switching'));
+				announce(`Case ${current + 1} of ${CASES.length}: ${CASES[current].title}`);
+			}
+
+			for (const id of ['case-rows', 'case-rows-mobile']) {
+				$(id).addEventListener('click', (event) => {
+					const row = event.target.closest('.case-row');
+					if (!row) return;
+					$('case-list-mobile').open = false;
+					goTo(Number(row.dataset.index));
+				});
+			}
+			$('case-filter').addEventListener('change', renderList);
+			$('prev-case').addEventListener('click', () => goTo(current - 1));
+			$('next-case').addEventListener('click', () => goTo(current + 1));
+
+			// ---- Results (FR-111 AC-2 to AC-6) ------------------------------------------------
+
+			function now() {
+				return new Date().toTimeString().slice(0, 5);
+			}
+
+			function setStatus(status) {
+				if (completed) return;
+				const key = CASES[current].key;
+				for (const input of document.querySelectorAll('input[name="status"]')) input.checked = input.value === status;
+				draft.status = status;
+				if (status === 'pass') {
+					results[key] = { ...draft, status, time: now() };
+					afterSave(`${key} marked Passed.`);
+					return;
+				}
+				// Fail and Blocked need text before they are saved; until then the old status stays (AC-3, AC-4).
+				const ready = status === 'fail' ? $('actual').value.trim() : $('reason').value.trim();
+				renderResultForm(false);
+				if (ready && results[key]?.status === status) renderResultForm(true);
+				(status === 'fail' ? $('failed-step') : $('reason')).focus();
+			}
+
+			function afterSave(message) {
+				renderHeader();
+				renderList();
+				renderCase();
+				announce(`${message} ${countsText()}.`);
+			}
+
+			for (const input of document.querySelectorAll('input[name="status"]')) {
+				input.addEventListener('change', () => setStatus(input.value));
+			}
+
+			$('result-panel').addEventListener('submit', (event) => {
+				event.preventDefault();
+				const key = CASES[current].key;
+				const status = draft.status;
+				const field = status === 'fail' ? $('actual') : $('reason');
+				const error = status === 'fail' ? $('actual-error') : $('reason-error');
+				if (!field.value.trim()) {
+					error.hidden = false;
+					field.setAttribute('aria-invalid', 'true');
+					field.focus();
+					return;
+				}
+				results[key] = {
+					status,
+					time: now(),
+					notes: $('notes').value,
+					issue: $('linked-issue').value.trim(),
+					...(status === 'fail' ? { step: Number($('failed-step').value), actual: $('actual').value } : { reason: $('reason').value })
+				};
+				afterSave(`${key} marked ${LABELS[status]}.`);
+				toast(`Saved ${key}`);
+			});
+
+			// Text fields of a saved result save on change, as the real app does (AC-5).
+			for (const id of ['notes', 'linked-issue', 'failed-step']) {
+				$(id).addEventListener('change', () => {
+					const result = results[CASES[current].key];
+					if (!result || result.status !== draft.status || completed) return;
+					result.notes = $('notes').value;
+					result.issue = $('linked-issue').value.trim();
+					if (result.status === 'fail') result.step = Number($('failed-step').value);
+					result.time = now();
+					renderCase();
+				});
+			}
+			for (const id of ['actual', 'reason']) {
+				$(id).addEventListener('input', () => {
+					const result = results[CASES[current].key];
+					if (result && result.status === draft.status) renderResultForm(false);
+				});
+			}
+
+			// ---- Screenshots (FR-112) ---------------------------------------------------------
+
+			const MAX_SHOTS = 5;
+
+			function shotName(key, n, type) {
+				return `${key}-r3f9-${n}.${type === 'image/jpeg' ? 'jpg' : type.split('/')[1] ?? 'png'}`;
+			}
+
+			function renderShots() {
+				const key = CASES[current].key;
+				const list = shots[key] ?? [];
+				const items = list.map((s, i) =>
+					s.pending
+						? `<div class="thumb compressing"><div>Compressing…</div></div>`
+						: `<div class="thumb"><button type="button" data-view="${i}" aria-label="Open screenshot ${i + 1} of ${key}"><img src="${s.url}" alt="Screenshot ${i + 1} of ${key}" /></button>${completed ? '' : `<button class="icon-button remove" type="button" data-remove="${i}" aria-label="Remove screenshot ${i + 1}">${icon('trash')}</button>`}</div>`
+				);
+				if (!completed) {
+					items.push(
+						list.length >= MAX_SHOTS
+							? `<p class="shot-limit">${MAX_SHOTS} of ${MAX_SHOTS} screenshots</p>`
+							: `<button class="drop-target" type="button" id="drop-target">${icon('image')}Paste, drop, or choose an image</button>`
+					);
+				}
+				$('shots').innerHTML = items.join('');
+			}
+
+			function addFiles(files) {
+				const key = CASES[current].key;
+				const list = (shots[key] ??= []);
+				$('shot-error').hidden = true;
+				for (const file of files) {
+					if (!file.type.startsWith('image/')) return shotError(`${file.name || 'This file'} is not an image.`);
+					if (list.length >= MAX_SHOTS) return shotError(`Up to ${MAX_SHOTS} screenshots per result.`);
+					if (file.size > 25 * 1024 * 1024) return shotError('Images up to 25 MB and 50 megapixels.');
+					const entry = { pending: true, name: shotName(key, list.length + 1, file.type), size: file.size };
+					list.push(entry);
+					renderShots();
+					// Stand-in for compression in a worker (NFR-023).
+					setTimeout(() => {
+						entry.url = URL.createObjectURL(file);
+						entry.pending = false;
+						if (CASES[current].key === key) renderShots();
+						announce(`Screenshot added, ${list.length} of ${MAX_SHOTS}.`);
+					}, 600);
+				}
+			}
+
+			function shotError(message) {
+				$('shot-error').innerHTML = `${icon('warning')}${message}`;
+				$('shot-error').hidden = false;
+			}
+
+			$('shots').addEventListener('click', (event) => {
+				if (event.target.closest('#drop-target')) $('shot-file').click();
+				const view = event.target.closest('[data-view]');
+				if (view) openViewer(Number(view.dataset.view), view);
+				const remove = event.target.closest('[data-remove]');
+				if (remove) askRemove(Number(remove.dataset.remove));
+			});
+			$('shot-file').addEventListener('change', () => {
+				addFiles([...$('shot-file').files]);
+				$('shot-file').value = '';
+			});
+			$('shots').addEventListener('dragover', (event) => {
+				event.preventDefault();
+				$('drop-target')?.classList.add('over');
+			});
+			$('shots').addEventListener('dragleave', () => $('drop-target')?.classList.remove('over'));
+			$('shots').addEventListener('drop', (event) => {
+				event.preventDefault();
+				addFiles([...event.dataTransfer.files]);
+			});
+
+			// Paste anywhere in the result panel attaches images, even from a text field (EC-029).
+			$('result-panel').addEventListener('paste', (event) => {
+				if (completed || $('f-shots').hidden) return;
+				const images = [...event.clipboardData.files].filter((f) => f.type.startsWith('image/'));
+				if (images.length) {
+					event.preventDefault();
+					addFiles(images);
+				} else if (document.activeElement?.id === 'drop-target') {
+					shotError('The clipboard has no image.');
+				}
+			});
+
+			function addSampleShot(key, instant) {
+				const canvas = document.createElement('canvas');
+				canvas.width = 720;
+				canvas.height = 1280;
+				const ctx = canvas.getContext('2d');
+				ctx.fillStyle = '#f6f8fa';
+				ctx.fillRect(0, 0, 720, 1280);
+				ctx.fillStyle = '#0f172a';
+				ctx.font = '600 44px system-ui';
+				ctx.fillText('Withdrawal sent', 60, 160);
+				ctx.font = '400 32px system-ui';
+				ctx.fillStyle = '#475569';
+				ctx.fillText('Amount   12.5 USDT', 60, 260);
+				ctx.fillText('Network  BNB Smart Chain', 60, 320);
+				ctx.fillStyle = '#cf222e';
+				ctx.fillText('Value on chain 0.0000000000125', 60, 420);
+				ctx.strokeStyle = '#cf222e';
+				ctx.lineWidth = 6;
+				ctx.strokeRect(40, 370, 640, 80);
+				canvas.toBlob((blob) => {
+					const file = new File([blob], 'sample.png', { type: 'image/png' });
+					if (instant) {
+						const list = (shots[key] ??= []);
+						list.push({ url: URL.createObjectURL(file), name: shotName(key, list.length + 1, file.type), size: blob.size });
+						if (CASES[current].key === key) renderShots();
+					} else {
+						addFiles([file]);
+					}
+				}, 'image/png');
+			}
+
+			$('proto-shot').addEventListener('click', () => {
+				if (completed) return toast('Reopen the run to add screenshots');
+				if (draft.status === 'untested') setStatus('fail');
+				addSampleShot(CASES[current].key, false);
+			});
+
+			// Viewer and removal (FR-112 AC-3, AC-4)
+
+			let viewerTrigger = null;
+			let viewing = 0;
+			function openViewer(index, trigger) {
+				const shot = shots[CASES[current].key][index];
+				viewerTrigger = trigger;
+				viewing = index;
+				$('viewer-title').textContent = `Screenshot ${index + 1} of ${CASES[current].key}`;
+				$('viewer-img').src = shot.url;
+				$('viewer-img').alt = $('viewer-title').textContent;
+				$('viewer-meta').textContent = `${shot.name} · ${(shot.size / 1024).toFixed(0)} KB`;
+				$('viewer').showModal();
+			}
+			$('viewer-close').addEventListener('click', () => $('viewer').close());
+			$('viewer').addEventListener('close', () => viewerTrigger?.focus());
+			$('viewer-download').addEventListener('click', () => {
+				const shot = shots[CASES[current].key][viewing];
+				download(shot.url, shot.name);
+			});
+
+			let removing = 0;
+			function askRemove(index) {
+				removing = index;
+				$('remove-shot').showModal();
+			}
+			$('remove-cancel').addEventListener('click', () => $('remove-shot').close());
+			$('remove-ok').addEventListener('click', () => {
+				const list = shots[CASES[current].key];
+				URL.revokeObjectURL(list[removing].url);
+				list.splice(removing, 1);
+				$('remove-shot').close();
+				renderShots();
+				announce('Screenshot removed.');
+				$('drop-target')?.focus();
+			});
+
+			function download(url, name) {
+				const link = Object.assign(document.createElement('a'), { href: url, download: name });
+				link.click();
+			}
+
+			// ---- Bug report (FR-120 to FR-122) ------------------------------------------------
+
+			let reportDirty = false;
+
+			function openReport() {
+				const tc = CASES[current];
+				const result = results[tc.key];
+				const n = result.step;
+				const steps = n ? tc.steps.slice(0, n) : tc.steps;
+				const expected = n ? tc.steps[n - 1][1] || tc.expected : tc.expected;
+				$('report-title').textContent = `Bug report: ${tc.key}`;
+				$('r-summary').value = `${tc.title}: ${result.actual.split('\n')[0]}`.slice(0, 200);
+				$('r-priority').value = tc.priority;
+				$('r-labels').value = tc.tags.join(', ');
+				$('r-env').value = ENVIRONMENT;
+				$('r-pre').value = tc.pre;
+				$('r-steps').value = steps.map(([action], i) => `${i + 1}. ${action}`).join('\n');
+				$('r-expected').value = expected;
+				$('r-actual').value = result.actual;
+				$('r-notes').value = [result.notes, `Run: Withdraw USDT multi-network (v2.3.0), case ${tc.key}.`].filter(Boolean).join('\n');
+				const list = shots[tc.key] ?? [];
+				$('r-attachments').innerHTML = list.length
+					? list.map((s, i) => `<div class="attachment"><img src="${s.url}" alt="" /><span class="mono">${s.name}</span><button class="icon-button" type="button" data-dl="${i}" aria-label="Download ${s.name}">${icon('download')}</button></div>`).join('') +
+						(list.length > 1 ? `<div><button class="button sm" type="button" id="r-dl-all">${icon('download')}Download all</button></div>` : '')
+					: '<p class="subtle">No screenshots on this result.</p>';
+				reportDirty = false;
+				updatePreview();
+				$('report').showModal();
+				$('r-summary').focus();
+			}
+
+			const format = () => document.querySelector('input[name="format"]:checked').value;
+
+			// Simplified escaping: the real rules come from Atlassian's notation (PRD 10.7).
+			const escMd = (t) => t.replace(/([\\`*_{}[\]<>#|])/g, '\\$1');
+			const escJira = (t) => t.replace(/([{}[\]|*_^~?+#-])/g, '\\$1');
+
+			function buildReport() {
+				const f = format();
+				const get = (id) => $(id).value.trim();
+				const steps = get('r-steps').split('\n').map((l) => l.replace(/^\d+\.\s*/, '')).filter(Boolean);
+				const files = (shots[CASES[current].key] ?? []).map((s) => s.name);
+				const md = f === 'markdown';
+				const e = md ? escMd : escJira;
+				const h = (title) => (md ? `### ${title}` : `h3. ${title}`);
+				const lines = [];
+				lines.push(md ? `**Summary:** ${e(get('r-summary'))}` : `*Summary:* ${e(get('r-summary'))}`);
+				lines.push(md ? `**Priority:** ${get('r-priority')} · **Labels:** ${e(get('r-labels'))}` : `*Priority:* ${get('r-priority')} · *Labels:* ${e(get('r-labels'))}`);
+				const section = (title, text) => {
+					if (!text) return;
+					lines.push('', h(title), ...text.split('\n').map(e));
+				};
+				section('Environment', get('r-env'));
+				section('Preconditions', get('r-pre'));
+				lines.push('', h('Steps to reproduce'), ...steps.map((s, i) => (md ? `${i + 1}. ${e(s)}` : `# ${e(s)}`)));
+				section('Expected result', get('r-expected'));
+				section('Actual result', get('r-actual'));
+				section('Notes', get('r-notes'));
+				if (files.length) lines.push('', h('Attachments'), ...files.map((n) => (md ? `- ${n}` : `* ${n}`)));
+				return lines.join('\n');
+			}
+
+			function updatePreview() {
+				$('r-preview-text').textContent = buildReport();
+			}
+
+			for (const el of document.querySelectorAll('[data-report]')) {
+				el.addEventListener('input', () => {
+					reportDirty = true;
+					updatePreview();
+				});
+			}
+			for (const input of document.querySelectorAll('input[name="format"]')) input.addEventListener('change', updatePreview);
+
+			$('r-attachments').addEventListener('click', (event) => {
+				const list = shots[CASES[current].key] ?? [];
+				const one = event.target.closest('[data-dl]');
+				if (one) download(list[Number(one.dataset.dl)].url, list[Number(one.dataset.dl)].name);
+				if (event.target.closest('#r-dl-all')) list.forEach((s) => download(s.url, s.name));
+			});
+
+			$('r-copy').addEventListener('click', async () => {
+				try {
+					await navigator.clipboard.writeText(buildReport());
+					toast(format() === 'markdown' ? 'Copied as Markdown' : 'Copied as Jira markup');
+				} catch {
+					toast('Could not copy. Use the preview to copy by hand.');
+				}
+			});
+
+			function closeReport() {
+				if (reportDirty) $('discard').showModal();
+				else $('report').close();
+			}
+			$('r-close').addEventListener('click', closeReport);
+			$('report').addEventListener('cancel', (event) => {
+				if (!reportDirty) return;
+				event.preventDefault();
+				$('discard').showModal();
+			});
+			$('discard-cancel').addEventListener('click', () => $('discard').close());
+			$('discard-ok').addEventListener('click', () => {
+				$('discard').close();
+				$('report').close();
+			});
+			$('report').addEventListener('close', () => $('open-report').focus());
+			$('open-report').addEventListener('click', openReport);
+
+			// ---- Run summary and completion (FR-113) ------------------------------------------
+
+			$('copy-summary').addEventListener('click', async () => {
+				const c = counts();
+				const open = CASES.filter((tc) => ['fail', 'blocked'].includes(statusOf(tc.key)));
+				const text = [
+					'## Run: Withdraw USDT multi-network',
+					'Release: v2.3.0',
+					`Environment: ${ENVIRONMENT}`,
+					'',
+					`${c.pass} passed, ${c.fail} failed, ${c.blocked} blocked, ${c.untested} untested (${CASES.length} cases)`,
+					...(open.length ? ['', '### Failed and blocked', ...open.map((tc) => { const r = results[tc.key]; return `- ${tc.key} ${tc.title}: ${LABELS[r.status]}. ${(r.actual ?? r.reason).split('\n')[0]}${r.issue ? ` (${r.issue})` : ''}`; })] : [])
+				].join('\n');
+				try {
+					await navigator.clipboard.writeText(text);
+					toast('Copied run summary');
+				} catch {
+					toast('Could not copy');
+				}
+			});
+
+			$('complete-run').addEventListener('click', () => {
+				const untested = counts().untested;
+				$('complete-text').textContent = untested
+					? `${untested} test ${untested === 1 ? 'case is' : 'cases are'} still untested. They will stay untested in the run and the release summary. A completed run is read-only until you reopen it.`
+					: 'Every case has a result. A completed run is read-only until you reopen it.';
+				$('complete').showModal();
+			});
+			$('complete-cancel').addEventListener('click', () => $('complete').close());
+			$('complete-ok').addEventListener('click', () => {
+				completed = true;
+				$('complete').close();
+				render(false);
+				const c = counts();
+				toast(`Run completed: ${c.pass} passed, ${c.fail} failed, ${c.blocked} blocked.`);
+				$('reopen-run').focus();
+			});
+			$('reopen-run').addEventListener('click', () => {
+				completed = false;
+				render(false);
+				toast('Run reopened');
+				$('complete-run').focus();
+			});
+
+			// ---- Keyboard shortcuts (design 13.4) ---------------------------------------------
+
+			$('open-shortcuts').addEventListener('click', () => $('shortcuts').showModal());
+			$('shortcuts-close').addEventListener('click', () => $('shortcuts').close());
+
+			document.addEventListener('keydown', (event) => {
+				if (event.ctrlKey || event.metaKey || event.altKey) return;
+				if (document.querySelector('dialog[open]')) return;
+				const target = event.target;
+				if (target.closest('input[type="text"], textarea, select, [contenteditable]')) return;
+				const key = event.key.toLowerCase();
+				const actions = {
+					p: () => setStatus('pass'),
+					f: () => setStatus('fail'),
+					b: () => setStatus('blocked'),
+					j: () => goTo(current + 1),
+					k: () => goTo(current - 1),
+					'?': () => $('shortcuts').showModal()
+				};
+				if (!actions[event.key === '?' ? '?' : key]) return;
+				event.preventDefault();
+				actions[event.key === '?' ? '?' : key]();
+			});
+
+			// ---- Theme, toast, live region ----------------------------------------------------
+
+			for (const input of document.querySelectorAll('[data-theme-control] input')) {
+				input.addEventListener('change', () => {
+					if (input.value === 'system') delete document.documentElement.dataset.theme;
+					else document.documentElement.dataset.theme = input.value;
+				});
+			}
+
+			let toastTimer;
+			function toast(message) {
+				clearTimeout(toastTimer);
+				$('toast').textContent = message;
+				$('toast').classList.add('visible');
+				announce(message);
+				toastTimer = setTimeout(() => $('toast').classList.remove('visible'), 4000);
+			}
+
+			function announce(message) {
+				$('live').textContent = '';
+				queueMicrotask(() => ($('live').textContent = message));
+			}
+
+			for (const input of document.querySelectorAll('input[name="proto-state"]')) {
+				input.addEventListener('change', () => loadState(input.value));
+			}
+
+			document.querySelector('.proto-panel').open = window.innerWidth >= 1024;
+			loadState('mid');
+		</script>
+	</body>
+</html>
