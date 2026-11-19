@@ -1,10 +1,10 @@
 # QAnchor: Architecture
 
-* Status: APPROVED (owner, 2026-11-12)
-* Version: 0.1
+* Status: APPROVED (owner, 2026-11-12); v0.2 additions for slice 2a approved on 2026-11-19, marked "v0.2"
+* Version: 0.2
 * Date: 2026-11-12
 * Sources: `CLAUDE.md`, `docs/prd.md` v0.3, `docs/design.md` v0.3, `docs/decisions.md`
-* Decisions: ADR-001 to ADR-013 in `docs/decisions.md`
+* Decisions: ADR-001 to ADR-015 in `docs/decisions.md` (ADR-015 with the slice 2a plan)
 
 Conventions: **[PROPOSAL]** suggested, not yet approved. **[ASSUMPTION]** assumed, to be confirmed. **[VERIFY]** a fact still to be checked. **[LATER]** deliberately not built for the MVP.
 
@@ -64,6 +64,7 @@ qanchor/
 │   │   │   ├── tx/            #   response parsers per protocol → common TxResult
 │   │   │   ├── dummy/         #   seeded PRNG, NIK/NPWP/phone/bank rules, presets
 │   │   │   ├── export/        #   CSV (RFC 4180) and JSON writers for output actions (FR-004, FR-083)
+│   │   │   ├── qa/            #   test cases, runs, results: limits, filters, snapshots, summaries (v0.2)
 │   │   │   └── result.ts      #   Result<T, E> helper (ADR-013)
 │   │   ├── config/
 │   │   │   └── networks.ts    #   chains, networks, chain IDs, default endpoints, explorers, faucets
@@ -88,6 +89,8 @@ qanchor/
 │       ├── amounts/+page.svelte
 │       ├── units/+page.svelte
 │       ├── settings/+page.svelte
+│       ├── cases/             # +page (list), new/, edit/ (?id=) (v0.2)
+│       ├── runs/              # +page (list), new/, view/ (?id=&case=) (v0.2)
 │       └── ...                # one folder per tool route (docs/design.md section 3)
 ├── static/
 │   └── _headers               # security headers that a meta CSP cannot set (ADR-007)
@@ -119,6 +122,21 @@ Generators are stateless (PRD section 8): generated addresses, amounts, and dumm
 * The fetched balance (FR-073) is kept in memory for the session only, with its fetch time; it is not persisted. [PROPOSAL] Why: a stored balance is stale by the next visit, and storing it adds a migration for no user value.
 * Migrations: one function per version step in `lib/storage/migrations.ts`, run in `idb`'s `upgrade` callback (NFR-016). A `versionchange` event in another tab triggers a "reload to update" banner (EC-003).
 
+**Schema version 2 (v0.2, slice 2a, ADR-015).** Migration 2 adds four stores and changes none of the v1 stores.
+
+| Store | Key | Fields | Requirement |
+| --- | --- | --- | --- |
+| `testCases` | `id` (string, `crypto.randomUUID()`) | `id`, `number: number` (shown as `TC-<number>`), `title`, `preconditions`, `steps: { action: string; expected: string }[]`, `expected`, `tags: string[]`, `priority: 'critical' \| 'high' \| 'medium' \| 'low'`, `createdAt`, `updatedAt` | FR-100 to FR-102 |
+| `runs` | `id` (string) | `id`, `name`, `release`, `environment`, `status: 'in-progress' \| 'completed'`, `cases: CaseSnapshot[]` (copy of each case at creation, in key order), `createdAt`, `updatedAt`, `completedAt: number \| null` | FR-110, FR-113 |
+| `results` | `[runId, caseNumber]` | `runId`, `caseNumber`, `status: 'pass' \| 'fail' \| 'blocked'`, `failedStep: number \| null` (0 = not step-specific), `actual`, `reason`, `notes`, `linkedIssue`, `updatedAt` | FR-111, FR-123 |
+| `meta` | `key` (string) | `key: 'caseCounter'`, `value: number` (highest key number ever assigned) | FR-100 AC-2 |
+
+* Unique index on `testCases.number`; index on `results.runId` for reading a run and for the cascade delete.
+* An untested case has no result record. A run's progress is computed from its results, never stored.
+* A new case reads and raises `caseCounter` and writes the case in one transaction, so two tabs cannot assign the same key.
+* Deleting a run deletes its results in the same transaction (NFR-024). Deleting a test case touches no run (FR-110 AC-3).
+* Slice 2b adds schema version 3 with a `screenshots` store (finding F-6).
+
 ### 3.2 Export file (FR-003)
 
 ```json
@@ -134,6 +152,8 @@ Generators are stateless (PRD section 8): generated addresses, amounts, and dumm
   }
 }
 ```
+
+From schema version 2 (v0.2), `data` also carries `testCases`, `runs`, and `results`. `meta` is not exported: on import the counter is rebuilt as the highest case number found in `testCases` and in every run's snapshots (plan finding F-5). A version 1 file is still accepted; it is upgraded in memory to version 2 with empty Phase 2 arrays before the guards run (FR-091 AC-3).
 
 `settings` comes from `localStorage`; the three arrays come from IndexedDB. Import validates the whole file with hand-written type guards before anything is written (ADR-008), shows counts, and on confirmation clears all stores and writes the file content in one `readwrite` transaction, then writes the theme to `localStorage` only after that transaction commits, so a failure leaves the old data intact (FR-003 AC-3, AC-4, EC-002, EC-020).
 
@@ -172,6 +192,13 @@ interface TxResult {
   fee: bigint | null;     // null while not known (pending EVM or Solana; FR-040 AC-3)
   extra: EvmExtra | BitcoinExtra | SolanaExtra | TronExtra;
 }
+```
+
+Phase 2 (v0.2):
+
+```ts
+type CaseSnapshot = Pick<TestCase, 'id' | 'number' | 'title' | 'preconditions' | 'steps' | 'expected' | 'tags' | 'priority'>;
+type ResultStatus = 'pass' | 'fail' | 'blocked'; // 'untested' = no result record
 ```
 
 ## 4. Data flows
@@ -386,5 +413,5 @@ Tooling defaults: npm as the package manager and Node 26 LTS pinned in `.nvmrc` 
 
 * Every route sets `prerender = true` and `trailingSlash = 'never'`, so `/address` is served from `address.html` (Cloudflare serves a matching HTML file for the route and redirects `/address.html` to `/address`).
 * adapter-static writes `404.html` as a client-rendered fallback. Cloudflare Pages serves the nearest `404.html` for paths that match no file; with a top-level `404.html` present, it does not switch to SPA mode (Cloudflare Pages docs, "Serving Pages", read 2026-11-12). The fallback renders the not-found state (FR-001 AC-3, NFR-022).
-* Phase 2 pages for user-created records use query-string IDs on prerendered routes (`/runs?id=…`) [PROPOSAL, LATER], which avoids per-record routes entirely.
+* Phase 2 pages for user-created records use query-string IDs on prerendered routes (`/cases/edit?id=…`, `/runs/view?id=…&case=TC-12`), which avoids per-record routes entirely (v0.2). SvelteKit forbids reading `url.searchParams` while prerendering, so the HTML of a record page holds only its loading state and the ID is read after hydration (plan finding F-2). The pattern is proven in T-047 before it is used.
 * Cloudflare Web Analytics stays disabled in the Pages project settings (NFR-011).

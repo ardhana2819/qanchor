@@ -391,6 +391,12 @@ Decided by the owner before the Phase 2 requirements were drafted (`docs/prd.md`
 * It was checked in Chromium only: the shortcuts, required text for Fail and Blocked, the bug report in both formats, completing and reopening a run, the dark theme, and 375 px width without horizontal scroll. Its escaping is a stand-in; the real rules wait for the PRD 10.7 check.
 * Next: the tech plan for slice 2a (`docs/plan.md`).
 
+### 2026-11-19: Slice 2a plan approved
+
+* The owner approved milestone M4 in `docs/plan.md` (T-047 to T-056), the v0.2 additions to `docs/architecture.md`, and ADR-015 (schema v2).
+* FR-123 (linked issue) moves from slice 2b to 2a (plan finding F-3): it is one optional field on a result and is already in the approved prototype. `docs/prd.md` section 10.1 is updated.
+* Work starts with the T-047 spike, because every record page depends on reading the ID after hydration (plan finding F-2).
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
@@ -508,6 +514,14 @@ Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010
 * Decision: database `qanchor` v1 with stores `endpoints`, `wallets`, `faucets`. The theme preference lives in `localStorage` (`qanchor.theme`) because the pre-paint script must read it synchronously. Fetched balances stay in memory only. Import clears and rewrites all stores in one transaction, then writes the theme; the export file carries both.
 * Rejected: theme in IndexedDB (asynchronous, cannot run before first paint, so dark-mode users would see a light flash); persisting balances (stale on the next visit, extra migration); localStorage for all data (kickoff decision, size limit).
 * Consequences: two storage mechanisms to export and import; a schema change needs a migration step and a new export `schemaVersion`.
+
+### ADR-015: IndexedDB schema v2 for test cases and runs
+
+* Status: Accepted (owner, with the slice 2a plan, 2026-11-19)
+* Context: PRD section 10 (FR-100 to FR-113, FR-123), NFR-016, NFR-024, NFR-026, EC-027, EC-033; `docs/architecture.md` section 3.1.
+* Decision: migration 2 adds `testCases`, `runs`, `results`, and `meta`. A run stores a snapshot of each case at creation. Each result is its own record keyed `[runId, caseNumber]`. Case keys come from a `caseCounter` in `meta`, raised in the same transaction that writes the new case, never reused, and rebuilt on import from the highest case or snapshot number. Export `schemaVersion` becomes 2; import accepts 1 and 2.
+* Rejected: results inside the run record (two tabs saving different cases would overwrite each other, against FR-111 AC-8); runs that reference live cases (editing a case would rewrite past results, against FR-110 AC-3); keys from the highest stored number (a deleted last case would give its key away); one store per slice with screenshots now (no screenshot code in 2a; v3 in 2b is a small additive step).
+* Consequences: a run's progress is computed from its results on every read, which is cheap at 500 cases; the import guards check that every result belongs to a case in its run; the backup file grows by the snapshots, which duplicate case text by design.
 
 ## Build order
 
