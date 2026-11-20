@@ -28,14 +28,13 @@ function rawOpen(page: Page, version?: number) {
 	);
 }
 
-test('a normal visit opens schema v1 and shows no banner', async ({ page }) => {
+const V2_STORES = ['endpoints', 'faucets', 'meta', 'results', 'runs', 'testCases', 'wallets'];
+
+test('a normal visit opens schema v2 and shows no banner', async ({ page }) => {
 	await page.goto('/');
 	await appOpened(page);
 
-	expect(await rawOpen(page)).toEqual({
-		version: 1,
-		stores: ['endpoints', 'faucets', 'wallets']
-	});
+	expect(await rawOpen(page)).toEqual({ version: 2, stores: V2_STORES });
 	await expect(unavailableBanner(page)).toBeHidden();
 	await expect(outdatedBanner(page)).toBeHidden();
 });
@@ -76,7 +75,7 @@ for (const [name, block] of Object.entries(blocked)) {
 
 test('an open request that fails later is also reported as unavailable', async ({ page }) => {
 	await page.goto('/');
-	// A database from a newer version makes opening v1 fail asynchronously with VersionError.
+	// A database from a newer version makes opening v2 fail asynchronously with VersionError.
 	await page.evaluate(
 		() =>
 			new Promise<void>((resolve) => {
@@ -105,7 +104,7 @@ test('a schema upgrade in another tab asks this tab to reload (EC-003)', async (
 	const other = await context.newPage();
 	await other.goto('/');
 	// The other tab only completes its upgrade if this tab closes its connection.
-	expect(await rawOpen(other, 2)).toMatchObject({ version: 2 });
+	expect(await rawOpen(other, 3)).toMatchObject({ version: 3 });
 
 	await expect(outdatedBanner(page)).toBeVisible();
 	await expect(page.getByText('Reload this tab to keep saving your changes.')).toBeVisible();
@@ -113,4 +112,90 @@ test('a schema upgrade in another tab asks this tab to reload (EC-003)', async (
 		page.waitForEvent('load'),
 		page.getByRole('button', { name: 'Reload' }).click()
 	]);
+});
+
+test('a v1 database from Phase 1 upgrades to v2 with every record kept (FR-091 AC-1)', async ({
+	page
+}) => {
+	await page.goto('/');
+	await appOpened(page);
+	// Replace the app's database with a v1 one holding a record in each store. Deleting it makes
+	// the app close its connection (the "updated in another tab" path), so the delete can run.
+	const seeded = await page.evaluate(
+		() =>
+			new Promise<number>((resolve, reject) => {
+				const removal = indexedDB.deleteDatabase('qanchor');
+				removal.onerror = () => reject(removal.error);
+				removal.onsuccess = () => {
+					const request = indexedDB.open('qanchor', 1);
+					request.onupgradeneeded = () => {
+						const db = request.result;
+						db.createObjectStore('endpoints', { keyPath: 'networkId' });
+						const wallets = db.createObjectStore('wallets', { keyPath: 'id' });
+						wallets.createIndex('byNetworkAddress', ['networkId', 'address']);
+						db.createObjectStore('faucets', { keyPath: 'id' });
+						const tx = request.transaction!;
+						tx.objectStore('endpoints').put({
+							networkId: 'eth-sepolia',
+							url: 'https://rpc.example.dev'
+						});
+						tx.objectStore('wallets').put({
+							id: 'w1',
+							label: 'QA main',
+							chain: 'evm',
+							networkId: 'eth-sepolia',
+							address: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
+							notes: '',
+							createdAt: 1,
+							updatedAt: 1
+						});
+						tx.objectStore('faucets').put({
+							id: 'f1',
+							networkId: 'eth-sepolia',
+							label: 'Drip',
+							url: 'https://faucet.example.dev'
+						});
+					};
+					request.onsuccess = () => {
+						const version = request.result.version;
+						request.result.close();
+						resolve(version);
+					};
+					request.onerror = () => reject(request.error);
+				};
+			})
+	);
+	expect(seeded).toBe(1);
+
+	await page.goto('/wallets');
+	await expect(page.getByText('QA main').first()).toBeVisible();
+
+	expect(await rawOpen(page)).toEqual({ version: 2, stores: V2_STORES });
+	const counts = await page.evaluate(
+		() =>
+			new Promise<Record<string, number>>((resolve, reject) => {
+				const request = indexedDB.open('qanchor');
+				request.onerror = () => reject(request.error);
+				request.onsuccess = () => {
+					const db = request.result;
+					const names = [...db.objectStoreNames];
+					const tx = db.transaction(names);
+					const out: Record<string, number> = {};
+					for (const name of names) {
+						const count = tx.objectStore(name).count();
+						count.onsuccess = () => (out[name] = count.result);
+					}
+					tx.oncomplete = () => (db.close(), resolve(out));
+				};
+			})
+	);
+	expect(counts).toEqual({
+		endpoints: 1,
+		faucets: 1,
+		meta: 0,
+		results: 0,
+		runs: 0,
+		testCases: 0,
+		wallets: 1
+	});
 });

@@ -131,7 +131,7 @@ Generators are stateless (PRD section 8): generated addresses, amounts, and dumm
 | `results` | `[runId, caseNumber]` | `runId`, `caseNumber`, `status: 'pass' \| 'fail' \| 'blocked'`, `failedStep: number \| null` (0 = not step-specific), `actual`, `reason`, `notes`, `linkedIssue`, `updatedAt` | FR-111, FR-123 |
 | `meta` | `key` (string) | `key: 'caseCounter'`, `value: number` (highest key number ever assigned) | FR-100 AC-2 |
 
-* Unique index on `testCases.number`; index on `results.runId` for reading a run and for the cascade delete.
+* Unique index on `testCases.number`. `results` needs no index: its key starts with `runId`, so one run's results form one key range, read and deleted with `IDBKeyRange.bound([runId, -Infinity], [runId, Infinity])` (T-049).
 * An untested case has no result record. A run's progress is computed from its results, never stored.
 * A new case reads and raises `caseCounter` and writes the case in one transaction, so two tabs cannot assign the same key.
 * Deleting a run deletes its results in the same transaction (NFR-024). Deleting a test case touches no run (FR-110 AC-3).

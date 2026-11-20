@@ -2,13 +2,20 @@ import { networkById } from '#lib/config/networks.ts';
 import { parseEndpointUrl } from '#lib/core/endpoint-url.ts';
 import { err, ok, type Result } from '#lib/core/result.ts';
 import type { ThemePreference } from '#lib/state/theme.svelte.ts';
-import { DB_VERSION, type EndpointOverride, type Faucet, type Wallet } from './schema.ts';
+import type { EndpointOverride, Faucet, Wallet } from './schema.ts';
 
 // The backup file (FR-003, docs/architecture.md section 3.2) and its hand-written import guards
 // (ADR-008). Guards build fresh records from known fields only, so unknown fields in a file are
 // dropped instead of being written.
 
 export const APP_ID = 'qanchor';
+
+/**
+ * The backup format version, the file's `schemaVersion`. It follows the database schema only
+ * when the backup content changes: schema v2 adds the Phase 2 stores, which join the backup in
+ * T-050 (backup v2), so the file stays at 1 until then.
+ */
+export const BACKUP_VERSION = 1;
 
 export interface BackupData {
 	settings: { theme: ThemePreference };
@@ -32,7 +39,7 @@ export type ImportError =
 	| { code: 'invalid'; detail: string };
 
 export function createBackup(data: BackupData, now: Date): BackupFile {
-	return { app: APP_ID, schemaVersion: DB_VERSION, exportedAt: now.toISOString(), data };
+	return { app: APP_ID, schemaVersion: BACKUP_VERSION, exportedAt: now.toISOString(), data };
 }
 
 export function backupFileName(now: Date): string {
@@ -161,10 +168,10 @@ export function parseBackup(json: string): Result<BackupFile, ImportError> {
 	if (!isObject(file) || file.app !== APP_ID) return err({ code: 'not-qanchor' });
 
 	const version = file.schemaVersion;
-	if (typeof version === 'number' && Number.isInteger(version) && version > DB_VERSION) {
+	if (typeof version === 'number' && Number.isInteger(version) && version > BACKUP_VERSION) {
 		return err({ code: 'newer-version', version });
 	}
-	if (version !== DB_VERSION) return err({ code: 'unsupported-version' });
+	if (version !== BACKUP_VERSION) return err({ code: 'unsupported-version' });
 
 	const exportedAt = file.exportedAt;
 	if (typeof exportedAt !== 'string' || Number.isNaN(Date.parse(exportedAt))) {
