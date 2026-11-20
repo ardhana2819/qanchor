@@ -337,6 +337,30 @@ test('closing a dialog with its own button returns focus to the trigger', async 
 	await expect(trigger).toBeFocused();
 });
 
+test('a dialog reopened before its close event arrives stays open', async ({ page }) => {
+	// Regression (T-047): the queued close event of the first close used to end the reopened
+	// dialog, which hid an unsaved-changes prompt shown on a second Back.
+	const trigger = page.getByRole('button', { name: 'Delete wallet' });
+	await trigger.click();
+	const dialog = page.getByRole('dialog', { name: 'Delete wallet?' });
+	await expect(dialog).toBeVisible();
+
+	await dialog.evaluate(async (el) => {
+		el.querySelector('button')!.click();
+		// Let Svelte's effect call close(); the close event is a task that has not run yet.
+		await Promise.resolve();
+		await Promise.resolve();
+		const reopen = [...document.querySelectorAll('button')].find(
+			(b) => b.textContent?.trim() === 'Delete wallet'
+		)!;
+		reopen.click();
+	});
+
+	await expect(dialog).toBeVisible();
+	await page.waitForTimeout(300);
+	await expect(dialog).toBeVisible();
+});
+
 test('an open dialog has no WCAG 2.1 AA violations', async ({ page }) => {
 	await page.getByRole('button', { name: 'Delete wallet' }).click();
 	const dialog = page.getByRole('dialog');
