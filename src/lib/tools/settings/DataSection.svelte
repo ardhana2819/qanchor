@@ -17,7 +17,7 @@
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import { downloadText } from '#lib/ui/download.ts';
 
-	// Back up and restore (J-6, FR-003). The confirmation compares what is stored now with what the
+	// Back up and restore (J-6, FR-003, FR-091). The confirmation compares what is stored now with what the
 	// import leaves (owner's choice after the prototype, 2026-11-13).
 
 	type Outcome = { kind: 'success' | 'danger'; title: string; message: string };
@@ -149,15 +149,24 @@
 		return `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 	}
 
-	function summary(records: StoredRecords): string {
-		return `Imported ${count(records.wallets.length, 'wallet', 'wallets')}, ${count(records.endpoints.length, 'endpoint override', 'endpoint overrides')}, ${count(records.faucets.length, 'faucet link', 'faucet links')}, and the theme setting.`;
-	}
-
-	const ROWS: { label: string; key: keyof StoredRecords }[] = [
-		{ label: 'Wallets', key: 'wallets' },
-		{ label: 'Endpoint overrides', key: 'endpoints' },
-		{ label: 'Faucet links', key: 'faucets' }
+	const ROWS: { label: string; key: keyof StoredRecords; one: string; many: string }[] = [
+		{ label: 'Wallets', key: 'wallets', one: 'wallet', many: 'wallets' },
+		{
+			label: 'Endpoint overrides',
+			key: 'endpoints',
+			one: 'endpoint override',
+			many: 'endpoint overrides'
+		},
+		{ label: 'Faucet links', key: 'faucets', one: 'faucet link', many: 'faucet links' },
+		{ label: 'Test cases', key: 'testCases', one: 'test case', many: 'test cases' },
+		{ label: 'Test runs', key: 'runs', one: 'test run', many: 'test runs' },
+		{ label: 'Results', key: 'results', one: 'result', many: 'results' }
 	];
+
+	function summary(records: StoredRecords): string {
+		const parts = ROWS.map((row) => count(records[row.key].length, row.one, row.many));
+		return `Imported ${parts.join(', ')}, and the theme setting.`;
+	}
 
 	function exportedAt(iso: string): string {
 		return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });

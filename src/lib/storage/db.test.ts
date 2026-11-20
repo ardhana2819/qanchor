@@ -2,10 +2,11 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDB } from 'idb';
+import { snapshotCase } from '#lib/core/qa/run.ts';
 import type { Run, TestResult } from '#lib/core/qa/types.ts';
 import { openStorage, type NewCase, type Storage } from './db.ts';
 import { runMigrations } from './migrations.ts';
-import { DB_NAME, DB_VERSION, type QAnchorDB, type Wallet } from './schema.ts';
+import { DB_NAME, DB_VERSION, type QAnchorDB, type StoredRecords, type Wallet } from './schema.ts';
 
 // fake-indexeddb implements the IndexedDB spec in Node, including transaction rollback, so the
 // storage code runs here as it does in a browser. Browser-specific failures (private mode,
@@ -30,6 +31,15 @@ function rawDatabase(): Promise<IDBDatabase> {
 		request.onsuccess = () => resolve(request.result);
 	});
 }
+
+const EMPTY: StoredRecords = {
+	endpoints: [],
+	wallets: [],
+	faucets: [],
+	testCases: [],
+	runs: [],
+	results: []
+};
 
 const newCase = (title: string): NewCase => ({
 	title,
@@ -124,6 +134,7 @@ describe('openStorage', () => {
 		expect(await storage.readRecords()).toEqual({
 			ok: true,
 			value: {
+				...EMPTY,
 				endpoints: [{ networkId: 'eth-sepolia', url: 'https://rpc.example.dev' }],
 				wallets: [wallet('1')],
 				faucets: [{ id: 'f', networkId: 'n', label: 'Drip', url: 'https://f.dev' }]
@@ -238,9 +249,9 @@ describe('Storage', () => {
 		const read = await storage.readRecords();
 
 		expect(read.ok && read.value).toEqual({
+			...EMPTY,
 			endpoints: [{ networkId: 'eth-sepolia', url: 'https://rpc.example.dev' }],
-			wallets: [wallet('1')],
-			faucets: []
+			wallets: [wallet('1')]
 		});
 	});
 
@@ -251,15 +262,11 @@ describe('Storage', () => {
 			{ id: 'f', networkId: 'n', label: 'Drip', url: 'https://f.dev' }
 		]);
 
-		const result = await storage.replaceRecords({
-			endpoints: [],
-			wallets: [wallet('9')],
-			faucets: []
-		});
+		const result = await storage.replaceRecords({ ...EMPTY, wallets: [wallet('9')] });
 
 		expect(result.ok).toBe(true);
 		const read = await storage.readRecords();
-		expect(read.ok && read.value).toEqual({ endpoints: [], wallets: [wallet('9')], faucets: [] });
+		expect(read.ok && read.value).toEqual({ ...EMPTY, wallets: [wallet('9')] });
 	});
 
 	it('a quota error during replaceRecords leaves the old data in every store (EC-002)', async () => {
@@ -278,11 +285,7 @@ describe('Storage', () => {
 			return put.apply(this, args);
 		});
 
-		const result = await storage.replaceRecords({
-			endpoints: [],
-			wallets: [wallet('9')],
-			faucets: []
-		});
+		const result = await storage.replaceRecords({ ...EMPTY, wallets: [wallet('9')] });
 
 		expect(result).toEqual({ ok: false, error: 'quota' });
 		vi.restoreAllMocks();
@@ -427,12 +430,83 @@ describe('runs and results (FR-111, FR-113 AC-4, NFR-024)', () => {
 		expect(await storage.readAll('results')).toEqual({ ok: true, value: [result('r1', 1)] });
 	});
 
-	it('an import leaves the Phase 2 stores alone until backup v2 (T-050)', async () => {
+	it('an import replaces the Phase 2 stores too (FR-091 AC-3)', async () => {
 		const storage = await open();
 		await storage.putAll('runs', [run('r1')]);
+		await storage.putAll('results', [result('r1', 1)]);
+		await storage.createCase(newCase('A'), 1);
 
-		await storage.replaceRecords({ endpoints: [], wallets: [], faucets: [] });
+		await storage.replaceRecords({ ...EMPTY, wallets: [wallet('1')] });
 
-		expect(await storage.readAll('runs')).toEqual({ ok: true, value: [run('r1')] });
+		const read = await storage.readRecords();
+		expect(read.ok && read.value).toEqual({ ...EMPTY, wallets: [wallet('1')] });
+	});
+});
+
+describe('the key counter after an import (FR-100 AC-2, plan finding F-5)', () => {
+	const stored = (number: number) => ({
+		...newCase(`Case ${number}`),
+		id: `c${number}`,
+		number,
+		createdAt: 1,
+		updatedAt: 1
+	});
+	const snapshotOf = (number: number) => snapshotCase(stored(number));
+
+	it('continues after the highest key among cases and run snapshots', async () => {
+		const storage = await open();
+		await storage.replaceRecords({
+			...EMPTY,
+			testCases: [stored(5), stored(2)],
+			// TC-9 was deleted before the export but survives in a run.
+			runs: [{ ...run('r1'), cases: [snapshotOf(2), snapshotOf(9)] }]
+		});
+
+		const created = await storage.createCase(newCase('Next'), 1);
+
+		expect(created.ok && created.value.number).toBe(10);
+	});
+
+	it('replaces a higher counter from before the import', async () => {
+		const storage = await open();
+		for (const title of ['A', 'B', 'C']) await storage.createCase(newCase(title), 1);
+
+		await storage.replaceRecords({ ...EMPTY, testCases: [stored(1)] });
+		const created = await storage.createCase(newCase('Next'), 1);
+
+		expect(created.ok && created.value.number).toBe(2);
+	});
+
+	it('starts again at TC-1 after importing a file with no cases (EC-037)', async () => {
+		const storage = await open();
+		await storage.createCase(newCase('A'), 1);
+
+		await storage.replaceRecords(EMPTY);
+		const created = await storage.createCase(newCase('Next'), 1);
+
+		expect(created.ok && created.value.number).toBe(1);
+	});
+
+	it('a failed import keeps the old counter with the old data (EC-032)', async () => {
+		const storage = await open();
+		await storage.createCase(newCase('A'), 1);
+		const put = IDBObjectStore.prototype.put;
+		vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (
+			this: IDBObjectStore,
+			...args
+		) {
+			if (this.name === 'meta') throw new DOMException('Quota exceeded.', 'QuotaExceededError');
+			return put.apply(this, args);
+		});
+
+		expect(await storage.replaceRecords({ ...EMPTY, testCases: [stored(7)] })).toEqual({
+			ok: false,
+			error: 'quota'
+		});
+		vi.restoreAllMocks();
+		const created = await storage.createCase(newCase('B'), 1);
+		expect(created.ok && created.value.number).toBe(2);
+		const cases = await storage.readAll('testCases');
+		expect(cases.ok && cases.value.map((c) => c.number).sort()).toEqual([1, 2]);
 	});
 });

@@ -53,16 +53,26 @@ export type StoreName =
 	'endpoints' | 'wallets' | 'faucets' | 'testCases' | 'runs' | 'results' | 'meta';
 
 /**
- * The stores a backup carries. The Phase 2 stores join in T-050 with backup v2; until then no
- * page writes to them, so an import that leaves them alone loses nothing.
+ * The stores a backup carries: every store except `meta`, whose key counter is rebuilt on import
+ * from the highest case number in the file (ADR-015, plan finding F-5).
  */
-export type BackupStoreName = 'endpoints' | 'wallets' | 'faucets';
+export type BackupStoreName = Exclude<StoreName, 'meta'>;
 
-export const BACKUP_STORE_NAMES: readonly BackupStoreName[] = ['endpoints', 'wallets', 'faucets'];
+export const BACKUP_STORE_NAMES: readonly BackupStoreName[] = [
+	'endpoints',
+	'wallets',
+	'faucets',
+	'testCases',
+	'runs',
+	'results'
+];
 
 /** Every record in the backed-up stores, store by store: what a backup carries besides the theme. */
 export interface StoredRecords {
 	endpoints: EndpointOverride[];
 	wallets: Wallet[];
 	faucets: Faucet[];
+	testCases: TestCase[];
+	runs: Run[];
+	results: TestResult[];
 }
