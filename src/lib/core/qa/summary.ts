@@ -1,5 +1,5 @@
 import { formatKey } from './keys.ts';
-import { countStatuses, issueHref, resultsByCase } from './run.ts';
+import { countStatuses, countsInWords, issueHref, resultsByCase } from './run.ts';
 import type { Run, TestResult } from './types.ts';
 
 // The run summary copied as Markdown (FR-113 AC-5), laid out as in the approved prototype.
@@ -39,10 +39,7 @@ export function runSummaryMarkdown(run: Run, results: readonly TestResult[]): st
 	if (run.environment.trim() !== '') meta.push(`- Environment: ${md(run.environment)}`);
 	if (meta.length > 0) lines.push(...meta, '');
 
-	lines.push(
-		`${counts.pass} passed, ${counts.fail} failed, ${counts.blocked} blocked, ` +
-			`${counts.untested} untested (${plural(counts.total, 'case')})`
-	);
+	lines.push(`${countsInWords(counts)} (${plural(counts.total, 'case')})`);
 
 	const byCase = resultsByCase(run.id, results);
 	const open = run.cases.flatMap((item) => {
