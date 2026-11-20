@@ -10,7 +10,58 @@ interface Records {
 	endpoints: { networkId: string; url: string }[];
 	wallets: Record<string, unknown>[];
 	faucets: Record<string, unknown>[];
+	testCases: Record<string, unknown>[];
+	runs: Record<string, unknown>[];
+	results: Record<string, unknown>[];
 }
+
+const STORES = ['endpoints', 'wallets', 'faucets', 'testCases', 'runs', 'results'] as const;
+const NO_QA = { testCases: [], runs: [], results: [] };
+
+const testCase = {
+	id: 'c1',
+	number: 4,
+	title: 'Deposit USDT on Tron',
+	preconditions: '',
+	steps: [{ action: 'Open Deposit', expected: 'The address is shown' }],
+	expected: '',
+	tags: ['deposit'],
+	priority: 'high',
+	createdAt: 1794500000000,
+	updatedAt: 1794500000000
+};
+const snapshot = {
+	id: testCase.id,
+	number: testCase.number,
+	title: testCase.title,
+	preconditions: testCase.preconditions,
+	steps: testCase.steps,
+	expected: testCase.expected,
+	tags: testCase.tags,
+	priority: testCase.priority
+};
+const run = {
+	id: 'r1',
+	name: 'Smoke',
+	release: 'v2.3.0',
+	environment: '',
+	status: 'in-progress',
+	cases: [snapshot],
+	createdAt: 1794500000000,
+	updatedAt: 1794500000000,
+	completedAt: null
+};
+const result = {
+	runId: 'r1',
+	caseNumber: 4,
+	status: 'fail',
+	failedStep: 1,
+	actual: 'No address',
+	reason: '',
+	notes: '',
+	linkedIssue: 'PAY-1',
+	updatedAt: 1794500000000
+};
 
 const wallet = (id: string, label: string) => ({
 	id,
@@ -28,9 +79,13 @@ const STORED: Records = {
 	wallets: Array.from({ length: 12 }, (_, i) => wallet(`s${i}`, `Stored ${i + 1}`)),
 	faucets: [
 		{ id: 'f1', networkId: 'eth-sepolia', label: 'Team faucet', url: 'https://faucet.example.dev' }
-	]
+	],
+	testCases: [testCase],
+	runs: [run],
+	results: [result]
 };
 
+/** A Phase 1 (schema version 1) backup: no Phase 2 lists (FR-091 AC-3). */
 const BACKUP = {
 	app: 'qanchor',
 	schemaVersion: 1,
@@ -46,13 +101,13 @@ const BACKUP = {
 /** Writes or reads every store directly, as a check that does not go through the app. */
 function writeRecords(page: Page, records: Records) {
 	return page.evaluate(
-		(records) =>
+		({ records, stores }) =>
 			new Promise<void>((resolve, reject) => {
 				const request = indexedDB.open('qanchor');
 				request.onsuccess = () => {
 					const db = request.result;
-					const tx = db.transaction(['endpoints', 'wallets', 'faucets'], 'readwrite');
-					for (const name of ['endpoints', 'wallets', 'faucets'] as const) {
+					const tx = db.transaction(stores, 'readwrite');
+					for (const name of stores) {
 						tx.objectStore(name).clear();
 						for (const record of records[name]) tx.objectStore(name).put(record);
 					}
@@ -60,26 +115,27 @@ function writeRecords(page: Page, records: Records) {
 					tx.onerror = () => reject(tx.error);
 				};
 			}),
-		records
+		{ records, stores: [...STORES] }
 	);
 }
 
 function readRecords(page: Page): Promise<Records> {
 	return page.evaluate(
-		() =>
+		(stores) =>
 			new Promise<Records>((resolve) => {
 				const request = indexedDB.open('qanchor');
 				request.onsuccess = () => {
 					const db = request.result;
-					const tx = db.transaction(['endpoints', 'wallets', 'faucets']);
+					const tx = db.transaction(stores);
 					const out = {} as Records;
-					for (const name of ['endpoints', 'wallets', 'faucets'] as const) {
+					for (const name of stores) {
 						const all = tx.objectStore(name).getAll();
 						all.onsuccess = () => (out[name] = all.result);
 					}
 					tx.oncomplete = () => (db.close(), resolve(out));
 				};
-			})
+			}),
+		[...STORES]
 	);
 }
 
@@ -134,15 +190,12 @@ test('Export downloads every record with the schema version and the theme (FR-00
 
 	expect(download.suggestedFilename()).toMatch(/^qanchor-backup-\d{4}-\d{2}-\d{2}\.json$/);
 	const file = JSON.parse(await readFile((await download.path())!, 'utf8'));
-	expect(file).toMatchObject({ app: 'qanchor', schemaVersion: 1 });
+	expect(file).toMatchObject({ app: 'qanchor', schemaVersion: 2 });
 	expect(Date.parse(file.exportedAt)).not.toBeNaN();
-	expect(
-		sortById({
-			endpoints: file.data.endpoints,
-			wallets: file.data.wallets,
-			faucets: file.data.faucets
-		})
-	).toEqual(sortById(STORED));
+	const records = Object.fromEntries(STORES.map((name) => [name, file.data[name]])) as Records;
+	expect(sortById(records)).toEqual(sortById(STORED));
+	// The key counter is rebuilt on import, not exported (plan finding F-5).
+	expect(Object.keys(file.data).sort()).toEqual([...STORES, 'settings'].sort());
 	expect(file.data.settings).toEqual({ theme: 'dark' });
 	await expect(page.locator('.toast')).toHaveText(`Exported ${download.suggestedFilename()}`);
 });
@@ -162,6 +215,10 @@ test('import shows stored-now against after-import counts, then replaces everyth
 		/Endpoint overrides\s*0\s*1/
 	);
 	await expect(rows.filter({ hasText: 'Faucet links' })).toHaveText(/Faucet links\s*1\s*0/);
+	// A version 1 file has no Phase 2 records, so they end empty (FR-091 AC-3, EC-037).
+	await expect(rows.filter({ hasText: 'Test cases' })).toHaveText(/Test cases\s*1\s*0/);
+	await expect(rows.filter({ hasText: 'Test runs' })).toHaveText(/Test runs\s*1\s*0/);
+	await expect(rows.filter({ hasText: 'Results' })).toHaveText(/Results\s*1\s*0/);
 	await expect(rows.filter({ hasText: 'Theme' })).toHaveText(/Theme\s*system\s*dark/);
 	await expect(dialog(page)).toContainText(
 		'Importing replaces all existing data. This cannot be undone.'
@@ -173,10 +230,15 @@ test('import shows stored-now against after-import counts, then replaces everyth
 
 	await expect(page.getByText('Import complete', { exact: true }).first()).toBeVisible();
 	await expect(page.getByRole('main')).toContainText(
-		'Imported 3 wallets, 1 endpoint override, 0 faucet links, and the theme setting.'
+		'Imported 3 wallets, 1 endpoint override, 0 faucet links, 0 test cases, 0 test runs, 0 results, and the theme setting.'
 	);
 	expect(sortById(await readRecords(page))).toEqual(
-		sortById({ endpoints: BACKUP.data.endpoints, wallets: BACKUP.data.wallets, faucets: [] })
+		sortById({
+			endpoints: BACKUP.data.endpoints,
+			wallets: BACKUP.data.wallets,
+			faucets: [],
+			...NO_QA
+		})
 	);
 	await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 	expect(await page.evaluate(() => localStorage.getItem('qanchor.theme'))).toBe('dark');
@@ -189,12 +251,19 @@ test('an export imports back to the same data (round trip)', async ({ page }) =>
 		page.getByRole('button', { name: 'Export backup' }).click()
 	]);
 	const exported = await readFile((await download.path())!, 'utf8');
-	await writeRecords(page, { endpoints: [], wallets: [wallet('x', 'Other')], faucets: [] });
+	await writeRecords(page, {
+		endpoints: [],
+		wallets: [wallet('x', 'Other')],
+		faucets: [],
+		...NO_QA
+	});
 
 	await chooseFile(page, download.suggestedFilename(), exported);
 	await dialog(page).getByRole('button', { name: 'Replace all data' }).click();
 
-	await expect(page.getByRole('main')).toContainText('Imported 12 wallets');
+	await expect(page.getByRole('main')).toContainText(
+		'Imported 12 wallets, 0 endpoint overrides, 1 faucet link, 1 test case, 1 test run, 1 result'
+	);
 	expect(sortById(await readRecords(page))).toEqual(sortById(STORED));
 });
 
@@ -237,6 +306,15 @@ const BAD_FILES: [string, string, string][] = [
 			}
 		}),
 		'Wallet 2 of 2 ("Withdraw tests") has no address.'
+	],
+	[
+		'qanchor-backup-orphan-result.json',
+		JSON.stringify({
+			...BACKUP,
+			schemaVersion: 2,
+			data: { ...BACKUP.data, ...STORED, results: [{ ...result, caseNumber: 7 }] }
+		}),
+		'Result 1 of 1 ("TC-7") in run "Smoke" is for a case that is not in the run.'
 	]
 ];
 

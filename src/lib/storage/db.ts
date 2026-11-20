@@ -51,8 +51,8 @@ export interface Storage {
 	/** Every backed-up store, read in one transaction so the counts are consistent. */
 	readRecords(): Promise<Result<StoredRecords, StorageErrorCode>>;
 	/**
-	 * Clears every backed-up store and writes the given records in one transaction (import,
-	 * ADR-014): on any error nothing changes (FR-003 AC-3, EC-002).
+	 * Clears every store and writes the given records in one transaction (import, ADR-014), with
+	 * the key counter rebuilt from the records: on any error nothing changes (FR-003 AC-3, EC-002).
 	 */
 	replaceRecords(records: StoredRecords): Promise<Result<void, StorageErrorCode>>;
 }
@@ -161,13 +161,16 @@ function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
 		async readRecords() {
 			try {
 				const transaction = db.transaction([...BACKUP_STORE_NAMES], 'readonly');
-				const [endpoints, wallets, faucets] = await Promise.all([
+				const [endpoints, wallets, faucets, testCases, runs, results] = await Promise.all([
 					transaction.objectStore('endpoints').getAll(),
 					transaction.objectStore('wallets').getAll(),
 					transaction.objectStore('faucets').getAll(),
+					transaction.objectStore('testCases').getAll(),
+					transaction.objectStore('runs').getAll(),
+					transaction.objectStore('results').getAll(),
 					transaction.done
 				]);
-				return ok({ endpoints, wallets, faucets });
+				return ok({ endpoints, wallets, faucets, testCases, runs, results });
 			} catch (error) {
 				return err(classify(error));
 			}
@@ -175,13 +178,18 @@ function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
 
 		async replaceRecords(records) {
 			try {
-				const transaction = db.transaction([...BACKUP_STORE_NAMES], 'readwrite');
+				const transaction = db.transaction([...BACKUP_STORE_NAMES, 'meta'], 'readwrite');
 				await commit(transaction, () => {
 					for (const name of BACKUP_STORE_NAMES) {
 						const store = transaction.objectStore(name);
 						void track(store.clear());
 						for (const record of records[name]) void track(store.put(record));
 					}
+					// The counter is not in the file: the next case continues after the highest key in
+					// it, including keys that only survive in a run (FR-100 AC-2, EC-039).
+					const meta = transaction.objectStore('meta');
+					void track(meta.clear());
+					void track(meta.put({ key: 'caseCounter', value: highestCaseNumber(records) }));
 				});
 				return ok(undefined);
 			} catch (error) {
@@ -189,6 +197,13 @@ function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
 			}
 		}
 	};
+}
+
+function highestCaseNumber({ testCases, runs }: Pick<StoredRecords, 'testCases' | 'runs'>): number {
+	let highest = 0;
+	for (const item of testCases) highest = Math.max(highest, item.number);
+	for (const run of runs) for (const item of run.cases) highest = Math.max(highest, item.number);
+	return highest;
 }
 
 /** Every result key of one run: results are keyed [runId, caseNumber]. */

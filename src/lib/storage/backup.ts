@@ -1,5 +1,26 @@
 import { networkById } from '#lib/config/networks.ts';
 import { parseEndpointUrl } from '#lib/core/endpoint-url.ts';
+import { formatKey } from '#lib/core/qa/keys.ts';
+import { normalizeTags } from '#lib/core/qa/tags.ts';
+import {
+	PRIORITIES,
+	RESULT_STATUSES,
+	type CaseSnapshot,
+	type Priority,
+	type ResultStatus,
+	type Run,
+	type RunStatus,
+	type Step,
+	type TestCase,
+	type TestResult
+} from '#lib/core/qa/types.ts';
+import {
+	caseErrors,
+	resultErrors,
+	runErrors,
+	type FieldError,
+	type FieldProblem
+} from '#lib/core/qa/validation.ts';
 import { err, ok, type Result } from '#lib/core/result.ts';
 import type { ThemePreference } from '#lib/state/theme.svelte.ts';
 import type { EndpointOverride, Faucet, Wallet } from './schema.ts';
@@ -12,16 +33,19 @@ export const APP_ID = 'qanchor';
 
 /**
  * The backup format version, the file's `schemaVersion`. It follows the database schema only
- * when the backup content changes: schema v2 adds the Phase 2 stores, which join the backup in
- * T-050 (backup v2), so the file stays at 1 until then.
+ * when the backup content changes. Version 2 adds test cases, runs, and results (FR-091 AC-2);
+ * a version 1 file is still accepted and upgraded in memory with those lists empty (AC-3).
  */
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
 export interface BackupData {
 	settings: { theme: ThemePreference };
 	endpoints: EndpointOverride[];
 	wallets: Wallet[];
 	faucets: Faucet[];
+	testCases: TestCase[];
+	runs: Run[];
+	results: TestResult[];
 }
 
 export interface BackupFile {
@@ -144,17 +168,255 @@ const faucetGuard: Guard<Faucet> = (value, name) => {
 };
 
 /** Names records the way a person counts them: "Wallet 4 of 6 ("QA main")". */
-function list<T>(value: unknown, noun: string, key: string, guard: Guard<T>): Result<T[], string> {
+function list<T>(
+	value: unknown,
+	noun: string,
+	key: string,
+	guard: Guard<T>,
+	label: (item: Shape) => string = (item) => (typeof item.label === 'string' ? item.label : '')
+): Result<T[], string> {
 	if (!Array.isArray(value)) return err(`The ${key} list is missing.`);
 	const records: T[] = [];
 	for (const [index, item] of value.entries()) {
-		const label =
-			isObject(item) && typeof item.label === 'string' && item.label ? ` ("${item.label}")` : '';
-		const result = guard(item, `${noun} ${index + 1} of ${value.length}${label}`);
+		const text = isObject(item) ? label(item) : '';
+		const result = guard(
+			item,
+			`${noun} ${index + 1} of ${value.length}${text ? ` ("${text}")` : ''}`
+		);
 		if (!result.ok) return result;
 		records.push(result.value);
 	}
 	return ok(records);
+}
+
+// ---- Phase 2 records (backup v2) ------------------------------------------------------------
+// Field rules are the editor's own (lib/core/qa/validation.ts), so a file can hold nothing the
+// app could not have saved.
+
+const RUN_STATUSES: readonly RunStatus[] = ['in-progress', 'completed'];
+
+function positiveInteger(record: Shape, key: string, name: string): Result<number, string> {
+	const value = record[key];
+	return Number.isSafeInteger(value) && (value as number) > 0
+		? ok(value as number)
+		: err(`${name} has no valid ${key}.`);
+}
+
+function oneOf<T extends string>(
+	record: Shape,
+	key: string,
+	allowed: readonly T[],
+	name: string
+): Result<T, string> {
+	const value = record[key];
+	return allowed.includes(value as T) ? ok(value as T) : err(`${name} has an unknown ${key}.`);
+}
+
+function strings(record: Shape, key: string, name: string): Result<string[], string> {
+	const value = record[key];
+	return Array.isArray(value) && value.every((item) => typeof item === 'string')
+		? ok(value)
+		: err(`${name} has no valid ${key}.`);
+}
+
+function steps(record: Shape, name: string): Result<Step[], string> {
+	const value = record.steps;
+	if (!Array.isArray(value)) return err(`${name} has no valid steps.`);
+	const out: Step[] = [];
+	for (const [index, step] of value.entries()) {
+		const stepName = `${name}, step ${index + 1},`;
+		if (!isObject(step)) return err(`${stepName} is not a record.`);
+		const checked = fields<Step>({
+			action: () => text(step, 'action', stepName, true),
+			expected: () => text(step, 'expected', stepName, true)
+		});
+		if (!checked.ok) return checked;
+		out.push(checked.value);
+	}
+	return ok(out);
+}
+
+/** "step 2 action", "title": the field a person would look for in the editor. */
+function fieldLabel(field: string): string {
+	const step = /^steps\.(\d+)\.(action|expected)$/.exec(field);
+	if (step)
+		return `step ${Number(step[1]) + 1} ${step[2] === 'action' ? 'action' : 'expected result'}`;
+	const labels: Record<string, string> = {
+		expected: 'expected result',
+		actual: 'actual result',
+		failedStep: 'failed step',
+		linkedIssue: 'linked issue',
+		cases: 'case count'
+	};
+	return labels[field] ?? field;
+}
+
+function describeProblem(field: string, problem: FieldProblem): string {
+	const label = fieldLabel(field);
+	switch (problem.kind) {
+		case 'required':
+			return `has no ${label}`;
+		case 'too-long':
+			return `has more than ${problem.max.toLocaleString('en-US')} characters in ${label}`;
+		case 'too-many':
+			return `has more than ${problem.max} ${label}`;
+		case 'invalid-tag':
+			return `has an invalid tag ("${problem.tag}")`;
+		case 'no-expected':
+			return 'has no expected result';
+		case 'out-of-range':
+			return `has a ${label} outside ${problem.min} to ${problem.max}`;
+	}
+}
+
+function firstError<F extends string>(errors: FieldError<F>[], name: string): string | null {
+	const first = errors[0];
+	return first ? `${name} ${describeProblem(first.field, first.problem)}.` : null;
+}
+
+/** The fields a test case and a run's snapshot share, checked with the editor's rules. */
+function caseFields(value: Shape, name: string): Result<CaseSnapshot, string> {
+	const record = fields<CaseSnapshot>({
+		id: () => text(value, 'id', name),
+		number: () => positiveInteger(value, 'number', name),
+		title: () => text(value, 'title', name, true),
+		preconditions: () => text(value, 'preconditions', name, true),
+		steps: () => steps(value, name),
+		expected: () => text(value, 'expected', name, true),
+		// Normalised as the editor does (FR-100 AC-5), then checked.
+		tags: () => {
+			const tags = strings(value, 'tags', name);
+			return tags.ok ? ok(normalizeTags(tags.value)) : tags;
+		},
+		priority: () => oneOf<Priority>(value, 'priority', PRIORITIES, name)
+	});
+	if (!record.ok) return record;
+	const problem = firstError(caseErrors(record.value), name);
+	return problem ? err(problem) : record;
+}
+
+const testCaseGuard: Guard<TestCase> = (value, name) => {
+	if (!isObject(value)) return err(`${name} is not a record.`);
+	const shared = caseFields(value, name);
+	if (!shared.ok) return shared;
+	const times = fields<Pick<TestCase, 'createdAt' | 'updatedAt'>>({
+		createdAt: () => time(value, 'createdAt', name),
+		updatedAt: () => time(value, 'updatedAt', name)
+	});
+	return times.ok ? ok({ ...shared.value, ...times.value }) : times;
+};
+
+const runGuard: Guard<Run> = (value, name) => {
+	if (!isObject(value)) return err(`${name} is not a record.`);
+	const record = fields<Run>({
+		id: () => text(value, 'id', name),
+		name: () => text(value, 'name', name, true),
+		release: () => text(value, 'release', name, true),
+		environment: () => text(value, 'environment', name, true),
+		status: () => oneOf<RunStatus>(value, 'status', RUN_STATUSES, name),
+		cases: () => list(value.cases, `${name}, case`, 'cases', snapshotGuard, caseLabel),
+		createdAt: () => time(value, 'createdAt', name),
+		updatedAt: () => time(value, 'updatedAt', name),
+		completedAt: () => (value.completedAt === null ? ok(null) : time(value, 'completedAt', name))
+	});
+	if (!record.ok) return record;
+	const run = record.value;
+	const problem = firstError(runErrors({ ...run, caseCount: run.cases.length }), name);
+	if (problem) return err(problem);
+	const duplicate = firstDuplicate(run.cases.map((c) => c.number));
+	if (duplicate !== null) return err(`${name} lists ${formatKey(duplicate)} twice.`);
+	return ok({ ...run, cases: [...run.cases].sort((a, b) => a.number - b.number) });
+};
+
+const snapshotGuard: Guard<CaseSnapshot> = (value, name) =>
+	isObject(value) ? caseFields(value, name) : err(`${name} is not a record.`);
+
+/** `TC-<n>` for a valid case number, or '' so a broken record is named without a wrong key. */
+function keyLabel(number: unknown): string {
+	return Number.isSafeInteger(number) && (number as number) > 0 ? formatKey(number as number) : '';
+}
+
+function caseLabel(item: Shape): string {
+	const key = keyLabel(item.number);
+	const title = typeof item.title === 'string' ? item.title : '';
+	return [key, title].filter(Boolean).join(' ');
+}
+
+const resultGuard: Guard<TestResult> = (value, name) => {
+	if (!isObject(value)) return err(`${name} is not a record.`);
+	return fields<TestResult>({
+		runId: () => text(value, 'runId', name),
+		caseNumber: () => positiveInteger(value, 'caseNumber', name),
+		status: () => oneOf<ResultStatus>(value, 'status', RESULT_STATUSES, name),
+		failedStep: () =>
+			value.failedStep === null || Number.isSafeInteger(value.failedStep)
+				? ok(value.failedStep as number | null)
+				: err(`${name} has no valid failedStep.`),
+		actual: () => text(value, 'actual', name, true),
+		reason: () => text(value, 'reason', name, true),
+		notes: () => text(value, 'notes', name, true),
+		linkedIssue: () => text(value, 'linkedIssue', name, true),
+		updatedAt: () => time(value, 'updatedAt', name)
+	});
+};
+
+function resultLabel(item: Shape): string {
+	return keyLabel(item.caseNumber);
+}
+
+function firstDuplicate<T>(values: readonly T[]): T | null {
+	const seen = new Set<T>();
+	for (const value of values) {
+		if (seen.has(value)) return value;
+		seen.add(value);
+	}
+	return null;
+}
+
+type Phase2 = Pick<BackupData, 'testCases' | 'runs' | 'results'>;
+
+/**
+ * Checks that the Phase 2 lists fit together: one test case per key and per id, one run per id,
+ * and each result for a case in its run with the rules of that case's steps (ADR-015).
+ */
+function crossCheck({ testCases, runs, results }: Phase2): string | null {
+	const caseKey = firstDuplicate(testCases.map((c) => c.number));
+	if (caseKey !== null) return `Two test cases have the key ${formatKey(caseKey)}.`;
+	const caseId = firstDuplicate(testCases.map((c) => c.id));
+	if (caseId !== null) return `Two test cases have the id "${caseId}".`;
+	const runId = firstDuplicate(runs.map((r) => r.id));
+	if (runId !== null) return `Two runs have the id "${runId}".`;
+
+	const byId = new Map(runs.map((run) => [run.id, run]));
+	const seen = new Set<string>();
+	for (const [index, result] of results.entries()) {
+		const name = `Result ${index + 1} of ${results.length} ("${formatKey(result.caseNumber)}")`;
+		const run = byId.get(result.runId);
+		if (!run) return `${name} belongs to no run in the file.`;
+		const where = `${name} in run "${run.name}"`;
+		const item = run.cases.find((c) => c.number === result.caseNumber);
+		if (!item) return `${where} is for a case that is not in the run.`;
+		const key = `${result.runId}\u0000${result.caseNumber}`;
+		if (seen.has(key)) return `${where} is the second result for that case.`;
+		seen.add(key);
+		const problem = firstError(resultErrors(result, item.steps.length), where);
+		if (problem) return problem;
+	}
+	return null;
+}
+
+function phase2Lists(data: Shape): Result<Phase2, string> {
+	const lists = fields<Phase2>({
+		testCases: () => list(data.testCases, 'Test case', 'testCases', testCaseGuard, caseLabel),
+		runs: () =>
+			list(data.runs, 'Run', 'runs', runGuard, (item) =>
+				typeof item.name === 'string' ? item.name : ''
+			),
+		results: () => list(data.results, 'Result', 'results', resultGuard, resultLabel)
+	});
+	if (!lists.ok) return lists;
+	const problem = crossCheck(lists.value);
+	return problem ? err(problem) : lists;
 }
 
 /** Parses and checks a whole backup before anything is written (FR-003 AC-4, EC-020). */
@@ -171,7 +433,7 @@ export function parseBackup(json: string): Result<BackupFile, ImportError> {
 	if (typeof version === 'number' && Number.isInteger(version) && version > BACKUP_VERSION) {
 		return err({ code: 'newer-version', version });
 	}
-	if (version !== BACKUP_VERSION) return err({ code: 'unsupported-version' });
+	if (version !== 1 && version !== 2) return err({ code: 'unsupported-version' });
 
 	const exportedAt = file.exportedAt;
 	if (typeof exportedAt !== 'string' || Number.isNaN(Date.parse(exportedAt))) {
@@ -183,17 +445,24 @@ export function parseBackup(json: string): Result<BackupFile, ImportError> {
 		return err({ code: 'invalid', detail: 'The theme setting is missing or not recognised.' });
 	}
 
-	const checked = fields<Omit<BackupData, 'settings'>>({
+	const checked = fields<Omit<BackupData, 'settings' | keyof Phase2>>({
 		endpoints: () => list(data.endpoints, 'Endpoint override', 'endpoints', endpointGuard),
 		wallets: () => list(data.wallets, 'Wallet', 'wallets', walletGuard),
 		faucets: () => list(data.faucets, 'Faucet link', 'faucets', faucetGuard)
 	});
 	if (!checked.ok) return err({ code: 'invalid', detail: checked.error });
+	// A version 1 file predates Phase 2: it is upgraded in memory with empty lists (FR-091 AC-3).
+	const phase2 = version === 1 ? ok({ testCases: [], runs: [], results: [] }) : phase2Lists(data);
+	if (!phase2.ok) return err({ code: 'invalid', detail: phase2.error });
 
 	return ok({
 		app: APP_ID,
-		schemaVersion: version,
+		schemaVersion: BACKUP_VERSION,
 		exportedAt,
-		data: { settings: { theme: data.settings.theme as ThemePreference }, ...checked.value }
+		data: {
+			settings: { theme: data.settings.theme as ThemePreference },
+			...checked.value,
+			...phase2.value
+		}
 	});
 }
