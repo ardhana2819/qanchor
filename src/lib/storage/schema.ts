@@ -1,10 +1,11 @@
 import type { DBSchema } from 'idb';
+import type { Run, TestCase, TestResult } from '#lib/core/qa/types.ts';
 
-// IndexedDB schema v1 (docs/architecture.md section 3.1, ADR-014). No store and no field holds
-// a private key or mnemonic (FR-071 AC-2, NFR-012).
+// IndexedDB schema v2 (docs/architecture.md section 3.1, ADR-014, ADR-015). No store and no
+// field holds a private key or mnemonic (FR-071 AC-2, NFR-012).
 
 export const DB_NAME = 'qanchor';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 /** A user override of a network's default endpoint; defaults live in code (FR-041). */
 export interface EndpointOverride {
@@ -32,17 +33,34 @@ export interface Faucet {
 	url: string;
 }
 
+/** The highest case number ever assigned, so a deleted key is never given out again (ADR-015). */
+export interface CaseCounter {
+	key: 'caseCounter';
+	value: number;
+}
+
 export interface QAnchorDB extends DBSchema {
 	endpoints: { key: string; value: EndpointOverride };
 	wallets: { key: string; value: Wallet; indexes: { byNetworkAddress: [string, string] } };
 	faucets: { key: string; value: Faucet };
+	testCases: { key: string; value: TestCase; indexes: { byNumber: number } };
+	runs: { key: string; value: Run };
+	results: { key: [string, number]; value: TestResult };
+	meta: { key: string; value: CaseCounter };
 }
 
-export type StoreName = 'endpoints' | 'wallets' | 'faucets';
+export type StoreName =
+	'endpoints' | 'wallets' | 'faucets' | 'testCases' | 'runs' | 'results' | 'meta';
 
-export const STORE_NAMES: readonly StoreName[] = ['endpoints', 'wallets', 'faucets'];
+/**
+ * The stores a backup carries. The Phase 2 stores join in T-050 with backup v2; until then no
+ * page writes to them, so an import that leaves them alone loses nothing.
+ */
+export type BackupStoreName = 'endpoints' | 'wallets' | 'faucets';
 
-/** Every record in the database, store by store: what a backup carries besides the theme. */
+export const BACKUP_STORE_NAMES: readonly BackupStoreName[] = ['endpoints', 'wallets', 'faucets'];
+
+/** Every record in the backed-up stores, store by store: what a backup carries besides the theme. */
 export interface StoredRecords {
 	endpoints: EndpointOverride[];
 	wallets: Wallet[];
