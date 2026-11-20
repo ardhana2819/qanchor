@@ -407,6 +407,18 @@ Decided by the owner before the Phase 2 requirements were drafted (`docs/prd.md`
 * Bug found and fixed: `Dialog.svelte` ended a reopened dialog when the queued `close` event of the previous close arrived after `showModal()` (a second Back after "Keep editing" showed no prompt in about half of the Chromium runs). `onclose` now sets `open = false` only when the dialog is actually closed. A regression test in `tests/e2e/components.spec.ts` fails in all three browsers without the fix.
 * Not covered by the spike: typing quickly into a filter that rewrites the URL on every key (T-052 checks it with 1,000 cases) and the Cloudflare preview (same static files, checked when T-052 deploys).
 
+### 2026-11-20: QA core rules (T-048)
+
+* `src/lib/core/qa` holds the slice 2a rules as plain TypeScript: record types, keys, tags, field limits, the case filter and its URL query, snapshots, counts, releases, linked issues, and the run summary. Choices where the PRD is silent, all [ASSUMPTION] until the owner says otherwise:
+  * Limits not in PRD 10.5: release up to 200 characters (as a title), environment up to 5,000 (free text), linked issue up to 500 (room for a long issue URL). Lengths count UTF-16 code units, the unit an input's `maxlength` uses; tag length counts characters (code points).
+  * "Letters" in a tag means letters of any script (`\p{L}`), so `ünïcödé` is a valid tag; spaces, `/`, `#`, `,`, and emoji are not.
+  * A step needs an action; its expected result stays optional (FR-100). A blank step is an error, not dropped silently, so the editor decides what to do with it.
+  * The text filter matches the key and the title, not the steps or preconditions (FR-101 AC-2 does not name the fields). Typing `TC-12` also matches `TC-120`, as substring matching does.
+  * Case keys are parsed in any letter case (`tc-12`) but never with leading zeros (`TC-012`), so one key has one spelling.
+  * Fields of another status are kept and not checked when a result is saved (FR-111 AC-6); the summary reads only the fields of the current status.
+* Run summary (FR-113 AC-5): the prototype's layout, with release and environment as list items instead of plain lines, because Markdown joins consecutive plain lines into one paragraph. User text is put on one line and inline Markdown characters are escaped with a backslash (a CommonMark escape, so no [VERIFY] is needed); a linked issue that is an `http:` or `https:` URL becomes an autolink. The bug report escaping (FR-121, PRD 10.7) is still open for slice 2b.
+* Tests: 112 unit tests with a boundary test (max and max + 1) per limit and a golden summary. Mutation check by hand: 17 mutants of the limit, filter, snapshot, key, link, and summary rules, each caught by at least one test.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
