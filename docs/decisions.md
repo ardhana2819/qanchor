@@ -419,6 +419,14 @@ Decided by the owner before the Phase 2 requirements were drafted (`docs/prd.md`
 * Run summary (FR-113 AC-5): the prototype's layout, with release and environment as list items instead of plain lines, because Markdown joins consecutive plain lines into one paragraph. User text is put on one line and inline Markdown characters are escaped with a backslash (a CommonMark escape, so no [VERIFY] is needed); a linked issue that is an `http:` or `https:` URL becomes an autolink. The bug report escaping (FR-121, PRD 10.7) is still open for slice 2b.
 * Tests: 112 unit tests with a boundary test (max and max + 1) per limit and a golden summary. Mutation check by hand: 17 mutants of the limit, filter, snapshot, key, link, and summary rules, each caught by at least one test.
 
+### 2026-11-20: Schema v2 in storage (T-049)
+
+* `DB_VERSION` is 2. Migration 2 adds `testCases` (unique index `byNumber`), `runs`, `results` (key `[runId, caseNumber]`), and `meta`, and leaves the v1 stores alone. A v1 database seeded in the browser upgrades with every wallet, endpoint, and faucet kept, in all three browsers (FR-091 AC-1).
+* No `results.runId` index, unlike `docs/architecture.md` v0.2: `runId` leads the key, so one run's results are one key range, which reads and deletes them without an index to maintain. Architecture section 3.1 is updated.
+* The backup has its own version, `BACKUP_VERSION` in `backup.ts`, set to 1. Before, export and import used `DB_VERSION`, so raising it here would have labelled exports as v2 without the Phase 2 data and refused every existing v1 backup. Backup v2 and the Phase 2 stores in import and export come with T-050; until then an import replaces only the v1 stores, and no page writes Phase 2 data yet.
+* Storage gets two multi-store writes, each one transaction (NFR-026): `createCase` reads and raises `caseCounter` and adds the case (`add`, so a key already taken rolls the counter back), and `deleteRun` deletes the run with its results (NFR-024). Other QA writes are single records through the generic `putAll` and `deleteOne`.
+* State modules `test-cases.svelte.ts` and `runs.svelte.ts` follow `wallets.svelte.ts`. The 5,000-case limit (PRD 10.5) is checked in `testCases.create` against the loaded list; another tab can still add cases past it, which is accepted for a single-user tool. Field validation stays with the caller (`caseErrors`, `runErrors`, `resultErrors`).
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
