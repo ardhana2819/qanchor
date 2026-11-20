@@ -153,7 +153,7 @@ Generators are stateless (PRD section 8): generated addresses, amounts, and dumm
 }
 ```
 
-From schema version 2 (v0.2), `data` also carries `testCases`, `runs`, and `results`. `meta` is not exported: on import the counter is rebuilt as the highest case number found in `testCases` and in every run's snapshots (plan finding F-5). A version 1 file is still accepted; it is upgraded in memory to version 2 with empty Phase 2 arrays before the guards run (FR-091 AC-3).
+From schema version 2 (v0.2), `data` also carries `testCases`, `runs`, and `results`. `meta` is not exported: on import the counter is rebuilt as the highest case number found in `testCases` and in every run's snapshots (plan finding F-5). A version 1 file is still accepted; it is upgraded in memory to version 2 with empty Phase 2 arrays before the guards run (FR-091 AC-3). The file's `schemaVersion` is `BACKUP_VERSION` in `lib/storage/backup.ts`, which is separate from the database version and changes only when the backup content changes (T-049).
 
 `settings` comes from `localStorage`; the three arrays come from IndexedDB. Import validates the whole file with hand-written type guards before anything is written (ADR-008), shows counts, and on confirmation clears all stores and writes the file content in one `readwrite` transaction, then writes the theme to `localStorage` only after that transaction commits, so a failure leaves the old data intact (FR-003 AC-3, AC-4, EC-002, EC-020).
 

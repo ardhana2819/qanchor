@@ -427,6 +427,14 @@ Decided by the owner before the Phase 2 requirements were drafted (`docs/prd.md`
 * Storage gets two multi-store writes, each one transaction (NFR-026): `createCase` reads and raises `caseCounter` and adds the case (`add`, so a key already taken rolls the counter back), and `deleteRun` deletes the run with its results (NFR-024). Other QA writes are single records through the generic `putAll` and `deleteOne`.
 * State modules `test-cases.svelte.ts` and `runs.svelte.ts` follow `wallets.svelte.ts`. The 5,000-case limit (PRD 10.5) is checked in `testCases.create` against the loaded list; another tab can still add cases past it, which is accepted for a single-user tool. Field validation stays with the caller (`caseErrors`, `runErrors`, `resultErrors`).
 
+### 2026-11-20: Backup v2 (T-050)
+
+* `BACKUP_VERSION` is 2. Export carries test cases, runs, and results; `meta` is left out and the key counter is rebuilt on import as the highest case number among the cases and every run's snapshots, so a key that only survives in a run is never given out again (FR-100 AC-2, EC-039). Import replaces every store, Phase 2 included, in one transaction.
+* A version 1 file is accepted and upgraded in memory with empty Phase 2 lists (FR-091 AC-3, EC-037); Phase 2 lists in a v1 file are ignored. Versions other than 1 and 2 are refused as before.
+* The Phase 2 guards use the editor's rules from `lib/core/qa/validation.ts`, so a file can hold nothing the app could not have saved. Tags are normalised on import as the editor does; a run's snapshots are put in key order. Cross-checks: one test case per key and per id, one run per id, each result for a run in the file and a case in that run, one result per case, and the result rules for that case's steps (FR-091 AC-5). Each refusal names the record: `Result 1 of 1 ("TC-7") in run "Smoke" is for a case that is not in the run.`
+* The import dialog and the success message list Test cases, Test runs, and Results after the Phase 1 types. The success text grows to "Imported 3 wallets, 1 endpoint override, 0 faucet links, 0 test cases, 0 test runs, 0 results, and the theme setting." (design S-10 copy, extended).
+* Not covered here: the 200 ms long-task check for a large import (FR-091 AC-6) is checked in slice 2b with the section 10.5 data set, which includes screenshots (NFR-023).
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
