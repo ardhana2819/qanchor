@@ -391,3 +391,174 @@ test('reduced motion removes the stagger and the enter animation (NFR-006)', asy
 	);
 	expect(timings.filter((t) => t > 0)).toEqual([]);
 });
+
+// T-051: slice 2a primitives (design 13.5).
+
+const resultControl = (page: Page, name = 'Result of TC-12') => page.getByRole('group', { name });
+
+/**
+ * The animation on the icon of the checked option: its duration and the properties its keyframes
+ * set, read from the stylesheet so a finished animation still counts.
+ */
+function checkedIconAnimation(page: Page, name: string) {
+	return resultControl(page, name)
+		.locator('input:checked + .option svg')
+		.evaluate((el) => {
+			const style = getComputedStyle(el);
+			if (style.animationName === 'none') return null;
+			const rule = [...document.styleSheets]
+				.flatMap((sheet) => [...sheet.cssRules])
+				.find(
+					(r): r is CSSKeyframesRule =>
+						r instanceof CSSKeyframesRule && r.name === style.animationName
+				);
+			const properties = [...(rule?.cssRules ?? [])].flatMap((k) => [
+				...(k as CSSKeyframeRule).style
+			]);
+			return { duration: style.animationDuration, properties };
+		});
+}
+
+test('the result control starts untested and arrow keys move between results (FR-111)', async ({
+	page
+}) => {
+	const group = resultControl(page);
+	await expect(group.getByRole('radio')).toHaveCount(3);
+	await expect(group.getByRole('radio', { checked: true })).toHaveCount(0);
+	await expect(page.getByText('Untested', { exact: true }).first()).toBeVisible();
+
+	await group.getByRole('radio', { name: 'Pass' }).focus();
+	await page.keyboard.press('Space');
+	await expect(group.getByRole('radio', { name: 'Pass' })).toBeChecked();
+	await page.keyboard.press('ArrowRight');
+	await expect(group.getByRole('radio', { name: 'Fail' })).toBeChecked();
+	await expect(group.getByRole('radio', { name: 'Fail' })).toBeFocused();
+
+	await page.getByRole('button', { name: 'Clear result' }).click();
+	await expect(group.getByRole('radio', { checked: true })).toHaveCount(0);
+});
+
+test('a chosen result pops its icon with transform only; a stored one does not move', async ({
+	page
+}) => {
+	expect(await checkedIconAnimation(page, 'Result of TC-13, read-only')).toBeNull();
+
+	await resultControl(page).getByRole('radio', { name: 'Blocked' }).check();
+
+	expect(await checkedIconAnimation(page, 'Result of TC-12')).toEqual({
+		duration: '0.18s',
+		properties: ['transform']
+	});
+});
+
+test('reduced motion makes the result icon instant (NFR-006)', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await page.reload();
+	await hydrated(page);
+
+	await resultControl(page).getByRole('radio', { name: 'Pass' }).check();
+
+	expect(await checkedIconAnimation(page, 'Result of TC-12')).toMatchObject({ duration: '0s' });
+});
+
+test('a read-only result control shows the result and cannot change it', async ({ page }) => {
+	const group = resultControl(page, 'Result of TC-13, read-only');
+	await expect(group.getByRole('radio', { name: 'Fail' })).toBeChecked();
+	for (const radio of await group.getByRole('radio').all()) await expect(radio).toBeDisabled();
+});
+
+test('the results bar names its counts and sizes each segment by its count', async ({ page }) => {
+	const bar = page.getByRole('img', { name: '18 passed, 3 failed, 2 blocked, 17 untested' });
+	await expect(bar).toBeVisible();
+
+	const widths = await bar
+		.locator('span')
+		.evaluateAll((spans) =>
+			spans.map((s) => [s.classList[0], s.getBoundingClientRect().width] as const)
+		);
+	const total = widths.reduce((sum, [, w]) => sum + w, 0);
+	const share = Object.fromEntries(widths.map(([name, w]) => [name, w / total]));
+	expect(share.pass).toBeCloseTo(18 / 40, 1);
+	expect(share.fail).toBeCloseTo(3 / 40, 1);
+	expect(share.untested).toBeCloseTo(17 / 40, 1);
+
+	// A run with nothing tested has only the untested segment.
+	const fresh = page.getByRole('img', { name: '0 passed, 0 failed, 0 blocked, 5 untested' });
+	await expect(fresh.locator('span')).toHaveCount(1);
+});
+
+test('status and priority badges always carry their text', async ({ page }) => {
+	await expect(page.getByTestId('components-status-badges')).toHaveText(
+		/Pass\s*Fail\s*Blocked\s*Untested\s*In progress\s*Completed/
+	);
+	await expect(page.getByTestId('components-priority-badges')).toHaveText(
+		/Critical\s*High\s*Medium\s*Low/
+	);
+	await expect(page.getByTestId('components-priority-badges').locator('svg')).toHaveCount(0);
+});
+
+test.describe('tag input', () => {
+	const input = (page: Page) => page.getByRole('combobox', { name: 'Tags' });
+	const chips = (page: Page) => page.getByTestId('components-tags-chip');
+
+	test('Enter and comma add normalised tags; duplicates are ignored (FR-100 AC-5)', async ({
+		page
+	}) => {
+		await input(page).fill('Tron');
+		await input(page).press('Enter');
+		await input(page).pressSequentially('USDT,smoke,with');
+
+		await expect(chips(page)).toHaveText(['deposit', 'smoke', 'tron', 'usdt']);
+		await expect(input(page)).toHaveValue('with');
+		await expect(input(page)).toBeFocused();
+	});
+
+	test('suggests known tags that start with the typed text', async ({ page }) => {
+		await input(page).fill('w');
+		await expect(page.locator('datalist option')).toHaveAttribute('value', 'withdrawal');
+
+		await input(page).fill('s');
+		// "smoke" is already on the case, so nothing is offered.
+		await expect(page.locator('datalist option')).toHaveCount(0);
+	});
+
+	test('Backspace in the empty field removes the last tag', async ({ page }) => {
+		await input(page).focus();
+		await page.keyboard.press('Backspace');
+		await expect(chips(page)).toHaveText(['deposit']);
+		await expect(page.locator('[aria-live="polite"]')).toHaveText('Removed tag smoke');
+	});
+
+	test('a chip remove button is named after its tag and returns focus to the field', async ({
+		page
+	}) => {
+		await page.getByRole('button', { name: 'Remove tag deposit' }).click();
+		await expect(chips(page)).toHaveText(['smoke']);
+		await expect(input(page)).toBeFocused();
+	});
+
+	test('text left in the field becomes a tag when focus leaves it', async ({ page }) => {
+		await input(page).fill('regression');
+		await page.keyboard.press('Tab');
+		await expect(chips(page)).toHaveText(['deposit', 'smoke', 'regression']);
+		await expect(input(page)).toHaveValue('');
+	});
+});
+
+test('the footer bar stays at the viewport bottom while the form is taller than it', async ({
+	page
+}) => {
+	await page.setViewportSize({ width: 1280, height: 160 });
+	const panel = page.getByRole('form', { name: 'Example test case' });
+	await panel.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+
+	const footer = panel.locator('.footer-bar');
+	await expect(footer).toContainText('Unsaved changes');
+	const box = (await footer.boundingBox())!;
+	expect(Math.round(box.y + box.height)).toBe(160);
+});
+
+test('a missing record shows its heading and one way back (FR-090 AC-3)', async ({ page }) => {
+	await expect(page.getByRole('heading', { name: 'Test case not found' })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Back to test cases' })).toBeVisible();
+});
