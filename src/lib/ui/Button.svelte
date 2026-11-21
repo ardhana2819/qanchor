@@ -1,12 +1,17 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import type { HTMLButtonAttributes } from 'svelte/elements';
+	import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
 
 	interface Props extends HTMLButtonAttributes {
 		variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
 		size?: 'sm' | 'md';
 		/** Disables the button and sets aria-busy; the caller changes the label ("Generating…"). */
 		loading?: boolean;
+		/**
+		 * Makes it a link that looks like a button, for an action that opens another page (New test
+		 * case). Pass a `resolve()`d path; `disabled` and `loading` do not apply.
+		 */
+		href?: string;
 		children: Snippet;
 	}
 
@@ -16,20 +21,28 @@
 		loading = false,
 		disabled = false,
 		type = 'button',
+		href,
 		children,
 		...rest
 	}: Props = $props();
 </script>
 
-<button
-	{...rest}
-	{type}
-	class="button {variant} {size}"
-	disabled={disabled || loading}
-	aria-busy={loading || undefined}
->
-	{@render children()}
-</button>
+{#if href}
+	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- callers pass a resolved path -->
+	<a {...rest as HTMLAnchorAttributes} {href} class="button {variant} {size}">
+		{@render children()}
+	</a>
+{:else}
+	<button
+		{...rest}
+		{type}
+		class="button {variant} {size}"
+		disabled={disabled || loading}
+		aria-busy={loading || undefined}
+	>
+		{@render children()}
+	</button>
+{/if}
 
 <style>
 	.button {
@@ -45,6 +58,7 @@
 		color: var(--color-text);
 		font: 500 var(--text-sm) / 1 var(--font-sans);
 		white-space: nowrap;
+		text-decoration: none;
 		cursor: pointer;
 		transition:
 			background-color var(--duration-fast) var(--ease-out),

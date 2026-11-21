@@ -1,7 +1,7 @@
 import type { RouteId } from '$app/types';
 import type { IconName } from '#lib/ui/Icon.svelte';
 
-export type ToolGroup = 'Blockchain' | 'Data';
+export type ToolGroup = 'Blockchain' | 'Data' | 'QA';
 
 /** A route without parameters: a tool's own page, not one inside it (`/checklists/[slug]`). */
 type StaticRouteId = Exclude<RouteId, `${string}[${string}`>;
@@ -17,7 +17,7 @@ export interface ToolEntry {
 }
 
 // Sidebar and index order (docs/design.md S-00).
-const GROUP_ORDER: readonly ToolGroup[] = ['Blockchain', 'Data'];
+const GROUP_ORDER: readonly ToolGroup[] = ['Blockchain', 'Data', 'QA'];
 
 /**
  * Shipped tools only (FR-001 AC-1): each tool task adds its entry in the same change that adds
@@ -87,6 +87,14 @@ export const tools: readonly ToolEntry[] = [
 			'Ready-made test checklists for deposit, withdraw, swap, staking, network mismatch, memo and tag, and stocks, copyable as Markdown.',
 		group: 'Data',
 		icon: 'checklist'
+	},
+	{
+		route: '/cases',
+		name: 'Test cases',
+		description:
+			'Reusable test cases with steps, expected results, tags, and a priority, filterable by tag and kept in this browser.',
+		group: 'QA',
+		icon: 'cases'
 	}
 ];
 
