@@ -4,7 +4,8 @@
 		options: readonly { value: string; label: string; disabled?: boolean }[];
 		/** The checked values. */
 		group?: string[];
-		columns?: 1 | 2;
+		/** `inline`: options in one wrapping row, e.g. a filter (design 13.3 P2-01). */
+		columns?: 1 | 2 | 'inline';
 		/** Shown below the options; also marks the group invalid, e.g. "Select at least one field." */
 		error?: string;
 	}
@@ -17,7 +18,7 @@
 
 <fieldset aria-describedby={error ? errorId : undefined}>
 	<legend>{legend}</legend>
-	<div class="options" class:two={columns === 2}>
+	<div class="options" class:two={columns === 2} class:inline={columns === 'inline'}>
 		{#each options as option (option.value)}
 			<label class:disabled={option.disabled}>
 				<input type="checkbox" value={option.value} disabled={option.disabled} bind:group />
@@ -54,6 +55,12 @@
 
 	.two {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.inline {
+		display: flex;
+		flex-wrap: wrap;
+		min-height: var(--control-md);
 	}
 
 	label {

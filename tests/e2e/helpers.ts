@@ -34,7 +34,7 @@ export async function scanA11y(page: Page): Promise<string[]> {
  */
 export function putRecords(
 	page: Page,
-	store: 'endpoints' | 'wallets' | 'faucets',
+	store: 'endpoints' | 'wallets' | 'faucets' | 'testCases' | 'runs' | 'results' | 'meta',
 	records: object[]
 ): Promise<void> {
 	return page.evaluate(
@@ -52,4 +52,31 @@ export function putRecords(
 			}),
 		{ store, records }
 	);
+}
+
+/** A stored test case with sensible defaults, `TC-<number>`. */
+export function testCase(number: number, fields: Record<string, unknown> = {}): object {
+	return {
+		id: `case-${number}`,
+		number,
+		title: `Case ${number}`,
+		preconditions: '',
+		steps: [{ action: 'Open the page', expected: 'It loads' }],
+		expected: '',
+		tags: [],
+		priority: 'medium',
+		createdAt: Date.UTC(2026, 10, 1),
+		updatedAt: Date.UTC(2026, 10, 1),
+		...fields
+	};
+}
+
+/**
+ * Stores test cases with the key counter at the highest number, as the app keeps it, so a case
+ * created afterwards gets the next key. Reload the page afterwards so it reads them.
+ */
+export async function seedCases(page: Page, cases: { number: number }[]): Promise<void> {
+	await putRecords(page, 'testCases', cases);
+	const highest = Math.max(0, ...cases.map((c) => c.number));
+	await putRecords(page, 'meta', [{ key: 'caseCounter', value: highest }]);
 }
