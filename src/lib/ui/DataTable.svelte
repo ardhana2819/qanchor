@@ -30,6 +30,17 @@
 		actionsLabel?: string;
 		/** `data-testid` on every body row, for owner-written automation (decisions 2026-11-16). */
 		rowTestId?: string;
+		/**
+		 * Rows play the enter animation when a result set arrives (design 2.4). A stored list that is
+		 * filtered turns it off: one keyed body then keeps the rows that stay, instead of rebuilding
+		 * everything after the 12th row on each change (FR-101 AC-4).
+		 */
+		enter?: boolean;
+		/**
+		 * Rows it returns true for stay in the DOM, hidden. A filter over a long stored list then
+		 * toggles rows instead of creating and removing them (FR-101 AC-4: 1,000 cases).
+		 */
+		hidden?: (row: Row) => boolean;
 	}
 
 	let {
@@ -39,7 +50,9 @@
 		rowKey,
 		actions,
 		actionsLabel = 'Actions',
-		rowTestId
+		rowTestId,
+		enter = true,
+		hidden
 	}: Props = $props();
 
 	// Two bodies so that at most 13 elements animate, however many rows there are: each of the
@@ -50,7 +63,12 @@
 
 {#snippet row(item: Row, index: number, staggered: boolean)}
 	<!-- --i drives the stagger delay; a style attribute is allowed by the CSP (ADR-007). -->
-	<tr class:enter={staggered} style:--i={staggered ? index : undefined} data-testid={rowTestId}>
+	<tr
+		class:enter={staggered}
+		style:--i={staggered ? index : undefined}
+		hidden={hidden?.(item)}
+		data-testid={rowTestId}
+	>
 		{#each columns as column (column.key)}
 			<td class:mono={column.mono} class:numeric={column.numeric}>
 				{#if column.cell}{@render column.cell(item)}{:else}{column.value(item)}{/if}
@@ -74,19 +92,27 @@
 				{#if actions}<th scope="col"><span class="visually-hidden">{actionsLabel}</span></th>{/if}
 			</tr>
 		</thead>
-		<tbody>
-			{#each head as item, index (rowKey(item))}
-				{@render row(item, index, true)}
-			{/each}
-		</tbody>
-		{#if rest.length > 0}
-			{#key rowKey(rest[0])}
-				<tbody class="enter" style:--i={STAGGERED_ROWS - 1}>
-					{#each rest as item, offset (rowKey(item))}
-						{@render row(item, STAGGERED_ROWS + offset, false)}
-					{/each}
-				</tbody>
-			{/key}
+		{#if enter}
+			<tbody>
+				{#each head as item, index (rowKey(item))}
+					{@render row(item, index, true)}
+				{/each}
+			</tbody>
+			{#if rest.length > 0}
+				{#key rowKey(rest[0])}
+					<tbody class="enter" style:--i={STAGGERED_ROWS - 1}>
+						{#each rest as item, offset (rowKey(item))}
+							{@render row(item, STAGGERED_ROWS + offset, false)}
+						{/each}
+					</tbody>
+				{/key}
+			{/if}
+		{:else}
+			<tbody>
+				{#each rows as item, index (rowKey(item))}
+					{@render row(item, index, false)}
+				{/each}
+			</tbody>
 		{/if}
 	</table>
 </div>
