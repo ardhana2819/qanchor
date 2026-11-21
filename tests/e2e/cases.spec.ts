@@ -35,9 +35,12 @@ test('with no cases, the page shows the empty state and no filter (FR-090 AC-4)'
 	page
 }) => {
 	await page.goto('/cases');
-	await expect(page.getByTestId('cases-empty')).toHaveText(
+	await expect(page.getByTestId('cases-empty')).toContainText(
 		'No test cases yet. Write one, or create them from a checklist.'
 	);
+	await expect(
+		page.getByTestId('cases-empty').getByRole('link', { name: 'New test case' })
+	).toBeVisible();
 	await expect(filterField(page)).toHaveCount(0);
 });
 
@@ -154,7 +157,10 @@ test('Duplicate adds "Copy of" the case under the next key (FR-102 AC-1)', async
 
 	await page.getByRole('button', { name: 'Duplicate TC-2' }).click();
 
+	// The copy opens in the editor (case-editor.spec.ts); back in the list it is the last row.
 	await expect(page.getByTestId('app-toast')).toHaveText('Duplicated as TC-4.');
+	await expect(page).toHaveURL(/\/cases\/edit\?id=/);
+	await page.goBack();
 	await expect(keys(page)).toHaveText(['TC-1', 'TC-2', 'TC-3', 'TC-4']);
 	const copy = rows(page).last();
 	await expect(copy).toContainText('Copy of Deposit BTC');

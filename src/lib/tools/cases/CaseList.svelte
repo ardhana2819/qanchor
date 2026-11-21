@@ -125,9 +125,13 @@
 		duplicating = true;
 		const created = await testCases.create(copyOfCase(item));
 		duplicating = false;
-		notify.showToast(
-			created.ok ? duplicatedText(created.value.number) : SAVE_ERRORS[created.error]
-		);
+		if (!created.ok) {
+			notify.showToast(SAVE_ERRORS[created.error]);
+			return;
+		}
+		notify.showToast(duplicatedText(created.value.number));
+		// FR-102 AC-1: the copy opens in the editor.
+		void goto(resolve(`/cases/edit?id=${encodeURIComponent(created.value.id)}`));
 	}
 
 	function confirmDelete(item: TestCase): void {
@@ -170,7 +174,7 @@
 </script>
 
 {#snippet titleCell(item: TestCase)}
-	<span class="title">{item.title}</span>
+	<a class="title" href={resolve(`/cases/edit?id=${encodeURIComponent(item.id)}`)}>{item.title}</a>
 {/snippet}
 
 {#snippet priorityCell(item: TestCase)}
@@ -209,7 +213,12 @@
 	</div>
 {:else if testCases.list.length === 0}
 	<div data-testid="cases-empty">
-		<EmptyState>No test cases yet. Write one, or create them from a checklist.</EmptyState>
+		<EmptyState>
+			No test cases yet. Write one, or create them from a checklist.
+			{#snippet action()}
+				<Button variant="primary" href={resolve('/cases/new')}>New test case</Button>
+			{/snippet}
+		</EmptyState>
 	</div>
 {:else}
 	<FormPanel aria-label="Filter test cases" onsubmit={(event) => event.preventDefault()}>
@@ -378,7 +387,14 @@
 	.title {
 		display: block;
 		min-width: 16ch;
+		color: var(--color-accent);
+		font-weight: 500;
+		text-decoration: none;
 		overflow-wrap: anywhere;
+	}
+
+	.title:hover {
+		text-decoration: underline;
 	}
 
 	.tags {

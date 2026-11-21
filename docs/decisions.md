@@ -453,6 +453,19 @@ Decided by the owner before the Phase 2 requirements were drafted (`docs/prd.md`
 * The delete confirmation counts the runs from the loaded runs list, so the page shows its content only once both cases and runs are read. [ASSUMPTION] A case in no run reads "It is not in any run."; one run reads "That run keeps its own copy." After a delete, focus goes to the filter field, because the row and its button are gone.
 * "Updated" shows a relative time ("20 hours ago", "yesterday", then the date from a week on) with the full date and time in the `<time>` title. It is computed when the list loads and never ticks (NFR-005).
 
+### 2026-11-21: Test case editor (T-053)
+
+* One component serves `/cases/new` and `/cases/edit?id=` (`CaseEditor.svelte`). The ID is read after mount (T-047). An edit URL without an ID replaces itself with `/cases` (EC-028). An unknown ID shows `PageState` "Test case not found" with Back to test cases (FR-090 AC-3). When the route shows another record (Duplicate from the editor), the form reloads from an effect on the record ID.
+* [ASSUMPTION] A new case starts with one empty step, since most cases have steps. Removing it leaves a case with only a case-level expected result, which FR-100 allows.
+* [ASSUMPTION] After the first save, a new case continues at its own edit URL (a replace, so Back goes to where the user came from), so a reload or a shared link finds it. Saving an existing case stays on the page. Both confirm with the toast "Saved TC-12." and clear "Unsaved changes" in the footer. A failed write is shown in the footer as an alert, not only as a toast.
+* Errors show only after the first Save, then update as the user types. Save focuses the first field with a problem, in form order (FR-100 AC-3). Copy from design 13.7, plus [ASSUMPTION] "Describe what to do in step N.", "Up to 10 tags.", and an invalid-tag message that names the tag.
+* Steps: Move up, Move down, and Remove are icon buttons named with the step number. After a move, focus stays on the moved step: on the same button, or on the other move button when the step reaches an end and the first is disabled. After a remove, focus goes to the action of the step that took its place, else the previous step, else Add step. Each change is announced ("Step 3 moved up. It is now step 2."). At 50 steps, Add step is disabled with "Up to 50 steps." (FR-100 AC-4).
+* Unsaved changes compare the stored fields, not step identities, so undoing an edit by hand clears the warning. In-app navigation (links, Cancel, Back) opens "Discard this new test case?" or "Discard your changes to TC-12?" with Keep editing focused. A reload or closing the tab gets the browser's prompt (FR-100 AC-7, T-047).
+* Duplicate in the editor copies the saved case, not unsaved edits, then opens the copy; with unsaved edits, the discard question comes first. Delete in the editor uses the list's confirmation and returns to `/cases`.
+* Text areas grow with their content up to 12 rows (design 13.8) through CSS `field-sizing: content`. Firefox does not support it yet, so there they keep their row count and the resize handle.
+* `Button` takes `href` to render a link that looks like a button (New test case), so the list's actions stay links that can open in a new tab.
+* The "QA" group comes after Blockchain and Data in the sidebar and on the index, with Test cases (FR-090 AC-1). It was held back in T-052 until a case could be created.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

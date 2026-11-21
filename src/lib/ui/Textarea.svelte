@@ -5,9 +5,14 @@
 		value?: string;
 		/** Monospace for values the user compares or copies: calldata, ABIs. */
 		mono?: boolean;
+		/**
+		 * Grows with its content up to 12 rows, then scrolls (design 13.8). Uses CSS
+		 * `field-sizing`; a browser without it (Firefox) keeps `rows` and the resize handle.
+		 */
+		grow?: boolean;
 	}
 
-	let { value = $bindable(''), mono = false, rows = 4, ...rest }: Props = $props();
+	let { value = $bindable(''), mono = false, grow = false, rows = 4, ...rest }: Props = $props();
 
 	// Enter adds a line, so Ctrl/Cmd+Enter submits the form the field is in.
 	function submitOnModEnter(event: KeyboardEvent & { currentTarget: HTMLTextAreaElement }): void {
@@ -23,6 +28,8 @@
 	{rows}
 	class="control"
 	class:mono
+	class:grow
+	style:--rows={grow ? rows : undefined}
 	spellcheck="false"
 	autocomplete="off"
 	bind:value
@@ -38,6 +45,19 @@
 		min-height: var(--control-md);
 		padding: var(--space-2) var(--space-3);
 		resize: vertical;
+	}
+
+	.grow {
+		field-sizing: content;
+		min-height: calc(var(--rows) * var(--leading-sm) + 2 * var(--space-2) + 2px);
+		max-height: calc(12 * var(--leading-sm) + 2 * var(--space-2) + 2px);
+		overflow-y: auto;
+	}
+
+	@supports (field-sizing: content) {
+		.grow {
+			resize: none;
+		}
 	}
 
 	.mono {
