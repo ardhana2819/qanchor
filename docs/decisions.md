@@ -435,6 +435,15 @@ Decided by the owner before the Phase 2 requirements were drafted (`docs/prd.md`
 * The import dialog and the success message list Test cases, Test runs, and Results after the Phase 1 types. The success text grows to "Imported 3 wallets, 1 endpoint override, 0 faucet links, 0 test cases, 0 test runs, 0 results, and the theme setting." (design S-10 copy, extended).
 * Not covered here: the 200 ms long-task check for a large import (FR-091 AC-6) is checked in slice 2b with the section 10.5 data set, which includes screenshots (NFR-023).
 
+### 2026-11-20: Slice 2a UI primitives (T-051)
+
+* New in `src/lib/ui`: `ResultControl`, `ResultsBar`, `StatusBadge`, `PriorityBadge`, `TagChip`, `TagInput`, `FooterBar`, and `PageState`; icons `cases`, `run`, `arrow-up`, `arrow-down`, `trash`. All are shown on `/components`.
+* The result control is native radios, like the segmented control, so arrow keys move and select within it. Its read-only form is a disabled fieldset: the stored result keeps its colours, and the radios leave the Tab order. The icon pop (design 13.6) is a CSS keyframe on `transform` that runs only after the user picks a result, so a stored result never animates on load.
+* `StatusBadge` maps result and run statuses onto the Phase 1 `Badge` (Pass, Fail, Blocked, Untested, In progress, Completed). Running, Paused, and Ended come with the sessions in slice 2b. `PriorityBadge` uses `Badge` without an icon: a priority is not a verdict, and the check or cross icons would say otherwise. `Badge` gains an optional `icon` override and a `subtle` variant (Low).
+* `ResultsBar` takes the counts from `countStatuses`. Its accessible name is the counts in words from the new `countsInWords` in `lib/core/qa/run.ts`, which the run summary now uses too. A status with no cases has no segment.
+* `TagInput` stores tags through `normalizeTags`, so invalid tags stay visible and `caseErrors` names them; it does not refuse them itself. Enter and a comma (typed or pasted) add tags; Enter in an empty field still submits the form. [ASSUMPTION] Text left in the field becomes a tag when focus leaves it, so Save never drops a tag the user typed. Suggestions come from `suggestTags` (prefix match), so the `<datalist>` stays empty until the user types.
+* The record not-found state is `PageState`: a heading, one sentence, and one link styled as the primary action. The 404 and error page (`+error.svelte`) now uses it too, instead of its own copy of the same markup and styles.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

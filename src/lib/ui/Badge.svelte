@@ -2,25 +2,32 @@
 	import type { Snippet } from 'svelte';
 	import Icon, { type IconName } from './Icon.svelte';
 
-	type Variant = 'success' | 'danger' | 'warning' | 'neutral';
+	/** `subtle`: neutral with subtle text, for the lowest priority (design 13.5). */
+	type Variant = 'success' | 'danger' | 'warning' | 'neutral' | 'subtle';
 
 	interface Props {
 		variant: Variant;
+		/** Replaces the variant's status icon; `null` shows the text alone (priority badges). */
+		icon?: IconName | null;
 		/** The status in words (Valid, Invalid, Risky, Pending, Failed): colour is never the only cue. */
 		children: Snippet;
 	}
 
-	let { variant, children }: Props = $props();
+	let { variant, icon, children }: Props = $props();
 
 	const ICONS: Record<Variant, IconName> = {
 		success: 'check',
 		danger: 'cross',
 		warning: 'warning',
-		neutral: 'dot'
+		neutral: 'dot',
+		subtle: 'dot'
 	};
+	const shown = $derived(icon === undefined ? ICONS[variant] : icon);
 </script>
 
-<span class="badge {variant}"><Icon name={ICONS[variant]} size={14} />{@render children()}</span>
+<span class="badge {variant}"
+	>{#if shown}<Icon name={shown} size={14} />{/if}{@render children()}</span
+>
 
 <style>
 	.badge {
@@ -51,8 +58,13 @@
 		color: var(--color-warning);
 	}
 
-	.neutral {
+	.neutral,
+	.subtle {
 		background: var(--color-surface-raised);
 		color: var(--color-text-muted);
+	}
+
+	.subtle {
+		color: var(--color-text-subtle);
 	}
 </style>

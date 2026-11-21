@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	countStatuses,
+	countsInWords,
 	distinctReleases,
 	issueHref,
 	releaseKey,
@@ -53,6 +54,17 @@ describe('snapshots (FR-110 AC-3, EC-027)', () => {
 	it('orders a new run by key, whatever the selection order', () => {
 		const run = snapshotsForRun([testCase(12), testCase(2), testCase(100), testCase(1)]);
 		expect(run.map((s) => s.number)).toEqual([1, 2, 12, 100]);
+	});
+});
+
+describe('countsInWords', () => {
+	it('names every status, zeros included, in a fixed order', () => {
+		expect(countsInWords({ pass: 18, fail: 3, blocked: 2, untested: 17, total: 40 })).toBe(
+			'18 passed, 3 failed, 2 blocked, 17 untested'
+		);
+		expect(countsInWords({ pass: 0, fail: 0, blocked: 0, untested: 0, total: 0 })).toBe(
+			'0 passed, 0 failed, 0 blocked, 0 untested'
+		);
 	});
 });
 

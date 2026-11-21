@@ -38,6 +38,14 @@ export function countStatuses(
 	return counts;
 }
 
+/** "18 passed, 3 failed, 2 blocked, 17 untested": the counts in words (NFR-009, design 13.8). */
+export function countsInWords(counts: StatusCounts): string {
+	return (
+		`${counts.pass} passed, ${counts.fail} failed, ${counts.blocked} blocked, ` +
+		`${counts.untested} untested`
+	);
+}
+
 /** The results of one run by case number. */
 export function resultsByCase<T extends Pick<TestResult, 'runId' | 'caseNumber'>>(
 	runId: string,

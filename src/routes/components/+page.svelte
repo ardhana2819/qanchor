@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { resolve } from '$app/paths';
 	import Badge from '#lib/ui/Badge.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import Callout from '#lib/ui/Callout.svelte';
@@ -8,14 +9,24 @@
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import OutputToolbar from '#lib/ui/OutputToolbar.svelte';
 	import { notify } from '#lib/state/notify.svelte.ts';
+	import type { StatusCounts } from '#lib/core/qa/run.ts';
+	import { PRIORITIES, type ResultStatus } from '#lib/core/qa/types.ts';
 	import CheckboxGroup from '#lib/ui/CheckboxGroup.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import Field from '#lib/ui/Field.svelte';
+	import FooterBar from '#lib/ui/FooterBar.svelte';
 	import FormPanel from '#lib/ui/FormPanel.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import IconButton from '#lib/ui/IconButton.svelte';
+	import PageState from '#lib/ui/PageState.svelte';
+	import PriorityBadge from '#lib/ui/PriorityBadge.svelte';
+	import ResultControl from '#lib/ui/ResultControl.svelte';
+	import ResultsBar from '#lib/ui/ResultsBar.svelte';
 	import SegmentedControl from '#lib/ui/SegmentedControl.svelte';
 	import Select from '#lib/ui/Select.svelte';
+	import StatusBadge from '#lib/ui/StatusBadge.svelte';
+	import TagChip from '#lib/ui/TagChip.svelte';
+	import TagInput from '#lib/ui/TagInput.svelte';
 	import Tabs from '#lib/ui/Tabs.svelte';
 	import Textarea from '#lib/ui/Textarea.svelte';
 	import TextInput from '#lib/ui/TextInput.svelte';
@@ -55,6 +66,13 @@
 	let family: (typeof families)[number]['value'] = $state('ether');
 	let mode: (typeof modes)[number]['id'] = $state('generate');
 	let generating = $state(false);
+
+	// Slice 2a primitives (T-051).
+	let result: ResultStatus | null = $state(null);
+	let tags = $state(['deposit', 'smoke']);
+	const knownTags = ['deposit', 'smoke', 'tron', 'usdt', 'withdrawal'];
+	const runCounts: StatusCounts = { pass: 18, fail: 3, blocked: 2, untested: 17, total: 40 };
+	const freshCounts: StatusCounts = { pass: 0, fail: 0, blocked: 0, untested: 5, total: 5 };
 
 	interface ExampleRow {
 		id: string;
@@ -305,6 +323,97 @@
 	</div>
 </section>
 
+<section aria-labelledby="qa">
+	<h2 id="qa">Test cases and runs</h2>
+	<div class="stack">
+		<div class="row">
+			<ResultControl legend="Result of TC-12" value={result} onchange={(next) => (result = next)} />
+			<Button size="sm" variant="ghost" onclick={() => (result = null)}>Clear result</Button>
+		</div>
+		<ResultControl legend="Result of TC-13, read-only" value="fail" onchange={() => {}} readonly />
+	</div>
+
+	<h3>Results bar</h3>
+	<div class="bars">
+		<div class="bar">
+			<ResultsBar counts={runCounts} />
+			<span class="summary">18 passed, 3 failed, 2 blocked, 17 untested</span>
+		</div>
+		<div class="bar">
+			<ResultsBar counts={freshCounts} />
+			<span class="summary">0 / 5</span>
+		</div>
+	</div>
+
+	<h3>Badges and tags</h3>
+	<div class="row" data-testid="components-status-badges">
+		{#each ['pass', 'fail', 'blocked', 'untested', 'in-progress', 'completed'] as const as status (status)}
+			<StatusBadge {status} />
+		{/each}
+	</div>
+	<div class="row" data-testid="components-priority-badges">
+		{#each PRIORITIES as priority (priority)}
+			<PriorityBadge {priority} />
+		{/each}
+	</div>
+	<div class="row">
+		<TagChip tag="deposit" />
+		<TagChip tag="tron" />
+		<TagChip tag="usdt" />
+	</div>
+	<!-- Icon buttons with the new icons, named as the steps editor and the sidebar use them. -->
+	<div class="row samples">
+		<div class="sample">
+			<IconButton label="Move step 2 up"><Icon name="arrow-up" /></IconButton>
+			<span class="caption" aria-hidden="true">arrow-up</span>
+		</div>
+		<div class="sample">
+			<IconButton label="Move step 2 down"><Icon name="arrow-down" /></IconButton>
+			<span class="caption" aria-hidden="true">arrow-down</span>
+		</div>
+		<div class="sample">
+			<IconButton label="Remove step 2"><Icon name="trash" /></IconButton>
+			<span class="caption" aria-hidden="true">trash</span>
+		</div>
+		<div class="sample">
+			<IconButton label="Cases icon example"><Icon name="cases" /></IconButton>
+			<span class="caption" aria-hidden="true">cases</span>
+		</div>
+		<div class="sample">
+			<IconButton label="Run icon example"><Icon name="run" /></IconButton>
+			<span class="caption" aria-hidden="true">run</span>
+		</div>
+	</div>
+
+	<h3>Editor footer</h3>
+	<FormPanel aria-label="Example test case">
+		<div class="editor">
+			<Field label="Tags" hint="Enter or comma adds a tag; Backspace removes the last.">
+				{#snippet children(control)}
+					<TagInput {...control} bind:tags known={knownTags} testId="components-tags" />
+				{/snippet}
+			</Field>
+		</div>
+		<FooterBar>
+			{#snippet status()}Unsaved changes{/snippet}
+			{#snippet actions()}
+				<Button>Cancel</Button>
+				<Button variant="primary">Save</Button>
+			{/snippet}
+		</FooterBar>
+	</FormPanel>
+
+	<h3>Record not found</h3>
+	<div class="frame">
+		<PageState title="Test case not found">
+			It may have been deleted, or it was created in another browser.
+			{#snippet action()}
+				<a href={resolve('/components')}>Back to test cases</a>
+			{/snippet}
+		</PageState>
+	</div>
+</section>
+
 <Dialog bind:open={detailOpen} title="Row {detail?.index ?? ''}">
 	<p class="address">{detail?.address}</p>
 	{#snippet actions()}
@@ -409,6 +518,27 @@
 		font-size: var(--text-md);
 		font-weight: 600;
 		line-height: var(--leading-md);
+	}
+
+	.bars {
+		display: grid;
+		gap: var(--space-4);
+		max-width: 360px;
+	}
+
+	.bar {
+		display: grid;
+		gap: var(--space-2);
+	}
+
+	.editor {
+		max-width: 480px;
+	}
+
+	.frame {
+		padding: var(--space-6) var(--space-4) var(--space-12);
+		border: 1px dashed var(--color-border);
+		border-radius: var(--radius-md);
 	}
 
 	.address {
