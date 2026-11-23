@@ -465,6 +465,7 @@ Decided by the owner before the Phase 2 requirements were drafted (`docs/prd.md`
 * Text areas grow with their content up to 12 rows (design 13.8) through CSS `field-sizing: content`. Firefox does not support it yet, so there they keep their row count and the resize handle.
 * `Button` takes `href` to render a link that looks like a button (New test case), so the list's actions stay links that can open in a new tab.
 * The "QA" group comes after Blockchain and Data in the sidebar and on the index, with Test cases (FR-090 AC-1). It was held back in T-052 until a case could be created.
+* The 1,000-case long-task check (FR-101 AC-4) failed in CI: the runner is about 4x slower than a desktop, and rendering 1,000 rows or bringing back 888 when a filter is cleared was one task of up to 401 ms there. Without the enter animation, `DataTable` now creates rows 50 per frame, and rows that start to pass the filter are shown 50 per frame; rows already shown stay, so the table never shrinks back and its scroll position holds. The table scrolls inside a box of at most 640 px, so later steps land off screen. The cases table also uses `table-layout: fixed` with set column widths, so each step does not lay out the whole table again. Longest task at 4x: 148 ms. Why not keep one render as for the 500 generated addresses (2026-11-14, T-021): that one was 200 to 214 ms only under throttle, while this one failed the CI gate itself.
 
 ## Architecture decision records
 

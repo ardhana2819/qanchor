@@ -275,26 +275,28 @@
 			</EmptyState>
 		</div>
 	{:else}
-		<DataTable
-			caption="Test cases"
-			{columns}
-			rows={testCases.list}
-			rowKey={(c) => c.id}
-			rowTestId="cases-row"
-			enter={false}
-			hidden={(c) => !matchesFilter(c, filter)}
-		>
-			{#snippet actions(item)}
-				<span class="actions">
-					<Button size="sm" onclick={() => duplicate(item)} data-testid="cases-duplicate">
-						Duplicate<span class="visually-hidden"> {formatKey(item.number)}</span>
-					</Button>
-					<Button size="sm" onclick={() => confirmDelete(item)} data-testid="cases-delete">
-						Delete<span class="visually-hidden"> {formatKey(item.number)}</span>
-					</Button>
-				</span>
-			{/snippet}
-		</DataTable>
+		<div class="table">
+			<DataTable
+				caption="Test cases"
+				{columns}
+				rows={testCases.list}
+				rowKey={(c) => c.id}
+				rowTestId="cases-row"
+				enter={false}
+				hidden={(c) => !matchesFilter(c, filter)}
+			>
+				{#snippet actions(item)}
+					<span class="actions">
+						<Button size="sm" onclick={() => duplicate(item)} data-testid="cases-duplicate">
+							Duplicate<span class="visually-hidden"> {formatKey(item.number)}</span>
+						</Button>
+						<Button size="sm" onclick={() => confirmDelete(item)} data-testid="cases-delete">
+							Delete<span class="visually-hidden"> {formatKey(item.number)}</span>
+						</Button>
+					</span>
+				{/snippet}
+			</DataTable>
+		</div>
 	{/if}
 {/if}
 
@@ -382,6 +384,30 @@
 		margin: var(--space-6) 0 var(--space-2);
 		color: var(--color-text-muted);
 		font-size: var(--text-xs);
+	}
+
+	.table :global(table) {
+		table-layout: fixed;
+		min-width: 760px;
+	}
+
+	.table :global(th:nth-child(1)) {
+		width: 80px;
+	}
+	.table :global(th:nth-child(3)) {
+		width: 100px;
+	}
+	.table :global(th:nth-child(4)) {
+		width: 26%;
+	}
+	.table :global(th:nth-child(5)) {
+		width: 64px;
+	}
+	.table :global(th:nth-child(6)) {
+		width: 120px;
+	}
+	.table :global(th:nth-child(7)) {
+		width: 196px;
 	}
 
 	.title {
