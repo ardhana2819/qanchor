@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { expect, test, type Locator, type Page, type Request } from '@playwright/test';
 import { base58check } from '@scure/base';
-import { appOpened, putRecords, scanA11y } from './helpers.ts';
+import { appOpened, putRecords, scanA11y, tabTo } from './helpers.ts';
 
 // Cross-cutting checks for Phase 1 (T-023 for slice 1a, T-034 for slice 1b, T-046 for slice 1c):
 // every shipped route and tool against the non-functional requirements that apply to all of them. Per-tool behaviour
@@ -69,15 +69,6 @@ function recordRequests(page: Page): Request[] {
 	const requests: Request[] = [];
 	page.on('request', (request) => requests.push(request));
 	return requests;
-}
-
-/** Presses Tab (or Shift+Tab) until `target` has focus; fails after `limit` presses. */
-async function tabTo(page: Page, target: Locator, limit = 60, key = 'Tab'): Promise<void> {
-	for (let i = 0; i < limit; i++) {
-		if (await target.evaluate((el) => el === document.activeElement)) return;
-		await page.keyboard.press(key);
-	}
-	throw new Error(`${key} never reached ${target}`);
 }
 
 /**

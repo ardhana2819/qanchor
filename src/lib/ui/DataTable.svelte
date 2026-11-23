@@ -11,6 +11,8 @@
 		numeric?: boolean;
 		/** Custom cell content, e.g. a status badge; `value` stays the plain-text form. */
 		cell?: Snippet<[Row]>;
+		/** Custom header content, e.g. a Select all checkbox; `label` stays its plain-text form. */
+		header?: Snippet;
 	}
 
 	/** Rows staggered one by one when results arrive; later rows appear with the last of them. */
@@ -116,7 +118,9 @@
 		<thead>
 			<tr>
 				{#each columns as column (column.key)}
-					<th scope="col" class:numeric={column.numeric}>{column.label}</th>
+					<th scope="col" class:numeric={column.numeric}>
+						{#if column.header}{@render column.header()}{:else}{column.label}{/if}
+					</th>
 				{/each}
 				{#if actions}<th scope="col"><span class="visually-hidden">{actionsLabel}</span></th>{/if}
 			</tr>
