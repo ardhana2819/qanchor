@@ -15,9 +15,15 @@
 
 	/** Rows staggered one by one when results arrive; later rows appear with the last of them. */
 	export const STAGGERED_ROWS = 12;
+
+	/** Rows a stored list shows per frame as it loads or a filter widens (FR-101 AC-4). */
+	export const ROWS_PER_FRAME = 50;
 </script>
 
 <script lang="ts" generics="Row">
+	import { untrack } from 'svelte';
+	import { reveal } from './reveal.ts';
+
 	interface Props {
 		/** Names the table for screen readers (design section 9); visually hidden. */
 		caption: string;
@@ -38,7 +44,8 @@
 		enter?: boolean;
 		/**
 		 * Rows it returns true for stay in the DOM, hidden. A filter over a long stored list then
-		 * toggles rows instead of creating and removing them (FR-101 AC-4: 1,000 cases).
+		 * toggles rows instead of creating and removing them (FR-101 AC-4: 1,000 cases). Without
+		 * `enter`, rows are created and shown 50 per frame, so no single task does all of them.
 		 */
 		hidden?: (row: Row) => boolean;
 	}
@@ -59,14 +66,36 @@
 	// first 12 rows on its own, then everything after them as one block (design 2.4).
 	const head = $derived(rows.slice(0, STAGGERED_ROWS));
 	const rest = $derived(rows.slice(STAGGERED_ROWS));
+
+	// Without the enter animation, rows are created a step per frame, and rows that start to
+	// pass the filter are shown a step per frame; rows already on show stay, so the table never
+	// shrinks back. It scrolls inside a box of at most 640 px, so later steps land off screen.
+	let created = $state(ROWS_PER_FRAME);
+	const createdRows = $derived(rows.slice(0, created));
+	const passing = $derived(hidden ? rows.filter((item) => !hidden(item)) : rows);
+	let shown = $state.raw(new Set<Row>());
+
+	$effect.pre(() => {
+		const before = untrack(() => shown);
+		shown = reveal(passing, before, ROWS_PER_FRAME);
+	});
+
+	$effect(() => {
+		if (enter || (created >= rows.length && shown.size >= passing.length)) return;
+		const frame = requestAnimationFrame(() => {
+			created += ROWS_PER_FRAME;
+			shown = reveal(passing, shown, ROWS_PER_FRAME);
+		});
+		return () => cancelAnimationFrame(frame);
+	});
 </script>
 
-{#snippet row(item: Row, index: number, staggered: boolean)}
+{#snippet row(item: Row, index: number, staggered: boolean, isHidden = hidden?.(item))}
 	<!-- --i drives the stagger delay; a style attribute is allowed by the CSP (ADR-007). -->
 	<tr
 		class:enter={staggered}
 		style:--i={staggered ? index : undefined}
-		hidden={hidden?.(item)}
+		hidden={isHidden}
 		data-testid={rowTestId}
 	>
 		{#each columns as column (column.key)}
@@ -109,8 +138,8 @@
 			{/if}
 		{:else}
 			<tbody>
-				{#each rows as item, index (rowKey(item))}
-					{@render row(item, index, false)}
+				{#each createdRows as item, index (rowKey(item))}
+					{@render row(item, index, false, !shown.has(item))}
 				{/each}
 			</tbody>
 		{/if}
