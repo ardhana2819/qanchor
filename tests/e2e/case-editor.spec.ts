@@ -258,6 +258,8 @@ test('free text is stored exactly as typed and shown as text (FR-100 AC-8)', asy
 	await action(page, 1).fill('Open');
 	await save(page).click();
 	await expect(toast(page)).toHaveText('Saved TC-1.');
+	// The toast comes before the move to the edit URL, so reloading earlier reopens /cases/new.
+	await expect(page).toHaveURL(/\/cases\/edit\?id=/);
 
 	await page.reload();
 	await expect(title(page)).toHaveValue(markup);
