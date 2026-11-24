@@ -534,6 +534,15 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-24: Image worker (T-059)
+
+* **Pipeline** (`lib/workers/image-pipeline.ts`): check the type and the 25 MB limit, decode with `createImageBitmap`, check the 50-megapixel limit, scale with `createImageBitmap` resize options (`resizeQuality: 'high'`) when the long edge is over 1,920 px, encode WebP at 0.8 on `OffscreenCanvas`, and when the browser returns another type (WebKit gives PNG, T-057), draw again on white and encode JPEG at 0.8. Every decoded bitmap is closed, also on failure. The browser calls are passed in as a platform, so the order of steps is unit-tested in Node; `image.worker.ts` supplies the real one.
+* **Protocol** (`lib/workers/messages.ts`): `compress` with the file and the name shown in messages; answers are `done` (bytes transferred, not copied; type, size, and `firstFrameOnly` for a GIF), `refused` (a `ScreenshotError` from T-058, shown with its design 13.7 copy), or `error` (unexpected, such as no canvas or out of memory). The worker handles one image at a time, so several 50-megapixel images never sit in memory together.
+* **Client** (`lib/workers/image-jobs.ts`): like the address and dummy-data clients, but next to the worker, because run execution and, in slice 2c, session findings both use it. The worker starts on the first image.
+* **Pixel limit after decoding**: the pixel count is known only after decoding, so an image over 50 megapixels is decoded before it is refused. A file within 25 MB can still decode to a very large bitmap; if the worker runs out of memory, the client rejects with the worker's error.
+* **Test bed**: a "Screenshot compression" section on `/components` (as decided for T-008) runs the worker on a chosen file and shows the result as text, because the CSP blocks `blob:` images until T-062. The screenshot area replaces it in T-062 and T-063.
+* **E2E** (`tests/e2e/image-worker.spec.ts`, three browsers): test images are built in Node at test time (PNG with zlib, a two-frame GIF from bytes), so no large file is committed; the only fixture is a 630-byte HEIC made with macOS `sips`. A 12-megapixel PNG gave no long task at all (none over 50 ms) in Chromium, in three runs. WebKit's white fill under JPEG is checked by the unit tests (the fill comes before the draw), not by reading pixels in E2E.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
