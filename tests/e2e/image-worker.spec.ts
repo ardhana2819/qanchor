@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { expect, test, type Page } from '@playwright/test';
@@ -79,8 +79,31 @@ async function compress(page: Page, path: string): Promise<string> {
 }
 
 /** WebKit encodes no WebP, so it gets JPEG (T-057). */
-const outputType = (browserName: string) =>
-	browserName === 'webkit' ? 'image/jpeg' : 'image/webp';
+/**
+ * WebP, or JPEG where this browser cannot encode WebP. Asked of the browser, not assumed from
+ * its name: Playwright's WebKit encodes WebP on Linux (CI) but not on macOS (T-057).
+ */
+const outputType = (page: Page) =>
+	page.evaluate(async () => {
+		const canvas = new OffscreenCanvas(1, 1);
+		canvas.getContext('2d');
+		const blob = await canvas.convertToBlob({ type: 'image/webp' });
+		return blob.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
+	});
+
+/** Whether this browser decodes the bytes, asked the same way the worker decodes. */
+const canDecode = (page: Page, bytes: Buffer, type: string) =>
+	page.evaluate(
+		async ({ data, type }) => {
+			try {
+				(await createImageBitmap(new Blob([new Uint8Array(data)], { type }))).close();
+				return true;
+			} catch {
+				return false;
+			}
+		},
+		{ data: [...bytes], type }
+	);
 
 test('the worker loads on the first image only (T-059, NFR-025)', async ({ page }) => {
 	const requests = recordRequests(page);
@@ -95,25 +118,19 @@ test('the worker loads on the first image only (T-059, NFR-025)', async ({ page 
 });
 
 test.describe('output (FR-112 AC-2)', () => {
-	test('a 12-megapixel image comes out with a 1,920 px long edge', async ({
-		page,
-		browserName
-	}) => {
+	test('a 12-megapixel image comes out with a 1,920 px long edge', async ({ page }) => {
 		test.slow();
 		const path = await fixture('12mp.png', png(4000, 3000));
 		await openBed(page);
 
 		expect(await compress(page, path)).toMatch(
-			new RegExp(`^${outputType(browserName)} · 1920 × 1440 · \\d`)
+			new RegExp(`^${await outputType(page)} · 1920 × 1440 · \\d`)
 		);
 	});
 
-	test('a tall capture keeps its shape, and a small image its size (EC-030)', async ({
-		page,
-		browserName
-	}) => {
+	test('a tall capture keeps its shape, and a small image its size (EC-030)', async ({ page }) => {
 		await openBed(page);
-		const type = outputType(browserName);
+		const type = await outputType(page);
 
 		expect(await compress(page, await fixture('tall.png', png(800, 4000)))).toMatch(
 			new RegExp(`^${type} · 384 × 1920 · `)
@@ -123,33 +140,30 @@ test.describe('output (FR-112 AC-2)', () => {
 		);
 	});
 
-	test('a transparent PNG is compressed (on white where the output is JPEG)', async ({
-		page,
-		browserName
-	}) => {
+	test('a transparent PNG is compressed (on white where the output is JPEG)', async ({ page }) => {
 		await openBed(page);
 
 		expect(await compress(page, await fixture('alpha.png', png(64, 48, true)))).toMatch(
-			new RegExp(`^${outputType(browserName)} · 64 × 48 · `)
+			new RegExp(`^${await outputType(page)} · 64 × 48 · `)
 		);
 	});
 
-	test('a GIF keeps its first frame, and says so (EC-030)', async ({ page, browserName }) => {
+	test('a GIF keeps its first frame, and says so (EC-030)', async ({ page }) => {
 		await openBed(page);
 
 		expect(await compress(page, await fixture('loop.gif', GIF))).toMatch(
-			new RegExp(`^${outputType(browserName)} · 1 × 1 · .+ · first frame only$`)
+			new RegExp(`^${await outputType(page)} · 1 × 1 · .+ · first frame only$`)
 		);
 	});
 
-	test('HEIC opens in WebKit only, and elsewhere names the file (T-057)', async ({
-		page,
-		browserName
+	test('HEIC opens where the browser decodes it, and elsewhere names the file (T-057)', async ({
+		page
 	}) => {
 		await openBed(page);
+		const decodes = await canDecode(page, await readFile(HEIC), 'image/heic');
 		const text = await compress(page, HEIC);
 
-		if (browserName === 'webkit') expect(text).toMatch(/^image\/jpeg · 64 × 48 · /);
+		if (decodes) expect(text).toMatch(new RegExp(`^${await outputType(page)} · 64 × 48 · `));
 		else expect(text).toBe('This browser cannot open tiny.heic (HEIC).');
 	});
 });
