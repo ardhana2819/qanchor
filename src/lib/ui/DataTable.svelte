@@ -46,8 +46,8 @@
 		enter?: boolean;
 		/**
 		 * Rows it returns true for stay in the DOM, hidden. A filter over a long stored list then
-		 * toggles rows instead of creating and removing them (FR-101 AC-4: 1,000 cases). Without
-		 * `enter`, rows are created and shown 50 per frame, so no single task does all of them.
+		 * toggles rows instead of creating and removing them (FR-101 AC-4: 1,000 cases). Rows that
+		 * start to pass are shown 50 per frame, so no single task does all of them.
 		 */
 		hidden?: (row: Row) => boolean;
 	}
@@ -64,16 +64,25 @@
 		hidden
 	}: Props = $props();
 
-	// Two bodies so that at most 13 elements animate, however many rows there are: each of the
-	// first 12 rows on its own, then everything after them as one block (design 2.4).
-	const head = $derived(rows.slice(0, STAGGERED_ROWS));
-	const rest = $derived(rows.slice(STAGGERED_ROWS));
-
-	// Without the enter animation, rows are created a step per frame, and rows that start to
-	// pass the filter are shown a step per frame; rows already on show stay, so the table never
-	// shrinks back. It scrolls inside a box of at most 640 px, so later steps land off screen.
+	// Rows are created a step per frame, so no single task builds a long table (NFR-005: 500
+	// generated addresses took one task of about 200 ms on CI). Without the enter animation, rows
+	// that start to pass the filter are also shown a step per frame; rows already on show stay,
+	// so the table never shrinks back. It scrolls inside a box of at most 640 px, so later steps
+	// land off screen.
 	let created = $state(ROWS_PER_FRAME);
 	const createdRows = $derived(rows.slice(0, created));
+
+	// A new result set starts again from one step. A stored list (no enter animation) keeps its
+	// rows, so a filter or an edit never rebuilds them.
+	$effect.pre(() => {
+		if (enter && rows) created = ROWS_PER_FRAME;
+	});
+
+	// Two bodies so that at most 13 elements animate, however many rows there are: each of the
+	// first 12 rows on its own, then everything after them as one block (design 2.4). Rows added
+	// to that block in later frames appear without animating.
+	const head = $derived(rows.slice(0, STAGGERED_ROWS));
+	const rest = $derived(createdRows.slice(STAGGERED_ROWS));
 	const passing = $derived(hidden ? rows.filter((item) => !hidden(item)) : rows);
 	let shown = $state.raw(new Set<Row>());
 
@@ -83,7 +92,7 @@
 	});
 
 	$effect(() => {
-		if (enter || (created >= rows.length && shown.size >= passing.length)) return;
+		if (created >= rows.length && (enter || shown.size >= passing.length)) return;
 		const frame = requestAnimationFrame(() => {
 			created += ROWS_PER_FRAME;
 			shown = reveal(passing, shown, ROWS_PER_FRAME);
