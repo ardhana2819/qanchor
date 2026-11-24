@@ -516,6 +516,12 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * **Several downloads from one click.** All three browsers delivered three files from one click under Playwright, which accepts downloads on its own. Chrome Help lists an "Automatic downloads" site setting but does not state its default, so a real browser may still ask; F-12's fallback stays, and T-065 includes a manual check in a real Chrome.
 * **Jira wiki markup escaping: not verified.** Jira's text formatting notation help needs a login on jira.atlassian.com and on the public Apache Jira, and the Jira Cloud support page is gone (HTTP 404). The Confluence wiki markup page (readable) lists the same markup characters but no escape rule. Open: T-058 builds the Jira renderer on the PRD's character list with backslash escapes, and its golden output is checked once by the owner in their Jira (an extension of the FR-121 AC-5 owner action), or the owner provides the help page text from their own Jira.
 
+### 2026-11-24: Long result tables are built a step per frame
+
+* The cross-cutting check "500 addresses with every variant" (NFR-005) failed three CI runs in a row: 205, 209, and 216 ms against 200 ms. A CPU profile at 4x and 5x throttling showed one task of about 190 ms, the `DataTable` render of about 511 rows at once. With the enter animation on (result sets), the table built every row in one task; only stored lists without the animation were built 50 rows per frame (FR-101 AC-4). Playwright's trace snapshot added a separate task of about 60 ms, not the cause.
+* Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
+* Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
