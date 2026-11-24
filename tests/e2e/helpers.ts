@@ -181,13 +181,15 @@ export async function controlsWithoutFocusRing(page: Page, presses = 40): Promis
 			const el = document.activeElement as HTMLElement | null;
 			if (!el || el === document.body) return null;
 			const style = getComputedStyle(el);
-			// Native radios and checkboxes inside custom controls draw the ring on a sibling.
+			// Native radios and checkboxes inside custom controls draw the ring on a sibling; the
+			// tag input draws it on its wrapper (`:has(input:focus-visible)`).
 			const sibling = el.nextElementSibling ? getComputedStyle(el.nextElementSibling) : null;
+			const parent = el.parentElement ? getComputedStyle(el.parentElement) : null;
 			const visible = (s: CSSStyleDeclaration | null) =>
 				!!s && ((s.outlineStyle !== 'none' && s.outlineWidth !== '0px') || s.boxShadow !== 'none');
 			return {
 				name: `${el.tagName} ${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 30)}`,
-				ok: visible(style) || visible(sibling)
+				ok: visible(style) || visible(sibling) || visible(parent)
 			};
 		});
 		if (ring && !ring.ok) missing.push(ring.name);

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
-import { appOpened, putRecords } from './helpers.ts';
+import { appOpened, putRecords, seedCases, testCase, testResult, testRun } from './helpers.ts';
 
 // The `data-testid`s are a public contract for owner-written automation (decisions 2026-11-16).
 // This spec only checks that they exist; the other specs stay role-first and do not use them.
@@ -275,6 +275,163 @@ test('settings', async ({ page }) => {
 	await page.getByTestId('settings-endpoint-input').fill('https://rpc.example.dev');
 	await page.getByTestId('settings-endpoint-save').click();
 	await once(page, ['settings-endpoint-reset']);
+});
+
+/** Two cases and a run of both, one failed, for the QA pages. */
+async function seedQa(page: Page): Promise<void> {
+	await page.goto('/');
+	await appOpened(page);
+	await seedCases(page, [testCase(1, { tags: ['smoke'] }), testCase(2)] as { number: number }[]);
+	const run = testRun('run-1', [1, 2], { environment: 'Pixel 7' });
+	run.cases[0] = { ...run.cases[0], preconditions: 'A funded wallet', expected: 'It works' };
+	await putRecords(page, 'runs', [run]);
+	await putRecords(page, 'results', [
+		{ ...testResult('run-1', 1, 'fail'), linkedIssue: 'https://jira.example.dev/PAY-1' }
+	]);
+}
+
+const loaded = (page: Page) => expect(page.locator('[data-testid$="-loading"]')).toHaveCount(0);
+
+test('test cases', async ({ page }) => {
+	await seedQa(page);
+	await page.goto('/cases');
+	await loaded(page);
+	await once(page, [
+		'cases-new',
+		'cases-filter',
+		'cases-tags',
+		'cases-priority',
+		'cases-count',
+		'cases-new-run'
+	]);
+	await each(page, 'cases-row', 2);
+	await each(page, 'cases-duplicate', 2);
+	await each(page, 'cases-delete', 2);
+	await page.getByTestId('cases-delete').first().click();
+	await once(page, ['cases-delete-runs', 'cases-confirm-delete']);
+	await page.keyboard.press('Escape');
+
+	await page.getByTestId('cases-filter').fill('nothing');
+	await once(page, ['cases-no-match', 'cases-clear-filters']);
+});
+
+test('test case editor', async ({ page }) => {
+	await seedQa(page);
+	await page.goto('/cases/edit?id=case-1');
+	await loaded(page);
+	await once(page, [
+		'case-editor-key',
+		'case-editor-title',
+		'case-editor-priority',
+		'case-editor-tags-input',
+		'case-editor-preconditions',
+		'case-editor-add-step',
+		'case-editor-expected',
+		'case-editor-cancel',
+		'case-editor-save',
+		'case-editor-duplicate',
+		'case-editor-delete'
+	]);
+	await each(page, 'case-editor-tags-chip', 1);
+	await each(page, 'case-editor-step', 1);
+	await each(page, 'case-editor-step-action', 1);
+	await each(page, 'case-editor-step-expected', 1);
+
+	await page.getByTestId('case-editor-title').fill('Changed');
+	await once(page, ['case-editor-status']);
+	await page.getByTestId('case-editor-cancel').click();
+	await once(page, ['case-editor-keep-editing', 'case-editor-discard']);
+	await page.getByTestId('case-editor-keep-editing').click();
+
+	await page.getByTestId('case-editor-delete').click();
+	await once(page, ['case-editor-delete-runs', 'case-editor-confirm-delete']);
+	await page.keyboard.press('Escape');
+
+	await page.goto('/cases/edit?id=missing');
+	await once(page, ['case-editor-not-found']);
+});
+
+test('test runs and New run', async ({ page }) => {
+	await seedQa(page);
+	await page.goto('/runs');
+	await loaded(page);
+	await once(page, ['runs-new', 'runs-count']);
+	await each(page, 'runs-row', 1);
+	await each(page, 'runs-delete', 1);
+	await page.getByTestId('runs-delete').click();
+	await once(page, ['runs-delete-results', 'runs-confirm-delete']);
+	await page.keyboard.press('Escape');
+
+	await page.goto('/runs/new');
+	await loaded(page);
+	await once(page, [
+		'new-run-name',
+		'new-run-release',
+		'new-run-environment',
+		'new-run-filter',
+		'new-run-tags',
+		'new-run-priority',
+		'new-run-count',
+		'new-run-select-all',
+		'new-run-selected',
+		'new-run-problem',
+		'new-run-cancel',
+		'new-run-create'
+	]);
+	await each(page, 'new-run-row', 2);
+	await each(page, 'new-run-select', 2);
+	await page.getByTestId('new-run-filter').fill('nothing');
+	await once(page, ['new-run-no-match']);
+});
+
+test('run execution', async ({ page }) => {
+	await seedQa(page);
+	await page.goto('/runs/view?id=run-1');
+	await loaded(page);
+	await once(page, [
+		'run-name',
+		'run-environment',
+		'run-counts',
+		'run-shortcuts',
+		'run-copy-summary',
+		'run-complete',
+		'run-case-list-toggle',
+		'run-case-filter',
+		'run-case-key',
+		'run-case-position',
+		'run-previous',
+		'run-next',
+		'run-preconditions',
+		'run-expected',
+		'run-result',
+		'run-failed-step',
+		'run-linked-issue',
+		'run-issue-link',
+		'run-actual',
+		'run-notes',
+		'run-save-status'
+	]);
+	await each(page, 'run-case-row', 2);
+	await each(page, 'run-step', 1);
+
+	await page
+		.getByTestId('run-result')
+		.getByRole('radio', { name: /^Blocked/ })
+		.check();
+	await once(page, ['run-reason', 'run-save-result']);
+	await page.getByTestId('run-case-filter').selectOption('blocked');
+	await once(page, ['run-no-cases']);
+
+	await page.getByTestId('run-shortcuts').click();
+	await once(page, ['run-shortcut-list']);
+	await page.keyboard.press('Escape');
+	await page.getByTestId('run-complete').click();
+	await once(page, ['run-complete-body', 'run-confirm-complete']);
+	await page.getByTestId('run-confirm-complete').click();
+	await once(page, ['run-reopen']);
+
+	await page.goto('/runs/view?id=missing');
+	await once(page, ['run-not-found']);
 });
 
 test('app shell', async ({ page }) => {
