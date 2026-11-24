@@ -14,11 +14,12 @@ export function escapeInlineMarkdown(text: string): string {
 }
 
 /** One line of user text: line breaks and the spaces around them become one space. */
-function oneLine(text: string): string {
+export function oneLine(text: string): string {
 	return text.trim().replace(/\s*[\r\n]+\s*/g, ' ');
 }
 
-function firstLine(text: string): string {
+/** The first line of user text, trimmed. */
+export function firstLine(text: string): string {
 	return text.trim().split(/\r?\n/, 1)[0]?.trim() ?? '';
 }
 
