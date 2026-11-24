@@ -183,13 +183,24 @@ test.describe('Test runs list (FR-113)', () => {
 		).toBeFocused();
 	});
 
-	test('Test runs is not listed in the navigation until runs can be opened (T-055)', async ({
+	test('Test runs is in the QA group of the navigation and on the index (FR-090 AC-1)', async ({
 		page
 	}) => {
 		await page.goto('/');
-		await expect(
-			page.getByRole('navigation', { name: 'Main' }).getByRole('link')
-		).not.toContainText(['Test runs']);
+		const qa = page.getByRole('navigation', { name: 'Main' }).getByRole('region', { name: 'QA' });
+		await expect(qa.getByRole('link')).toHaveText(['Test cases', 'Test runs']);
+		await expect(page.getByRole('main').getByRole('link', { name: 'Test runs' })).toBeVisible();
+		await qa.getByRole('link', { name: 'Test runs' }).click();
+		await expect(page).toHaveURL(/\/runs$/);
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText('Test runs');
+	});
+
+	test('a run name opens the run', async ({ page }) => {
+		await seed(page, { runs: [testRun('a', [1, 2], { name: 'Smoke' })] });
+		await page.goto('/runs');
+		await runRows(page).getByRole('link', { name: 'Smoke' }).click();
+		await expect(page).toHaveURL(/\/runs\/view\?id=a&case=TC-1$/);
+		await expect(page.getByTestId('run-name')).toHaveText('Smoke');
 	});
 
 	for (const colorScheme of ['light', 'dark'] as const) {
@@ -267,12 +278,17 @@ test.describe('New run (FR-110)', () => {
 		await create(page).click();
 
 		await expect(toast(page)).toHaveText('Created run "  Release 2.3 regression".');
-		await expect(page).toHaveURL(/\/runs$/);
+		// The new run opens on its first case, untested (FR-110 AC-2).
+		const [run] = await readStore<StoredRun>(page, 'runs');
+		await expect(page).toHaveURL(new RegExp(`/runs/view\\?id=${run.id}&case=TC-1$`));
+		await expect(page.getByTestId('run-counts')).toHaveText(
+			'0 passed, 0 failed, 0 blocked, 2 untested'
+		);
+		await page.goto('/runs');
 		await expect(runRows(page)).toHaveCount(1);
 		await expect(runRows(page)).toContainText('0 / 2');
 		await expect(runRows(page)).toContainText('In progress');
 
-		const [run] = await readStore<StoredRun>(page, 'runs');
 		expect(run.name).toBe('  Release 2.3 regression');
 		expect(run.release).toBe('v2.3.0');
 		expect(run.environment).toBe('Pixel 8, Chrome 131');
@@ -289,7 +305,7 @@ test.describe('New run (FR-110)', () => {
 		await pick(page, 'TC-1').check();
 		await pick(page, 'TC-2').check();
 		await create(page).click();
-		await expect(runRows(page)).toHaveCount(1);
+		await expect(page.getByTestId('run-name')).toBeVisible();
 
 		await page.goto('/cases/edit?id=case-1');
 		await page.getByRole('textbox', { name: 'Title' }).fill('Deposit USDT on Tron, edited');
@@ -356,6 +372,21 @@ test.describe('New run (FR-110)', () => {
 		await expect(pickerRows(page)).toHaveCount(2);
 	});
 
+	test('"New run with these" on the case list carries its filter to the picker', async ({
+		page
+	}) => {
+		await seed(page, {});
+		await page.goto('/cases?q=deposit');
+		await page.getByTestId('cases-new-run').click();
+		await expect(page).toHaveURL(/\/runs\/new\?q=deposit$/);
+		await expect(page.getByTestId('new-run-loading')).toHaveCount(0);
+		await expect(pickerRows(page)).toHaveCount(2);
+
+		await page.goto('/cases?q=nothing');
+		await expect(page.getByTestId('cases-no-match')).toBeVisible();
+		await expect(page.getByTestId('cases-new-run')).toHaveCount(0);
+	});
+
 	test('a filter with no match says so', async ({ page }) => {
 		await seed(page, {});
 		await openNewRun(page, '/runs/new?q=nothing');
@@ -400,7 +431,9 @@ test.describe('New run (FR-110)', () => {
 		await pick(page, 'TC-501').uncheck();
 		await expect(create(page)).toBeEnabled();
 		await create(page).click();
-		await expect(runRows(page)).toContainText('0 / 500');
+		await expect(page.getByTestId('run-counts')).toHaveText(
+			'0 passed, 0 failed, 0 blocked, 500 untested'
+		);
 		const [run] = await readStore<StoredRun>(page, 'runs');
 		expect(run.cases).toHaveLength(500);
 	});
@@ -419,7 +452,7 @@ test.describe('New run (FR-110)', () => {
 		await page.keyboard.press('Enter');
 
 		await expect(toast(page)).toHaveText('Created run "Keyboard run".');
-		await expect(runRows(page)).toContainText('0 / 3');
+		await expect(page.getByTestId('run-name')).toHaveText('Keyboard run');
 	});
 
 	test('Cancel goes back to the run list', async ({ page }) => {

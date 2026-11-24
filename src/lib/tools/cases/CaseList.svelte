@@ -6,6 +6,7 @@
 	import {
 		EMPTY_FILTER,
 		filterCases,
+		filterToQuery,
 		matchesFilter,
 		type CaseFilter
 	} from '#lib/core/qa/filter.ts';
@@ -98,6 +99,11 @@
 		}
 	}
 
+	function newRunHref(of: CaseFilter): string {
+		const query = filterToQuery(of);
+		return query === '' ? resolve('/runs/new') : resolve(`/runs/new?${query}`);
+	}
+
 	const columns: Column<TestCase>[] = [
 		{ key: 'key', label: 'Key', value: (c) => formatKey(c.number), mono: true },
 		{ key: 'title', label: 'Title', value: (c) => c.title, cell: titleCell },
@@ -175,9 +181,17 @@
 		testId="cases"
 	/>
 
-	<p class="count" data-testid="cases-count">
-		{countText(matches.length, testCases.list.length)}
-	</p>
+	<div class="toolbar">
+		<p class="count" data-testid="cases-count">
+			{countText(matches.length, testCases.list.length)}
+		</p>
+		{#if matches.length > 0}
+			<!-- Opens New run with the same filter (design 13.3 P2-01). -->
+			<Button size="sm" href={newRunHref(filter)} data-testid="cases-new-run">
+				New run with these
+			</Button>
+		{/if}
+	</div>
 
 	{#if matches.length === 0}
 		<div data-testid="cases-no-match">
@@ -243,8 +257,17 @@
 		color: var(--color-text-muted);
 	}
 
-	.count {
+	.toolbar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
 		margin: var(--space-6) 0 var(--space-2);
+	}
+
+	.count {
+		margin: 0;
 		color: var(--color-text-muted);
 		font-size: var(--text-xs);
 	}

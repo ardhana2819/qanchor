@@ -113,8 +113,8 @@
 			return;
 		}
 		notify.showToast(createdRunText(created.value.name));
-		// The run page arrives in T-055; until then the new run is shown in the list.
-		void goto(resolve('/runs'));
+		// FR-110 AC-2: the new run opens on its first case.
+		void goto(resolve(`/runs/view?id=${encodeURIComponent(created.value.id)}`));
 	}
 
 	const columns: Column<TestCase>[] = [

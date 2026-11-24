@@ -10,14 +10,16 @@
 		onchange: (value: ResultStatus) => void;
 		/** A completed run: the result shows but cannot change (design 13.3 P2-04). */
 		readonly?: boolean;
+		/** Shows each option's single-key shortcut (design 13.4); hidden from screen readers. */
+		shortcuts?: boolean;
 	}
 
-	let { legend, value, onchange, readonly = false }: Props = $props();
+	let { legend, value, onchange, readonly = false, shortcuts = false }: Props = $props();
 
-	const OPTIONS: readonly { value: ResultStatus; label: string; icon: IconName }[] = [
-		{ value: 'pass', label: 'Pass', icon: 'check' },
-		{ value: 'fail', label: 'Fail', icon: 'cross' },
-		{ value: 'blocked', label: 'Blocked', icon: 'warning' }
+	const OPTIONS: readonly { value: ResultStatus; label: string; icon: IconName; key: string }[] = [
+		{ value: 'pass', label: 'Pass', icon: 'check', key: 'P' },
+		{ value: 'fail', label: 'Fail', icon: 'cross', key: 'F' },
+		{ value: 'blocked', label: 'Blocked', icon: 'warning', key: 'B' }
 	];
 
 	const name = $props.id();
@@ -42,7 +44,11 @@
 					checked={option.value === value}
 					onchange={() => select(option.value)}
 				/>
-				<span class="option"><Icon name={option.icon} size={14} />{option.label}</span>
+				<span class="option"
+					><Icon name={option.icon} size={14} />{option.label}{#if shortcuts && !readonly}<kbd
+							aria-hidden="true">{option.key}</kbd
+						>{/if}</span
+				>
 			</label>
 		{/each}
 	</fieldset>
@@ -131,6 +137,12 @@
 	input:focus-visible + .option {
 		outline: 2px solid var(--color-accent);
 		outline-offset: 1px;
+	}
+
+	kbd {
+		margin-left: 2px;
+		color: var(--color-text-subtle);
+		font: 500 0.75rem var(--font-mono);
 	}
 
 	fieldset:disabled input {

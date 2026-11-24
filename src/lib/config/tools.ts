@@ -95,6 +95,14 @@ export const tools: readonly ToolEntry[] = [
 			'Reusable test cases with steps, expected results, tags, and a priority, filterable by tag and kept in this browser.',
 		group: 'QA',
 		icon: 'cases'
+	},
+	{
+		route: '/runs',
+		name: 'Test runs',
+		description:
+			'Run a set of test cases against a release: Pass, Fail, or Blocked per case, with the actual result, a linked issue, and a Markdown summary.',
+		group: 'QA',
+		icon: 'run'
 	}
 ];
 
