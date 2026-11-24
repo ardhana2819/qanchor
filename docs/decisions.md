@@ -497,6 +497,11 @@ Decided by the owner before the Phase 2 requirements were drafted (`docs/prd.md`
 * FR-091 AC-6 and NFR-023 for slice 2a: exporting and importing the PRD 10.5 data set without screenshots (1,000 cases, 20 runs of 100 cases, 2,000 results; a 3.0 MB file) gives no main-thread task over 200 ms. Measured at 4x CPU throttle in Chromium: at most 119 ms over three runs, so the backup code stays on the main thread. A first measure of 703 ms at 4x was Playwright's own script turning a 3 MB buffer into a File in the page (seen in a CPU profile; the app's code took about 25 ms of it); the test passes the downloaded file by path instead. Screenshots join the data set in slice 2b, with the worker NFR-023 asks for.
 * `src/traceability.test.ts` gains a Phase 2 check: it reads the 21 requirements of PRD section 10.3 and requires every ID in its shipped list (slice 2a: FR-090, FR-091, FR-100 to FR-102, FR-110, FR-111, FR-113, FR-123) to be named by a test. The list must hold Phase 2 IDs only, so a typo fails the test. Slices 2b and 2c extend the list.
 
+### 2026-11-24: Slice 2b plan approved
+
+* Owner decision: the slice 2b breakdown in `docs/plan.md` (M5, T-057 to T-066) is approved as a block, with every proposal and assumption in findings F-7 to F-13. In short: screenshots added before Save result wait in the case's draft and are written with the result in one transaction (F-7); one `screenshots` store keyed by an `owner` array, ready for slice 2c findings (F-8); the whole backup is built and read in a worker (F-9); the bug report format is remembered in `localStorage`, outside the backup (F-10); screenshots stay with a result when its status changes (F-11); Download all has a fallback if a browser refuses several downloads (F-12); the CSP adds `blob:` to `img-src` only (F-13).
+* T-057 checks the browser facts of PRD 10.7 before any code depends on them; a fact that turns out differently is brought back to the owner before the plan changes.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.
