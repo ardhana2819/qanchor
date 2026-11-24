@@ -1,7 +1,7 @@
 # QAnchor: Implementation Plan
 
-* Status: Phase 1 APPROVED (owner, 2026-11-12); slice 2a (M4) APPROVED (owner, 2026-11-19)
-* Scope: Phase 1 (slices 1a, 1b, 1c) and slice 2a. Slices 2b and 2c are broken down when 2a is done; phases 3 and 4 have no FR IDs yet.
+* Status: Phase 1 APPROVED (owner, 2026-11-12); slice 2a (M4) APPROVED (owner, 2026-11-19); slice 2b (M5) APPROVED (owner, 2026-11-24)
+* Scope: Phase 1 (slices 1a, 1b, 1c), slice 2a, and slice 2b. Slice 2c is broken down when 2b is done; phases 3 and 4 have no FR IDs yet.
 * Sources: `docs/prd.md` v0.3, `docs/design.md` v0.3, `docs/architecture.md` v0.1, `docs/decisions.md`
 * Date: 2026-11-12
 
@@ -22,6 +22,7 @@ How this plan is used:
 | M2 Slice 1b | Dummy data, checklists | Deployed automatically on merge |
 | M3 Slice 1c | Tx lookup, calldata decoder, testnet wallet tracker | Phase 1 complete |
 | M4 Slice 2a | Storage schema v2, test cases, test runs (no screenshots), QA navigation | Deployed; a run can be created and executed end to end |
+| M5 Slice 2b | Screenshots on results (schema v3, image worker), backup with screenshots, persistent storage, bug report dialog | Deployed; journey J-8 in `docs/design.md` works without the Phase 1 hooks |
 
 ## Task table
 
@@ -110,6 +111,24 @@ Sources: `docs/prd.md` section 10 (approved 2026-11-19), `docs/design.md` sectio
 | T-055 | Run execution `/runs/view?id=`: two panes (case list with result filter, case pane), result control, Fail and Blocked forms with required text, notes, linked issue (FR-123), saved time, current case in the URL, single-key shortcuts and their dialog, complete and reopen, copy run summary, narrow layout; moved from T-054 (decisions 2026-11-23): "Test runs" in the sidebar and on the index, run names linking to the run, Create run opening the new run, and New run with these on `/cases` (design 13.3 P2-01) | FR-111; FR-113 AC-2, AC-3, AC-5; FR-123; FR-090 AC-1; US-014; NFR-008; EC-033 | T-054 | Matches the approved prototype; every FR-111 AC has an E2E case; the shortcuts never fire inside text fields or dialogs; two tabs saving different cases keep both results | E2E (including two pages on one context), keyboard only, axe in both themes | Medium (shortcuts and focus) | done |
 | T-056 | Cross-cutting E2E for slice 2a (idle, axe, focus rings, reduced motion, request allowlist, no crypto chunk on the QA routes, initial JS); traceability test extended to Phase 2 with the shipped requirement list; NFR-023 long-task check for export and import of 1,000 cases and 20 runs; test-id list; README; live-site check | FR-001 AC-5; NFR-001, NFR-003, NFR-005, NFR-006, NFR-008, NFR-009, NFR-011, NFR-015, NFR-025; FR-091 AC-6 | T-050, T-053, T-055 | All specs green in three browsers; every slice 2a FR is named by a test; the live site lists Test cases and Test runs | CI; live site after merge | Low | done |
 
+
+### M5 Slice 2b
+
+Sources: `docs/prd.md` section 10 (FR-091 screenshots, FR-092, FR-112, FR-120 to FR-122, NFR-023, NFR-024, EC-029, EC-030, EC-032, EC-034, EC-035, EC-038, and the checks in 10.7), `docs/design.md` section 13 (P2-04 screenshot area, P2-05 bug report, image viewer, copy in 13.7) and `prototype/run-execution.html`, findings F-7 to F-13 below. Approved by the owner on 2026-11-24, with every proposal in F-7 to F-13.
+
+| ID | Task | FR/US/NFR | Depends on | Definition of done | How to verify | Risk | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T-057 | Spike: the browser facts slice 2b depends on (PRD 10.7). In a worker: `createImageBitmap` for PNG, JPEG, WebP, GIF (first frame), AVIF, and HEIC; `OffscreenCanvas.convertToBlob` with `image/webp` and `image/jpeg` at 0.8, and what each browser returns when it cannot encode WebP; decode and resize time and memory for 12 and 50 megapixel images; transparency flattened on white for JPEG. Also: a `Blob` stored in and read back from IndexedDB; `navigator.storage.persist()` and `estimate()` per browser; several downloads from one click (Download all, FR-122 AC-2); the Jira wiki escaping rules from Atlassian's text formatting notation (FR-121 AC-2) | FR-112 AC-2, AC-5; FR-092 AC-2; FR-121 AC-2; FR-122 AC-2; NFR-023; EC-030 | none | A throwaway route and worker prove each fact in Chromium, Firefox, and WebKit; results, per-browser fallbacks, and the escaping rules are written to `docs/decisions.md`; the route is removed before merge | Playwright on the built site in three browsers; the Jira rules quoted from Atlassian's page | **High**: the image pipeline and the WebP fallback rest on these facts | todo |
+| T-058 | QA core for 2b in `lib/core/qa`: screenshot limits (PRD 10.5: 5 per result, 25 MB and 50 megapixels in, 1,920 px long edge out) and error kinds with their copy; attachment file names `<case key>-<run id short>-<n>.<ext>`; the bug report builder (summary from title and first line of the actual result, shortened to the limit; steps 1 to n; expected from step n or the case; priority and labels from the case; run and case reference); Markdown and Jira renderers with escaping | FR-112 AC-5, AC-6; FR-120 AC-1 to AC-6; FR-121 AC-2 to AC-4; FR-122 AC-1; EC-035 | T-057, T-048 | Every limit has a boundary test; the renderers match golden files for the awkward-text set in FR-121 AC-4 (braces, pipes, asterisks, backticks, leading `#`, `{code}`, line breaks inside a step) | Vitest, mutation check of the escaping | Medium (escaping rules) | todo |
+| T-059 | Image worker `lib/workers/image.worker.ts` with a typed message protocol and a client: check the input limits, decode, scale the long edge to 1,920 px, flatten transparency for JPEG, take the first GIF frame, encode WebP (JPEG where the browser cannot) at 0.8; typed errors (not an image, cannot decode, too large); the worker loads on the first image only | FR-112 AC-2, AC-5; NFR-023, NFR-025; EC-030 | T-057, T-058 | Adding a 12-megapixel image gives no main-thread task over 200 ms; the output's long edge, type, and quality follow AC-2 in each browser; no worker chunk is requested before the first image | Vitest for the protocol and the size rules; E2E with fixture images in three browsers; Chromium long-task check | Medium | todo |
+| T-060 | Storage schema v3: `screenshots` store (finding F-8), migration 3; storage methods to add a screenshot with the per-result limit checked in the same transaction, delete one, list a result's screenshots, and save a result together with its pending screenshots (finding F-7); deleting a run deletes its screenshots in the same transaction; a quota error becomes its own error kind (EC-032); `runs.svelte.ts` keeps screenshot metadata, not blobs | FR-112 AC-4, AC-6; FR-113 AC-4; FR-092 AC-3; NFR-016, NFR-024, NFR-026; EC-032, EC-034 | T-049, T-057 | A v2 database upgrades with every record kept; no blob survives its run; a failing write leaves nothing half-written; the sixth screenshot is refused even from two tabs | Vitest with `fake-indexeddb`; E2E: upgrade from a v2 database seeded in the browser | Medium (second migration on real data) | todo |
+| T-061 | Backup v3: export `schemaVersion` 3 with every screenshot as base64 and its media type; the expected file size shown before the download starts; import accepts v1 to v3 (each version step a data transform, note N-1); guards for invalid base64, an unknown media type, or a screenshot of a missing result, naming the record; building and reading the file move to a worker (finding F-9) | FR-091 AC-2 to AC-6; NFR-023; EC-032, EC-037, EC-038 | T-050, T-060 | Export and import of the PRD 10.5 data set with 200 screenshots give no main-thread task over 200 ms; a v2 file imports with no screenshots; every guard has a negative test; an import over the quota writes nothing | Vitest for the transforms and guards; Chromium long-task E2E with the full data set, as in T-056 | **High** (large files, memory, a worker for the whole backup) | todo |
+| T-062 | UI primitives from design 13.5 and 13.6, added to `/components`: screenshot area (empty, compressing, thumbnails, full, error), thumbnail with its remove button, image viewer dialog (Escape closes, focus returns to the thumbnail), the thumbnail-added transition; `blob:` added to the CSP's `img-src` (finding F-13) | FR-112 AC-1, AC-3; NFR-006, NFR-008, NFR-009, NFR-017 | T-051 | Every state renders in both themes; reduced motion removes the transition; the viewer traps and restores focus; the CSP allows `blob:` images and nothing else new | E2E on `/components`, axe in both themes; `csp.spec.ts` | Low | todo |
+| T-063 | Screenshots in run execution (P2-04): paste anywhere in the result panel, also with focus in a text field, with the image winning over text (EC-029); drop; choose a file; compressing placeholder; thumbnails with alt text; viewer; delete with confirmation; the limit; every error from 13.7, the quota error with storage used and a link to Settings; read-only on a completed run; the run delete dialog counts screenshots; the live region "Screenshot added, 2 of 5." | FR-112 AC-1 to AC-6; FR-113 AC-4; FR-092 AC-3; EC-029, EC-030, EC-032, EC-034 | T-059, T-060, T-062 | Every FR-112 AC has an E2E case; a text paste into Notes still pastes text; a deleted run leaves no blob | E2E with fixture images and a synthetic clipboard in three browsers; blob count after deletes | Medium (paste and clipboard differ per browser) | todo |
+| T-064 | Persistent storage in Settings: storage used and available, persistent or not, and "Keep data persistent" calling `navigator.storage.persist()` only on that click, with the browser's answer shown | FR-092 AC-1, AC-2 | T-057 | The request is never made without a click; each answer from T-057 has its copy; the section degrades where the API is missing | E2E with the API stubbed per answer, in three browsers | Low | todo |
+| T-065 | Bug report dialog (P2-05): Create bug report on a saved failure; fields pre-filled and editable; format control (Markdown or Jira), remembered (finding F-10); Preview of the exact text; Copy report with its toast; closing after an edit asks first; Attachments with file names, a download each, and Download all; full-screen below 640 px | FR-120 AC-1 to AC-6; FR-121 AC-1 to AC-3; FR-122 AC-1, AC-2; NFR-008, NFR-009 | T-058, T-063 | The copy uses the edits; reopening starts from the result again; downloads carry the FR-122 names; keyboard only from Create bug report to Copy report | E2E with a clipboard recorder and download events in three browsers, axe in both themes | Medium | todo |
+| T-066 | Cross-cutting E2E for slice 2b (idle, axe, focus rings, reduced motion, request allowlist, no crypto chunk, the image worker only after the first image, initial JS); traceability list extended with FR-092, FR-112, and FR-120 to FR-122; NFR-024 blob count after every kind of delete; README; live-site check | NFR-001, NFR-003, NFR-006, NFR-008, NFR-009, NFR-011, NFR-015, NFR-024, NFR-025 | T-061, T-063 to T-065 | All specs green in three browsers; every slice 2b FR is named by a test; journey J-8 works on the live site | CI; live site after merge | Low | todo |
+
 ## Coverage check
 
 Every Phase 1 FR is covered by at least one task:
@@ -145,7 +164,19 @@ Slice 2a:
 | FR-113 | T-048, T-054, T-055 |
 | FR-123 (moved from 2b, finding F-3) | T-055 |
 
-FR-091 screenshots, FR-092, FR-112, and FR-120 to FR-122 belong to slice 2b; FR-130 to FR-151 to slice 2c.
+Slice 2b:
+
+| FR | Tasks |
+| --- | --- |
+| FR-091 (screenshots) | T-060, T-061 |
+| FR-092 | T-057, T-060, T-063, T-064 |
+| FR-112 | T-057 to T-060, T-062, T-063 |
+| FR-113 AC-4 (screenshots deleted with the run) | T-060, T-063 |
+| FR-120 | T-058, T-065 |
+| FR-121 | T-057, T-058, T-065 |
+| FR-122 | T-057, T-058, T-065 |
+
+FR-130 to FR-151 belong to slice 2c. FR-121 AC-5 (Markdown pasted into Jira Cloud) is checked by hand by the owner (see Owner actions).
 
 ## Task notes
 
@@ -386,6 +417,15 @@ FR-091 screenshots, FR-092, FR-112, and FR-120 to FR-122 belong to slice 2b; FR-
 
 ## Findings while planning
 
+* **Slice 2b (2026-11-24, approved by the owner with this plan):**
+  * **F-7: a screenshot before its result is saved.** A tester usually picks Fail, pastes the screenshot, then writes the actual result, but the result record only exists after Save result, and FR-091 AC-5 refuses a screenshot without a result. Compressed images wait in the case's draft in memory (as the unsaved form does since T-055) and are written with the result in one transaction; on a stored result they are written at once. Rejected: allowing screenshots only after a save (breaks the usual order), and storing screenshots for an untested case (an orphan the import guard would refuse).
+  * **F-8: one screenshots store for results now and findings in 2c.** Each record holds `owner`, an array key such as `['result', runId, caseNumber]` (later `['finding', sessionId, findingId]`), with an index on it, plus `n`, `mediaType`, `width`, `height`, `size`, `createdAt`, and the `blob`. One key range reads or deletes a result's, or a whole run's, screenshots, and slice 2c needs no migration. Rejected: `runId` and `caseNumber` fields (2c would need schema v4).
+  * **F-9: the backup moves to a worker.** The 10.5 data set with 200 screenshots makes a file of roughly 40 to 60 MB of base64. Building or parsing that on the main thread is a long task by itself, so T-061 moves `createBackup` and `parseBackup` into a worker, not only the base64 step NFR-023 names. Memory during an export or import is expected to exceed the idle heap budget (NFR-004 measures idle only); T-061 reports the peak.
+  * **F-10: the report format is remembered in `localStorage`.** Key `qanchor.reportFormat`, read on opening the dialog, not part of the backup. Why: a per-browser preference like a collapsed panel; the theme is in the backup because FR-003 names it.
+  * **F-11: screenshots stay when a result changes status.** No result history (FR-111 AC-6): the screenshots belong to the case's result, so a failure retested as Pass keeps its evidence until removed by hand. Stated in the delete dialog counts; no extra copy.
+  * **F-12: Download all may be blocked.** Chromium asks before a page starts several downloads; the other browsers may save only the first. T-057 checks it; if a browser refuses, Download all saves the files one after another on clicks the browser allows, and the copy says so. No zip (FR-122 AC-2).
+  * **F-13: the CSP must allow `blob:` images.** Thumbnails and the viewer show stored blobs through object URLs, and `img-src` is `'self' data:` today (`vite.config.ts`, ADR-007), so every thumbnail would be blocked. T-062 adds `blob:` to `img-src` only, with `csp.spec.ts` updated; object URLs can only point at this page's own blobs. Rejected: thumbnails as `data:` URLs (a base64 copy of every image in memory and in the DOM).
+
 * **Slice 2a (2026-11-19):**
   * **F-2: no `url.searchParams` while prerendering.** SvelteKit throws if a prerendered page reads the query string during the build, so a record page cannot know its ID until it runs in the browser. Every record page therefore renders a loading state in its HTML and reads the ID after hydration, which matches FR-090 AC-4. T-047 proves the pattern (reload, history, `replaceState`, the unsaved-changes guard) before any record page is built.
   * **F-3: FR-123 (linked issue) moves from slice 2b to 2a.** It is one optional field on a result and is already in the approved prototype; shipping it with results avoids a second change to the result record and its import guard. Approved by the owner with this plan on 2026-11-19; PRD 10.1 is updated.
@@ -503,4 +543,5 @@ FR-091 screenshots, FR-092, FR-112, and FR-120 to FR-122 belong to slice 2b; FR-
 * Review the checklist content (T-032) at the end of Phase 1 (deferred by the owner on 2026-11-17; it merged without that review).
 * ~~Connect the GitHub repository to Cloudflare Pages (T-024).~~ Done 2026-11-16.
 * Open by hand and confirm the page shows the transaction (T-035, `docs/architecture.md` 5.1): `bscscan.com/tx/…`, `testnet.bscscan.com/tx/…`, `sepolia.basescan.org/tx/…`, `tronscan.org/#/transaction/…`. Also open `faucet.polygon.technology` and `portal.cdp.coinbase.com/onchain-tools/faucet` (5.2). Automation stops at their bot check.
+* Paste a Markdown bug report into the Jira Cloud editor once and say whether the headings and the numbered list render (FR-121 AC-5, after T-065); the result goes to `docs/decisions.md`.
 * Approve each task's merge, as agreed.
