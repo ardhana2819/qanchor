@@ -1,11 +1,21 @@
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { sha256 } from '@noble/hashes/sha2.js';
-import { expect, test, type Locator, type Page, type Request } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { base58check } from '@scure/base';
-import { appOpened, putRecords, scanA11y, tabTo } from './helpers.ts';
+import {
+	appOpened,
+	controlsWithoutFocusRing,
+	hasCrypto,
+	putRecords,
+	recordRequests,
+	scanA11y,
+	scriptBodies,
+	tabTo
+} from './helpers.ts';
 
-// Cross-cutting checks for Phase 1 (T-023 for slice 1a, T-034 for slice 1b, T-046 for slice 1c):
+// Cross-cutting checks for Phase 1 (T-023 for slice 1a, T-034 for slice 1b, T-046 for slice 1c;
+// the QA routes of Phase 2 are in cross-cutting-qa.spec.ts):
 // every shipped route and tool against the non-functional requirements that apply to all of them. Per-tool behaviour
 // lives in each tool's own spec.
 
@@ -35,9 +45,6 @@ const TOOL_ROUTES = [
 	'/checklists/deposit'
 ];
 
-/** Strings that only appear in crypto code (our Taproot tag, noble's scalar check). */
-const CRYPTO_MARKERS = ['TapTweak', 'invalid scalar'];
-
 /** A 32-byte private key in hex. */
 const HEX_KEY = /[0-9a-fA-F]{64}/;
 
@@ -63,12 +70,6 @@ function wifKeys(text: string): string[] {
 				return false;
 			}
 		});
-}
-
-function recordRequests(page: Page): Request[] {
-	const requests: Request[] = [];
-	page.on('request', (request) => requests.push(request));
-	return requests;
 }
 
 /**
@@ -433,22 +434,6 @@ test('no private key reaches the page, storage, requests, or an export (NFR-012)
 });
 
 test.describe('crypto code loads only where and when it is needed (FR-001 AC-5, NFR-015)', () => {
-	/**
-	 * Every script the page requested, fetched again by URL: Chromium does not keep the response
-	 * body of a worker script, and the dummy-data worker must be checked too.
-	 */
-	async function scriptBodies(page: Page, requests: Request[]): Promise<string[]> {
-		const urls = new Set(
-			requests
-				.filter((r) => r.resourceType() === 'script' || r.url().endsWith('.js'))
-				.map((r) => r.url())
-		);
-		return Promise.all([...urls].map(async (url) => (await page.request.get(url)).text()));
-	}
-
-	const hasCrypto = (bodies: string[]) =>
-		bodies.some((body) => CRYPTO_MARKERS.some((marker) => body.includes(marker)));
-
 	test('the default route and the non-crypto tools load no crypto chunk', async ({ page }) => {
 		const requests = recordRequests(page);
 		await page.goto('/');
@@ -809,28 +794,7 @@ test.describe('every tool works from the keyboard alone (NFR-008)', () => {
 		test(`${path}: every focusable control shows a focus ring`, async ({ page }) => {
 			await page.goto(path);
 			await appOpened(page);
-			const missing: string[] = [];
-
-			for (let i = 0; i < 40; i++) {
-				await page.keyboard.press('Tab');
-				const ring = await page.evaluate(() => {
-					const el = document.activeElement as HTMLElement | null;
-					if (!el || el === document.body) return null;
-					const style = getComputedStyle(el);
-					// Native radios and checkboxes inside custom controls draw the ring on a sibling.
-					const sibling = el.nextElementSibling ? getComputedStyle(el.nextElementSibling) : null;
-					const visible = (s: CSSStyleDeclaration | null) =>
-						!!s &&
-						((s.outlineStyle !== 'none' && s.outlineWidth !== '0px') || s.boxShadow !== 'none');
-					return {
-						name: `${el.tagName} ${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 30)}`,
-						ok: visible(style) || visible(sibling)
-					};
-				});
-				if (ring && !ring.ok) missing.push(ring.name);
-			}
-
-			expect(missing).toEqual([]);
+			expect(await controlsWithoutFocusRing(page)).toEqual([]);
 		});
 	}
 });

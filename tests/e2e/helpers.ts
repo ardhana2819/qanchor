@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page, type Request } from '@playwright/test';
 
 /**
  * Waits until /components has hydrated. Typing into a prerendered input before that can race
@@ -144,4 +144,53 @@ export async function tabTo(page: Page, target: Locator, limit = 60, key = 'Tab'
 		await page.keyboard.press(key);
 	}
 	throw new Error(`${key} never reached ${target}`);
+}
+
+/** Every request the page makes from now on. */
+export function recordRequests(page: Page): Request[] {
+	const requests: Request[] = [];
+	page.on('request', (request) => requests.push(request));
+	return requests;
+}
+
+/** Strings that only appear in crypto code (our Taproot tag, noble's scalar check). */
+const CRYPTO_MARKERS = ['TapTweak', 'invalid scalar'];
+
+/**
+ * Every script the page requested, fetched again by URL: Chromium does not keep the response
+ * body of a worker script, and worker scripts must be checked too.
+ */
+export async function scriptBodies(page: Page, requests: Request[]): Promise<string[]> {
+	const urls = new Set(
+		requests
+			.filter((r) => r.resourceType() === 'script' || r.url().endsWith('.js'))
+			.map((r) => r.url())
+	);
+	return Promise.all([...urls].map(async (url) => (await page.request.get(url)).text()));
+}
+
+export const hasCrypto = (bodies: string[]): boolean =>
+	bodies.some((body) => CRYPTO_MARKERS.some((marker) => body.includes(marker)));
+
+/** Tabs through the page `presses` times and names each focused control that shows no ring. */
+export async function controlsWithoutFocusRing(page: Page, presses = 40): Promise<string[]> {
+	const missing: string[] = [];
+	for (let i = 0; i < presses; i++) {
+		await page.keyboard.press('Tab');
+		const ring = await page.evaluate(() => {
+			const el = document.activeElement as HTMLElement | null;
+			if (!el || el === document.body) return null;
+			const style = getComputedStyle(el);
+			// Native radios and checkboxes inside custom controls draw the ring on a sibling.
+			const sibling = el.nextElementSibling ? getComputedStyle(el.nextElementSibling) : null;
+			const visible = (s: CSSStyleDeclaration | null) =>
+				!!s && ((s.outlineStyle !== 'none' && s.outlineWidth !== '0px') || s.boxShadow !== 'none');
+			return {
+				name: `${el.tagName} ${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 30)}`,
+				ok: visible(style) || visible(sibling)
+			};
+		});
+		if (ring && !ring.ok) missing.push(ring.name);
+	}
+	return missing;
 }
