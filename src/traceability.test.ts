@@ -2,9 +2,10 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-// Phase 1 completion check (T-046): every functional requirement in docs/prd.md section 5.2 is
-// named by at least one unit or E2E test, so a requirement cannot ship, or stay shipped, without
-// one. Retired requirements are skipped. Whether each test passes is CI's job.
+// Completion checks: every shipped functional requirement is named by at least one unit or E2E
+// test, so a requirement cannot ship, or stay shipped, without one. Phase 1 (T-046) reads
+// docs/prd.md section 5.2, retired requirements skipped; Phase 2 (T-056) reads section 10.3 and
+// checks the slices shipped so far. Whether each test passes is CI's job.
 
 const root = join(import.meta.dirname, '..');
 
@@ -14,23 +15,60 @@ function testFiles(dir: string): string[] {
 		.map((file) => join(dir, file));
 }
 
-function phase1Requirements(): { id: string; title: string }[] {
-	const prd = readFileSync(join(root, 'docs/prd.md'), 'utf8');
-	const section = prd.slice(
-		prd.indexOf('### 5.2 Functional requirements'),
-		prd.indexOf('## 6. Non-functional requirements')
-	);
-	return [...section.matchAll(/^\*\*(FR-\d{3}): ([^*]+)\*\*/gm)]
-		.map(([, id, title]) => ({ id, title: title.trim() }))
-		.filter(({ title }) => !/^retired/i.test(title));
+const prd = readFileSync(join(root, 'docs/prd.md'), 'utf8');
+
+/** The `**FR-nnn: Title**` headings between two PRD headings. */
+function requirementsBetween(start: string, end: string): { id: string; title: string }[] {
+	const section = prd.slice(prd.indexOf(start), prd.indexOf(end));
+	return [...section.matchAll(/^\*\*(FR-\d{3}): ([^*]+)\*\*/gm)].map(([, id, title]) => ({
+		id,
+		title: title.trim()
+	}));
 }
+
+function phase1Requirements(): { id: string; title: string }[] {
+	return requirementsBetween(
+		'### 5.2 Functional requirements',
+		'## 6. Non-functional requirements'
+	).filter(({ title }) => !/^retired/i.test(title));
+}
+
+/**
+ * The Phase 2 requirements of the shipped slices (PRD 10.1). FR-091 is shared with slice 2b, which
+ * adds screenshots to it. Extend this list as each slice ships.
+ */
+const SHIPPED_PHASE_2 = [
+	'FR-090',
+	'FR-091',
+	'FR-100',
+	'FR-101',
+	'FR-102',
+	'FR-110',
+	'FR-111',
+	'FR-113',
+	'FR-123'
+];
+
+function phase2Requirements(): { id: string; title: string }[] {
+	return requirementsBetween(
+		'### 10.3 Functional requirements',
+		'### 10.4 Non-functional requirements (Phase 2)'
+	);
+}
+
+const files = [...testFiles('src'), ...testFiles('tests')].filter(
+	(file) => !file.endsWith('traceability.test.ts')
+);
+const sources = files.map((file) => readFileSync(join(root, file), 'utf8'));
+
+/** "FR-nnn: Title" for each requirement no test names. */
+const untested = (requirements: { id: string; title: string }[]) =>
+	requirements
+		.filter(({ id }) => !sources.some((source) => new RegExp(`\\b${id}\\b`).test(source)))
+		.map(({ id, title }) => `${id}: ${title}`);
 
 describe('Phase 1 traceability', () => {
 	const requirements = phase1Requirements();
-	const files = [...testFiles('src'), ...testFiles('tests')].filter(
-		(file) => !file.endsWith('traceability.test.ts')
-	);
-	const sources = files.map((file) => readFileSync(join(root, file), 'utf8'));
 
 	it('reads the requirement list from the PRD', () => {
 		expect(requirements.length).toBe(33);
@@ -39,9 +77,22 @@ describe('Phase 1 traceability', () => {
 	});
 
 	it('names every Phase 1 functional requirement in at least one test', () => {
-		const untested = requirements
-			.filter(({ id }) => !sources.some((source) => new RegExp(`\\b${id}\\b`).test(source)))
-			.map(({ id, title }) => `${id}: ${title}`);
-		expect(untested).toEqual([]);
+		expect(untested(requirements)).toEqual([]);
+	});
+});
+
+describe('Phase 2 traceability', () => {
+	const requirements = phase2Requirements();
+	const shipped = requirements.filter(({ id }) => SHIPPED_PHASE_2.includes(id));
+
+	it('reads the requirement list from the PRD', () => {
+		expect(requirements.length).toBe(21);
+		expect(requirements[0]).toEqual({ id: 'FR-090', title: 'QA navigation and record routes' });
+		// Every shipped ID is a Phase 2 requirement, so a typo cannot hide one.
+		expect(shipped.map((r) => r.id)).toEqual(SHIPPED_PHASE_2);
+	});
+
+	it('names every shipped Phase 2 functional requirement in at least one test', () => {
+		expect(untested(shipped)).toEqual([]);
 	});
 });

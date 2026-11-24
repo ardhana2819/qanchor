@@ -489,6 +489,14 @@ Decided by the owner before the Phase 2 requirements were drafted (`docs/prd.md`
 * Below 1024 px the case list is a disclosure above the case ("Case n of N · show all").
 * Moved in from T-054: "Test runs" in the QA group of the sidebar and on the index, run names link to the run, Create run opens the new run, and "New run with these" on `/cases` opens `/runs/new` with the list's filter (shown only when a case matches).
 
+### 2026-11-24: Slice 2a cross-cutting checks (T-056)
+
+* The QA routes get their own spec, `tests/e2e/cross-cutting-qa.spec.ts`, with stored records (three cases, a run with a Pass and a Fail), so the record pages are checked with content rather than their not-found state. `cross-cutting.spec.ts` stays the Phase 1 spec; the request recorder, the crypto-chunk check, and the focus-ring walk move to `helpers.ts` and serve both.
+* NFR-025 is checked by marker strings from the QA pages' code ("Pass is saved at once", "New run with these", "Write a test case first."): `/`, `/address`, and `/settings` load none of them, and the run page does, which proves the markers mark QA code.
+* The focus-ring walk accepts a ring drawn by the focused control's parent: the tag input draws it on its wrapper with `:has(input:focus-visible)`. The ring is visible; the old walk only looked at the control and its next sibling.
+* FR-091 AC-6 and NFR-023 for slice 2a: exporting and importing the PRD 10.5 data set without screenshots (1,000 cases, 20 runs of 100 cases, 2,000 results; a 3.0 MB file) gives no main-thread task over 200 ms. Measured at 4x CPU throttle in Chromium: at most 119 ms over three runs, so the backup code stays on the main thread. A first measure of 703 ms at 4x was Playwright's own script turning a 3 MB buffer into a File in the page (seen in a CPU profile; the app's code took about 25 ms of it); the test passes the downloaded file by path instead. Screenshots join the data set in slice 2b, with the worker NFR-023 asks for.
+* `src/traceability.test.ts` gains a Phase 2 check: it reads the 21 requirements of PRD section 10.3 and requires every ID in its shipped list (slice 2a: FR-090, FR-091, FR-100 to FR-102, FR-110, FR-111, FR-113, FR-123) to be named by a test. The list must hold Phase 2 IDs only, so a typo fails the test. Slices 2b and 2c extend the list.
+
 ## Architecture decision records
 
 Full context in `docs/architecture.md` (approved 2026-11-12). ADR-001 to ADR-010 were chosen option by option; ADR-011 to ADR-014 were accepted with the architecture document. The same approval added `@fontsource-variable/inter` and `@axe-core/playwright` to the stack in `CLAUDE.md`.

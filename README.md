@@ -29,7 +29,7 @@ Interactive elements have accessible names, and dynamic output also carries a st
 
 ## Roadmap
 
-* Phase 2: test cases, test runs with screenshots, Jira-format bug reports, exploratory session notes, release summary.
+* Phase 2: test cases and test runs are live (slice 2a). Next: screenshots on results, Jira-format bug reports, and persistent storage (2b); exploratory session notes, a release summary, and links from the Phase 1 tools (2c).
 * Phase 3: generate test cases from a PRD (PDF, DOCX, Markdown) with ambiguity questions and a traceability matrix, using your own Claude API key.
 * Phase 4: demo mode with a sample crypto PRD, usable without an API key.
 * Later, not planned: an optional backend for team sharing, sync across devices, and an RPC proxy.
