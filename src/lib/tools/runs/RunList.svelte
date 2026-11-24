@@ -18,7 +18,6 @@
 	import { deletedRunText, deleteRunBody, deleteRunTitle, progressText } from './present.ts';
 
 	// Test runs (design 13.3 P2-03; FR-113 AC-1, AC-4). Newest first, as the store keeps them.
-	// Run names link to the run page once it exists (T-055).
 
 	let list: HTMLDivElement | undefined = $state();
 	// Read once when the list is shown; "Created" times do not tick (NFR-005).
@@ -86,7 +85,7 @@
 </script>
 
 {#snippet nameCell(run: Run)}
-	<span class="name">{run.name}</span>
+	<a class="name" href={resolve(`/runs/view?id=${encodeURIComponent(run.id)}`)}>{run.name}</a>
 {/snippet}
 
 {#snippet releaseCell(run: Run)}
@@ -191,8 +190,14 @@
 	}
 
 	.name {
+		color: var(--color-accent);
 		font-weight: 500;
+		text-decoration: none;
 		overflow-wrap: anywhere;
+	}
+
+	.name:hover {
+		text-decoration: underline;
 	}
 
 	.progress {
