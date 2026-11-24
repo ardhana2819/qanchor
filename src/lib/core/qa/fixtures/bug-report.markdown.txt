@@ -1,0 +1,35 @@
+**Summary:** Withdraw \*all\* to \[ERC-20\] address \| \`max\`: Balance shows \~0\~ ^1^ +5+ -- error -- ??
+**Priority:** High · **Labels:** withdrawal, edge\_case
+
+### Environment
+Android 14 · build 2.3.0-rc2\
+Sepolia \| chain id 11155111
+
+### Preconditions
+\# Funded wallet\
+{code}seed{code} stays offline
+
+\- one \*bold\* line
+
+### Steps to reproduce
+1. Open \`Withdraw\` \> USDT\_TRC20
+2. Enter 1.5\
+   2\. this line is not a step\
+   \- nor this one
+
+### Expected result
+Balance drops by 1.5 + fee {color:red}
+
+### Actual result
+Balance shows \~0\~ ^1^ +5+ -- error -- ??\
+h3. Not a heading\
+\## Not one either\
+\\ backslash \& \<b\>bold\</b\> !img.png!
+
+### Notes
+See https://example.com/a\_b?x=1-2 and C:\\temp\
+1\. not a list\
+Run: Smoke \[rc\] \*2\* (v2.3.0), case TC-12.
+
+### Attachments
+- TC-12-1a2b3c4d-1.webp

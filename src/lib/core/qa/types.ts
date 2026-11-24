@@ -4,6 +4,13 @@
 export const PRIORITIES = ['critical', 'high', 'medium', 'low'] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
+export const PRIORITY_LABELS: Record<Priority, string> = {
+	critical: 'Critical',
+	high: 'High',
+	medium: 'Medium',
+	low: 'Low'
+};
+
 /** A new case starts at Medium (FR-100 AC-6). */
 export const DEFAULT_PRIORITY: Priority = 'medium';
 

@@ -1,17 +1,11 @@
 import { formatKey } from '#lib/core/qa/keys.ts';
 import { CASES_MAX } from '#lib/core/qa/validation.ts';
-import type { Priority } from '#lib/core/qa/types.ts';
 import type { CaseSaveError } from '#lib/state/test-cases.svelte.ts';
 import { WRITE_ERRORS } from '#lib/tools/wallets/present.ts';
 
 // Copy for the test case list (design 13.3 P2-01, 13.7).
 
-export const PRIORITY_LABELS: Record<Priority, string> = {
-	critical: 'Critical',
-	high: 'High',
-	medium: 'Medium',
-	low: 'Low'
-};
+export { PRIORITY_LABELS } from '#lib/core/qa/types.ts';
 
 export const SAVE_ERRORS: Record<CaseSaveError, string> = {
 	...WRITE_ERRORS,
