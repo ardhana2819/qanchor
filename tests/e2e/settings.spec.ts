@@ -13,10 +13,20 @@ interface Records {
 	testCases: Record<string, unknown>[];
 	runs: Record<string, unknown>[];
 	results: Record<string, unknown>[];
+	/** Read back with each image's bytes as an array of numbers (see `readRecords`). */
+	screenshots: Record<string, unknown>[];
 }
 
-const STORES = ['endpoints', 'wallets', 'faucets', 'testCases', 'runs', 'results'] as const;
-const NO_QA = { testCases: [], runs: [], results: [] };
+const STORES = [
+	'endpoints',
+	'wallets',
+	'faucets',
+	'testCases',
+	'runs',
+	'results',
+	'screenshots'
+] as const;
+const NO_QA = { testCases: [], runs: [], results: [], screenshots: [] };
 
 const testCase = {
 	id: 'c1',
@@ -82,7 +92,8 @@ const STORED: Records = {
 	],
 	testCases: [testCase],
 	runs: [run],
-	results: [result]
+	results: [result],
+	screenshots: []
 };
 
 /** A Phase 1 (schema version 1) backup: no Phase 2 lists (FR-091 AC-3). */
@@ -130,12 +141,51 @@ function readRecords(page: Page): Promise<Records> {
 					const out = {} as Records;
 					for (const name of stores) {
 						const all = tx.objectStore(name).getAll();
-						all.onsuccess = () => (out[name] = all.result);
+						all.onsuccess = () =>
+							(out[name] = all.result.map((record) =>
+								record.bytes instanceof ArrayBuffer
+									? { ...record, bytes: [...new Uint8Array(record.bytes)] }
+									: record
+							));
 					}
 					tx.oncomplete = () => (db.close(), resolve(out));
 				};
 			}),
 		[...STORES]
+	);
+}
+
+/**
+ * Stores screenshots of the stored result, each image `size` bytes made in the page (a test
+ * argument cannot carry an ArrayBuffer). Byte i of image k is (i + k) % 256.
+ */
+function writeScreenshots(page: Page, sizes: number[]) {
+	return page.evaluate(
+		(sizes) =>
+			new Promise<void>((resolve, reject) => {
+				const request = indexedDB.open('qanchor');
+				request.onsuccess = () => {
+					const db = request.result;
+					const tx = db.transaction('screenshots', 'readwrite');
+					sizes.forEach((size, k) => {
+						const bytes = new Uint8Array(size).map((_, i) => (i + k) % 256);
+						tx.objectStore('screenshots').put({
+							id: `shot-${k + 1}`,
+							owner: ['result', 'r1', 4],
+							n: k + 1,
+							mediaType: k % 2 ? 'image/jpeg' : 'image/webp',
+							width: 1920,
+							height: 1080,
+							size,
+							createdAt: 1794500000000 + k,
+							bytes: bytes.buffer
+						});
+					});
+					tx.oncomplete = () => (db.close(), resolve());
+					tx.onerror = () => reject(tx.error);
+				};
+			}),
+		sizes
 	);
 }
 
@@ -190,7 +240,7 @@ test('Export downloads every record with the schema version and the theme (FR-00
 
 	expect(download.suggestedFilename()).toMatch(/^qanchor-backup-\d{4}-\d{2}-\d{2}\.json$/);
 	const file = JSON.parse(await readFile((await download.path())!, 'utf8'));
-	expect(file).toMatchObject({ app: 'qanchor', schemaVersion: 2 });
+	expect(file).toMatchObject({ app: 'qanchor', schemaVersion: 3 });
 	expect(Date.parse(file.exportedAt)).not.toBeNaN();
 	const records = Object.fromEntries(STORES.map((name) => [name, file.data[name]])) as Records;
 	expect(sortById(records)).toEqual(sortById(STORED));
@@ -219,6 +269,7 @@ test('import shows stored-now against after-import counts, then replaces everyth
 	await expect(rows.filter({ hasText: 'Test cases' })).toHaveText(/Test cases\s*1\s*0/);
 	await expect(rows.filter({ hasText: 'Test runs' })).toHaveText(/Test runs\s*1\s*0/);
 	await expect(rows.filter({ hasText: 'Results' })).toHaveText(/Results\s*1\s*0/);
+	await expect(rows.filter({ hasText: 'Screenshots' })).toHaveText(/Screenshots\s*0\s*0/);
 	await expect(rows.filter({ hasText: 'Theme' })).toHaveText(/Theme\s*system\s*dark/);
 	await expect(dialog(page)).toContainText(
 		'Importing replaces all existing data. This cannot be undone.'
@@ -230,7 +281,7 @@ test('import shows stored-now against after-import counts, then replaces everyth
 
 	await expect(page.getByText('Import complete', { exact: true }).first()).toBeVisible();
 	await expect(page.getByRole('main')).toContainText(
-		'Imported 3 wallets, 1 endpoint override, 0 faucet links, 0 test cases, 0 test runs, 0 results, and the theme setting.'
+		'Imported 3 wallets, 1 endpoint override, 0 faucet links, 0 test cases, 0 test runs, 0 results, 0 screenshots, and the theme setting.'
 	);
 	expect(sortById(await readRecords(page))).toEqual(
 		sortById({
@@ -267,6 +318,110 @@ test('an export imports back to the same data (round trip)', async ({ page }) =>
 	expect(sortById(await readRecords(page))).toEqual(sortById(STORED));
 });
 
+test.describe('screenshots in the backup (FR-091 AC-2, AC-4)', () => {
+	const sizeDialog = (page: Page) => page.getByRole('dialog', { name: 'Download backup?' });
+
+	test('the file size shows before the download, and Cancel downloads nothing', async ({
+		page
+	}) => {
+		await openSettings(page);
+		await writeScreenshots(page, [300_000, 200_000]);
+		const downloads: string[] = [];
+		page.on('download', (d) => downloads.push(d.suggestedFilename()));
+
+		await page.getByRole('button', { name: 'Export backup' }).click();
+
+		await expect(sizeDialog(page)).toBeVisible();
+		await expect(page.getByTestId('settings-export-size')).toHaveText(
+			/^qanchor-backup-\d{4}-\d{2}-\d{2}\.json, 672 KB, with 2 screenshots\.$/
+		);
+		await sizeDialog(page).getByRole('button', { name: 'Cancel' }).click();
+		await expect(sizeDialog(page)).toBeHidden();
+		await expect(page.getByRole('button', { name: 'Export backup' })).toBeEnabled();
+		expect(downloads).toEqual([]);
+	});
+
+	test('Download saves a file of that size with each image as base64', async ({ page }) => {
+		await openSettings(page);
+		await writeScreenshots(page, [3, 4]);
+		await page.getByRole('button', { name: 'Export backup' }).click();
+		const shown = await page.getByTestId('settings-export-size').textContent();
+
+		const [download] = await Promise.all([
+			page.waitForEvent('download'),
+			sizeDialog(page).getByRole('button', { name: 'Download' }).click()
+		]);
+
+		const bytes = await readFile((await download.path())!);
+		// Shown as file managers show it: decimal kilobytes, one decimal below 10.
+		expect(shown).toContain(
+			`, ${Number((bytes.length / 1000).toFixed(1))} KB, with 2 screenshots.`
+		);
+		const file = JSON.parse(bytes.toString('utf8'));
+		expect(file.data.screenshots).toEqual([
+			{
+				id: 'shot-1',
+				owner: ['result', 'r1', 4],
+				n: 1,
+				mediaType: 'image/webp',
+				width: 1920,
+				height: 1080,
+				createdAt: 1794500000000,
+				data: Buffer.from([0, 1, 2]).toString('base64')
+			},
+			expect.objectContaining({ id: 'shot-2', mediaType: 'image/jpeg', data: 'AQIDBA==' })
+		]);
+		await expect(page.locator('.toast')).toHaveText(`Exported ${download.suggestedFilename()}`);
+	});
+
+	test('an export with screenshots imports back to the same images', async ({ page }) => {
+		await openSettings(page);
+		await writeScreenshots(page, [5, 6]);
+		const before = await readRecords(page);
+		await page.getByRole('button', { name: 'Export backup' }).click();
+		const [download] = await Promise.all([
+			page.waitForEvent('download'),
+			sizeDialog(page).getByRole('button', { name: 'Download' }).click()
+		]);
+		await writeRecords(page, { endpoints: [], wallets: [], faucets: [], ...NO_QA });
+
+		await page.getByLabel('Backup file to import').setInputFiles((await download.path())!);
+		const rows = dialog(page).getByRole('row');
+		await expect(rows.filter({ hasText: 'Screenshots' })).toHaveText(/Screenshots\s*0\s*2/);
+		await dialog(page).getByRole('button', { name: 'Replace all data' }).click();
+
+		await expect(page.getByRole('main')).toContainText('1 result, 2 screenshots, and the theme');
+		expect(sortById(await readRecords(page))).toEqual(sortById(before));
+	});
+
+	test('a v2 file from slice 2a imports with no screenshots (EC-037)', async ({ page }) => {
+		await openSettings(page);
+		await writeScreenshots(page, [3]);
+		const v2 = { ...BACKUP, schemaVersion: 2, data: { ...BACKUP.data, ...STORED } };
+		delete (v2.data as Partial<Records>).screenshots;
+
+		await chooseFile(page, 'qanchor-backup-v2.json', JSON.stringify(v2));
+		const rows = dialog(page).getByRole('row');
+		await expect(rows.filter({ hasText: 'Screenshots' })).toHaveText(/Screenshots\s*1\s*0/);
+		await dialog(page).getByRole('button', { name: 'Replace all data' }).click();
+
+		await expect(page.getByText('Import complete', { exact: true }).first()).toBeVisible();
+		expect((await readRecords(page)).screenshots).toEqual([]);
+	});
+
+	test('the download dialog has no WCAG 2.1 AA violations', async ({ page }) => {
+		await openSettings(page);
+		await writeScreenshots(page, [3]);
+		await page.getByRole('button', { name: 'Export backup' }).click();
+		await expect(sizeDialog(page)).toBeVisible();
+		await sizeDialog(page).evaluate((el) =>
+			Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished))
+		);
+
+		expect(await scan(page)).toEqual([]);
+	});
+});
+
 for (const how of ['Cancel', 'Escape'] as const) {
 	test(`${how} closes the confirmation and changes nothing`, async ({ page }) => {
 		await openSettings(page);
@@ -293,8 +448,8 @@ const BAD_FILES: [string, string, string][] = [
 	],
 	[
 		'qanchor-backup-2027-01-15.json',
-		JSON.stringify({ ...BACKUP, schemaVersion: 3 }),
-		'Unknown schema version 3. This backup comes from a newer version of QAnchor.'
+		JSON.stringify({ ...BACKUP, schemaVersion: 4 }),
+		'Unknown schema version 4. This backup comes from a newer version of QAnchor.'
 	],
 	[
 		'qanchor-backup-hand-edited.json',
@@ -315,6 +470,30 @@ const BAD_FILES: [string, string, string][] = [
 			data: { ...BACKUP.data, ...STORED, results: [{ ...result, caseNumber: 7 }] }
 		}),
 		'Result 1 of 1 ("TC-7") in run "Smoke" is for a case that is not in the run.'
+	],
+	[
+		'qanchor-backup-bad-image.json',
+		JSON.stringify({
+			...BACKUP,
+			schemaVersion: 3,
+			data: {
+				...BACKUP.data,
+				...STORED,
+				screenshots: [
+					{
+						id: 's1',
+						owner: ['result', 'r1', 4],
+						n: 1,
+						mediaType: 'image/webp',
+						width: 10,
+						height: 10,
+						createdAt: 1,
+						data: 'not base64!'
+					}
+				]
+			}
+		}),
+		'Screenshot 1 of 1 ("TC-4") has image data that is not valid base64.'
 	]
 ];
 
