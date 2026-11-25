@@ -8,6 +8,7 @@ import {
 	deleteRunTitle,
 	progressText,
 	runErrorsByField,
+	saveErrorText,
 	selectedText,
 	selectionProblem
 } from './present.ts';
@@ -92,5 +93,17 @@ describe('delete and toast copy (design 13.7)', () => {
 		expect(deleteRunTitle('Smoke')).toBe('Delete run "Smoke"?');
 		expect(deletedRunText('Smoke')).toBe('Deleted run "Smoke".');
 		expect(createdRunText('Smoke')).toBe('Created run "Smoke".');
+	});
+});
+
+describe('saveErrorText', () => {
+	it('uses the storage copy for a storage error and the screenshot copy for a refusal', () => {
+		expect(saveErrorText('closed')).toBe(
+			'QAnchor was updated in another tab. Reload this tab, then try again.'
+		);
+		expect(saveErrorText({ kind: 'limit' })).toBe('5 of 5 screenshots');
+		expect(saveErrorText({ kind: 'storage', usage: 1.9e9, quota: 2e9 })).toBe(
+			'Not enough storage to save this screenshot. 1.9 GB of 2 GB used.'
+		);
 	});
 });

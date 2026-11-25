@@ -1,4 +1,6 @@
-// Records of the QA features (PRD section 10, ADR-015, architecture section 3.1 schema v2).
+import type { ScreenshotType } from './screenshots.ts';
+
+// Records of the QA features (PRD section 10, ADR-015, architecture section 3.1 schema v3).
 // Free text is stored exactly as typed and shown as text, never as HTML (FR-100 AC-8).
 
 export const PRIORITIES = ['critical', 'high', 'medium', 'low'] as const;
@@ -71,3 +73,34 @@ export interface TestResult {
 	linkedIssue: string;
 	updatedAt: number;
 }
+
+/**
+ * What a screenshot belongs to (plan finding F-8): a result now, a session finding in slice 2c.
+ * The owner is an array key, so one key range reads or deletes one result's screenshots or a whole
+ * run's.
+ */
+export type ScreenshotOwner = ['result', runId: string, caseNumber: number];
+
+export interface Screenshot {
+	id: string;
+	owner: ScreenshotOwner;
+	/**
+	 * 1-based: one more than the owner's highest when added, so removing one screenshot leaves the
+	 * others' file names as they were (FR-122).
+	 */
+	n: number;
+	mediaType: ScreenshotType;
+	width: number;
+	height: number;
+	/** Bytes of the stored image. */
+	size: number;
+	createdAt: number;
+	/** An ArrayBuffer, not a Blob: WebKit refuses Blobs in IndexedDB in a private window (T-057). */
+	bytes: ArrayBuffer;
+}
+
+/** A screenshot without its image: what the page keeps in memory (NFR-004). */
+export type ScreenshotMeta = Omit<Screenshot, 'bytes'>;
+
+/** What a new screenshot supplies; the id, owner, number, size, and time are set on save. */
+export type NewScreenshot = Pick<Screenshot, 'mediaType' | 'width' | 'height' | 'bytes'>;

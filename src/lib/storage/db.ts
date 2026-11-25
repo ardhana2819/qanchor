@@ -5,7 +5,15 @@ import {
 	type StoreKey,
 	type StoreValue
 } from 'idb';
-import type { TestCase } from '#lib/core/qa/types.ts';
+import { checkCount, screenshotMeta, SCREENSHOTS_MAX } from '#lib/core/qa/screenshots.ts';
+import type {
+	NewScreenshot,
+	Screenshot,
+	ScreenshotMeta,
+	ScreenshotOwner,
+	TestCase,
+	TestResult
+} from '#lib/core/qa/types.ts';
 import { err, ok, type Result } from '#lib/core/result.ts';
 import { runMigrations } from './migrations.ts';
 import {
@@ -25,6 +33,14 @@ import {
  * - failed: anything else. In every write error case the transaction was rolled back.
  */
 export type StorageErrorCode = 'unavailable' | 'quota' | 'closed' | 'failed';
+
+/**
+ * Why a screenshot was not written, besides a storage error:
+ * - limit: the result would have more than SCREENSHOTS_MAX (FR-112 AC-6).
+ * - missing: the result is gone (its run was deleted in another tab), so the screenshot would
+ *   have no owner (FR-091 AC-5, NFR-024).
+ */
+export type ScreenshotWriteError = StorageErrorCode | 'limit' | 'missing';
 
 export interface Storage {
 	readAll<S extends StoreName>(
@@ -46,13 +62,38 @@ export interface Storage {
 	 * deleted case's key is never given out again.
 	 */
 	createCase(fields: NewCase, now: number): Promise<Result<TestCase, StorageErrorCode>>;
-	/** Deletes a run and every result it owns in one transaction (FR-113 AC-4, NFR-024, NFR-026). */
+	/**
+	 * Saves a result with the screenshots added before it was first saved (plan finding F-7), in
+	 * one transaction: the result's screenshot count, the limit check, and the writes happen
+	 * together, so a second tab cannot take the last place in between. Stored screenshots stay
+	 * when the result changes (F-11). Resolves with the new screenshots.
+	 */
+	saveResult(
+		result: TestResult,
+		pending: readonly NewScreenshot[],
+		now: number
+	): Promise<Result<Screenshot[], Exclude<ScreenshotWriteError, 'missing'>>>;
+	/** Adds a screenshot to a stored result, the limit checked in the same transaction. */
+	addScreenshot(
+		owner: ScreenshotOwner,
+		image: NewScreenshot,
+		now: number
+	): Promise<Result<Screenshot, ScreenshotWriteError>>;
+	/** One owner's screenshots with their images, in the order added. */
+	screenshotsOf(owner: ScreenshotOwner): Promise<Result<Screenshot[], StorageErrorCode>>;
+	/** Every screenshot without its image, read one record at a time (NFR-004). */
+	readScreenshotMeta(): Promise<Result<ScreenshotMeta[], StorageErrorCode>>;
+	/**
+	 * Deletes a run with every result and screenshot it owns in one transaction (FR-113 AC-4,
+	 * NFR-024, NFR-026).
+	 */
 	deleteRun(id: string): Promise<Result<void, StorageErrorCode>>;
 	/** Every backed-up store, read in one transaction so the counts are consistent. */
 	readRecords(): Promise<Result<StoredRecords, StorageErrorCode>>;
 	/**
 	 * Clears every store and writes the given records in one transaction (import, ADR-014), with
 	 * the key counter rebuilt from the records: on any error nothing changes (FR-003 AC-3, EC-002).
+	 * Screenshots are cleared too: they belong to the results being replaced (NFR-024).
 	 */
 	replaceRecords(records: StoredRecords): Promise<Result<void, StorageErrorCode>>;
 }
@@ -145,12 +186,86 @@ function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
 			}
 		},
 
+		async saveResult(result, pending, now) {
+			try {
+				const transaction = db.transaction(['results', 'screenshots'], 'readwrite');
+				transaction.done.catch(() => {});
+				const screenshots = transaction.objectStore('screenshots');
+				const owner: ScreenshotOwner = ['result', result.runId, result.caseNumber];
+				const existing = pending.length
+					? await screenshots.index('byOwner').getAll(IDBKeyRange.only(owner))
+					: [];
+				if (existing.length + pending.length > SCREENSHOTS_MAX) {
+					transaction.abort();
+					return err('limit');
+				}
+				const first = nextNumber(existing);
+				const records = pending.map((image, i) => screenshot(owner, image, first + i, now));
+				await commit(transaction, () => {
+					void track(transaction.objectStore('results').put(result));
+					for (const record of records) void track(screenshots.add(record));
+				});
+				return ok(records);
+			} catch (error) {
+				return err(classify(error));
+			}
+		},
+
+		async addScreenshot(owner, image, now) {
+			try {
+				const transaction = db.transaction(['results', 'screenshots'], 'readwrite');
+				transaction.done.catch(() => {});
+				const screenshots = transaction.objectStore('screenshots');
+				const [, runId, caseNumber] = owner;
+				const [result, existing] = await Promise.all([
+					transaction.objectStore('results').getKey([runId, caseNumber]),
+					screenshots.index('byOwner').getAll(IDBKeyRange.only(owner))
+				]);
+				if (result === undefined || checkCount(existing.length)) {
+					transaction.abort();
+					return err(result === undefined ? 'missing' : 'limit');
+				}
+				const record = screenshot(owner, image, nextNumber(existing), now);
+				await commit(transaction, () => void track(screenshots.add(record)));
+				return ok(record);
+			} catch (error) {
+				return err(classify(error));
+			}
+		},
+
+		async screenshotsOf(owner) {
+			try {
+				const records = await db.getAllFromIndex('screenshots', 'byOwner', IDBKeyRange.only(owner));
+				return ok(records.sort((a, b) => a.n - b.n));
+			} catch (error) {
+				return err(classify(error));
+			}
+		},
+
+		async readScreenshotMeta() {
+			try {
+				const meta: ScreenshotMeta[] = [];
+				let cursor = await db.transaction('screenshots').store.openCursor();
+				while (cursor) {
+					meta.push(screenshotMeta(cursor.value));
+					cursor = await cursor.continue();
+				}
+				return ok(meta);
+			} catch (error) {
+				return err(classify(error));
+			}
+		},
+
 		async deleteRun(id) {
 			try {
-				const transaction = db.transaction(['runs', 'results'], 'readwrite');
+				const transaction = db.transaction(['runs', 'results', 'screenshots'], 'readwrite');
+				transaction.done.catch(() => {});
+				const screenshots = transaction.objectStore('screenshots');
+				const ids = await screenshots.index('byOwner').getAllKeys(screenshotsOfRun(id));
 				await commit(transaction, () => {
 					void track(transaction.objectStore('runs').delete(id));
 					void track(transaction.objectStore('results').delete(resultsOf(id)));
+					for (const key of ids) void track(screenshots.delete(key));
 				});
 				return ok(undefined);
 			} catch (error) {
@@ -178,8 +293,13 @@ function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
 
 		async replaceRecords(records) {
 			try {
-				const transaction = db.transaction([...BACKUP_STORE_NAMES, 'meta'], 'readwrite');
+				const transaction = db.transaction(
+					[...BACKUP_STORE_NAMES, 'meta', 'screenshots'],
+					'readwrite'
+				);
 				await commit(transaction, () => {
+					// Backup v2 carries no screenshots; backup v3 writes them here (T-061).
+					void track(transaction.objectStore('screenshots').clear());
 					for (const name of BACKUP_STORE_NAMES) {
 						const store = transaction.objectStore(name);
 						void track(store.clear());
@@ -209,6 +329,35 @@ function highestCaseNumber({ testCases, runs }: Pick<StoredRecords, 'testCases' 
 /** Every result key of one run: results are keyed [runId, caseNumber]. */
 function resultsOf(runId: string): IDBKeyRange {
 	return IDBKeyRange.bound([runId, -Infinity], [runId, Infinity]);
+}
+
+/** Every screenshot key of one run's results: owners are ['result', runId, caseNumber]. */
+function screenshotsOfRun(runId: string): IDBKeyRange {
+	return IDBKeyRange.bound(['result', runId, -Infinity], ['result', runId, Infinity]);
+}
+
+/** One more than the owner's highest number, so the others keep their file names (FR-122). */
+function nextNumber(existing: readonly Pick<Screenshot, 'n'>[]): number {
+	return existing.reduce((highest, item) => Math.max(highest, item.n), 0) + 1;
+}
+
+function screenshot(
+	owner: ScreenshotOwner,
+	image: NewScreenshot,
+	n: number,
+	now: number
+): Screenshot {
+	return {
+		id: crypto.randomUUID(),
+		owner,
+		n,
+		mediaType: image.mediaType,
+		width: image.width,
+		height: image.height,
+		size: image.bytes.byteLength,
+		createdAt: now,
+		bytes: image.bytes
+	};
 }
 
 /** A request's error also rejects transaction.done, which commit() awaits; this avoids an

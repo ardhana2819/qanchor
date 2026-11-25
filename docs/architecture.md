@@ -137,6 +137,15 @@ Generators are stateless (PRD section 8): generated addresses, amounts, and dumm
 * Deleting a run deletes its results in the same transaction (NFR-024). Deleting a test case touches no run (FR-110 AC-3).
 * Slice 2b adds schema version 3 with a `screenshots` store (finding F-6).
 
+**Schema version 3 (slice 2b, T-060).** Migration 3 adds one store and changes no other.
+
+| Store | Key | Fields | Requirement |
+| --- | --- | --- | --- |
+| `screenshots` | `id` (string, `crypto.randomUUID()`) | `id`, `owner: ['result', runId, caseNumber]` (a finding's owner in slice 2c), `n: number` (one more than the owner's highest), `mediaType: 'image/webp' \| 'image/jpeg'`, `width`, `height`, `size`, `createdAt`, `bytes: ArrayBuffer` | FR-112, FR-122 |
+
+* Index `byOwner` on `owner`. The per-result limit is checked in the transaction that writes, and a result's first save writes its pending screenshots with it (plan finding F-7).
+* Deleting a run deletes its screenshots with its results in one transaction; an import clears them (NFR-024). Details in `docs/decisions.md` (2026-11-25, T-060).
+
 ### 3.2 Export file (FR-003)
 
 ```json

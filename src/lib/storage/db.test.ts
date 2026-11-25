@@ -3,7 +3,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDB } from 'idb';
 import { snapshotCase } from '#lib/core/qa/run.ts';
-import type { Run, TestResult } from '#lib/core/qa/types.ts';
+import type { NewScreenshot, Run, ScreenshotOwner, TestResult } from '#lib/core/qa/types.ts';
 import { openStorage, type NewCase, type Storage } from './db.ts';
 import { runMigrations } from './migrations.ts';
 import { DB_NAME, DB_VERSION, type QAnchorDB, type StoredRecords, type Wallet } from './schema.ts';
@@ -93,7 +93,7 @@ afterEach(() => {
 });
 
 describe('openStorage', () => {
-	it('creates the schema v2 stores and their indexes', async () => {
+	it('creates the schema v3 stores and their indexes', async () => {
 		await open();
 		const raw = await rawDatabase();
 
@@ -104,6 +104,7 @@ describe('openStorage', () => {
 			'meta',
 			'results',
 			'runs',
+			'screenshots',
 			'testCases',
 			'wallets'
 		]);
@@ -117,6 +118,10 @@ describe('openStorage', () => {
 		expect(tx.objectStore('results').indexNames.length).toBe(0);
 		expect(tx.objectStore('runs').keyPath).toBe('id');
 		expect(tx.objectStore('meta').keyPath).toBe('key');
+		const screenshots = tx.objectStore('screenshots');
+		expect(screenshots.keyPath).toBe('id');
+		expect([...screenshots.indexNames]).toEqual(['byOwner']);
+		expect(screenshots.index('byOwner').keyPath).toBe('owner');
 		raw.close();
 	});
 
@@ -142,8 +147,34 @@ describe('openStorage', () => {
 		});
 		expect(await storage.readAll('testCases')).toEqual({ ok: true, value: [] });
 		const raw = await rawDatabase();
-		expect(raw.version).toBe(2);
+		expect(raw.version).toBe(DB_VERSION);
 		raw.close();
+	});
+
+	it('upgrades a v2 database and keeps every record (NFR-016)', async () => {
+		const v2 = await openDB<QAnchorDB>(DB_NAME, 2, {
+			upgrade: (db, oldVersion, newVersion, tx) => runMigrations(db, tx, oldVersion, 2)
+		});
+		await v2.put('wallets', wallet('1'));
+		await v2.put('testCases', { ...newCase('A'), id: 'c1', number: 7, createdAt: 1, updatedAt: 1 });
+		await v2.put('runs', run('r1'));
+		await v2.put('results', result('r1', 7));
+		await v2.put('meta', { key: 'caseCounter', value: 7 });
+		v2.close();
+
+		const storage = await open();
+
+		const read = await storage.readRecords();
+		expect(read.ok && read.value).toMatchObject({
+			wallets: [wallet('1')],
+			testCases: [{ id: 'c1', number: 7 }],
+			runs: [run('r1')],
+			results: [result('r1', 7)]
+		});
+		expect(await storage.readScreenshotMeta()).toEqual({ ok: true, value: [] });
+		// The counter survived: the next case continues after TC-7.
+		const next = await storage.createCase(newCase('B'), 2);
+		expect(next.ok && next.value.number).toBe(8);
 	});
 
 	it('reports unavailable when IndexedDB does not exist (EC-001)', async () => {
@@ -508,5 +539,245 @@ describe('the key counter after an import (FR-100 AC-2, plan finding F-5)', () =
 		expect(created.ok && created.value.number).toBe(2);
 		const cases = await storage.readAll('testCases');
 		expect(cases.ok && cases.value.map((c) => c.number).sort()).toEqual([1, 2]);
+	});
+});
+
+const owner = (runId: string, caseNumber: number): ScreenshotOwner => ['result', runId, caseNumber];
+
+const image = (size = 3): NewScreenshot => ({
+	mediaType: 'image/webp',
+	width: 1920,
+	height: 1080,
+	bytes: new Uint8Array(size).fill(7).buffer
+});
+
+/** A spy that makes the n-th add to the screenshots store throw a quota error (EC-032). */
+function quotaOnAdd(nth = 1) {
+	const add = IDBObjectStore.prototype.add;
+	let calls = 0;
+	vi.spyOn(IDBObjectStore.prototype, 'add').mockImplementation(function (
+		this: IDBObjectStore,
+		...args
+	) {
+		if (this.name === 'screenshots' && ++calls === nth)
+			throw new DOMException('Quota exceeded.', 'QuotaExceededError');
+		return add.apply(this, args);
+	});
+}
+
+async function count(store: 'results' | 'screenshots'): Promise<number> {
+	const raw = await rawDatabase();
+	const n = await new Promise<number>((resolve) => {
+		const request = raw.transaction(store).objectStore(store).count();
+		request.onsuccess = () => resolve(request.result);
+	});
+	raw.close();
+	return n;
+}
+
+describe('screenshots (FR-112, plan findings F-7, F-8)', () => {
+	async function withResult() {
+		const storage = await open();
+		await storage.putAll('runs', [run('r1')]);
+		await storage.putAll('results', [result('r1', 1)]);
+		return storage;
+	}
+
+	it('adds a screenshot to a stored result with its size, number, and time', async () => {
+		const storage = await withResult();
+
+		const added = await storage.addScreenshot(owner('r1', 1), image(10), 500);
+
+		expect(added).toEqual({
+			ok: true,
+			value: {
+				id: expect.any(String),
+				owner: ['result', 'r1', 1],
+				n: 1,
+				mediaType: 'image/webp',
+				width: 1920,
+				height: 1080,
+				size: 10,
+				createdAt: 500,
+				bytes: image(10).bytes
+			}
+		});
+		const read = await storage.screenshotsOf(owner('r1', 1));
+		expect(read.ok && read.value.map((s) => new Uint8Array(s.bytes)[0])).toEqual([7]);
+	});
+
+	it('refuses a screenshot of a result that is not stored, so none is an orphan', async () => {
+		const storage = await withResult();
+
+		expect(await storage.addScreenshot(owner('r1', 2), image(), 1)).toEqual({
+			ok: false,
+			error: 'missing'
+		});
+		expect(await storage.addScreenshot(owner('gone', 1), image(), 1)).toEqual({
+			ok: false,
+			error: 'missing'
+		});
+		expect(await count('screenshots')).toBe(0);
+	});
+
+	it('refuses the sixth screenshot of a result (FR-112 AC-6)', async () => {
+		const storage = await withResult();
+		for (let i = 0; i < 5; i++) await storage.addScreenshot(owner('r1', 1), image(), i);
+
+		expect(await storage.addScreenshot(owner('r1', 1), image(), 9)).toEqual({
+			ok: false,
+			error: 'limit'
+		});
+		expect(await count('screenshots')).toBe(5);
+	});
+
+	it('refuses the sixth screenshot also when two tabs add the fifth at once', async () => {
+		const first = await withResult();
+		const second = await open();
+		for (let i = 0; i < 4; i++) await first.addScreenshot(owner('r1', 1), image(), i);
+
+		const both = await Promise.all([
+			first.addScreenshot(owner('r1', 1), image(), 10),
+			second.addScreenshot(owner('r1', 1), image(), 11)
+		]);
+
+		expect(both.map((r) => r.ok || r.error).sort()).toEqual([true, 'limit'].sort());
+		expect(await count('screenshots')).toBe(5);
+	});
+
+	it('numbers after the highest, so a removal keeps the other file names (FR-122)', async () => {
+		const storage = await withResult();
+		const ids = [];
+		for (let i = 0; i < 3; i++) {
+			const added = await storage.addScreenshot(owner('r1', 1), image(), i);
+			if (added.ok) ids.push(added.value.id);
+		}
+
+		await storage.deleteOne('screenshots', ids[1]);
+		await storage.addScreenshot(owner('r1', 1), image(), 9);
+		await storage.deleteOne('screenshots', ids[0]);
+
+		const read = await storage.screenshotsOf(owner('r1', 1));
+		expect(read.ok && read.value.map((s) => s.n)).toEqual([3, 4]);
+	});
+
+	it('lists one result in the order added and reads metadata without images', async () => {
+		const storage = await withResult();
+		await storage.putAll('results', [result('r1', 2)]);
+		await storage.addScreenshot(owner('r1', 2), image(), 1);
+		await storage.addScreenshot(owner('r1', 1), image(4), 2);
+		await storage.addScreenshot(owner('r1', 1), image(5), 3);
+
+		const one = await storage.screenshotsOf(owner('r1', 1));
+		expect(one.ok && one.value.map((s) => [s.n, s.size])).toEqual([
+			[1, 4],
+			[2, 5]
+		]);
+		const meta = await storage.readScreenshotMeta();
+		expect(meta.ok && meta.value).toHaveLength(3);
+		expect(meta.ok && meta.value.every((s) => !('bytes' in s))).toBe(true);
+	});
+
+	it('a quota error on add writes nothing (EC-032)', async () => {
+		const storage = await withResult();
+		quotaOnAdd();
+
+		expect(await storage.addScreenshot(owner('r1', 1), image(), 1)).toEqual({
+			ok: false,
+			error: 'quota'
+		});
+		vi.restoreAllMocks();
+		expect(await count('screenshots')).toBe(0);
+	});
+
+	describe('saveResult with pending screenshots (F-7)', () => {
+		it('writes a new result and its screenshots together', async () => {
+			const storage = await open();
+
+			const saved = await storage.saveResult(result('r1', 3), [image(1), image(2)], 40);
+
+			expect(saved.ok && saved.value.map((s) => [s.owner, s.n, s.size, s.createdAt])).toEqual([
+				[['result', 'r1', 3], 1, 1, 40],
+				[['result', 'r1', 3], 2, 2, 40]
+			]);
+			expect(await storage.readAll('results')).toEqual({ ok: true, value: [result('r1', 3)] });
+		});
+
+		it('keeps stored screenshots when the result changes (F-11)', async () => {
+			const storage = await withResult();
+			await storage.addScreenshot(owner('r1', 1), image(), 1);
+
+			const saved = await storage.saveResult({ ...result('r1', 1), status: 'fail' }, [image()], 2);
+
+			expect(saved.ok && saved.value.map((s) => s.n)).toEqual([2]);
+			expect(await count('screenshots')).toBe(2);
+		});
+
+		it('refuses more than five in all and writes neither the result nor any image', async () => {
+			const storage = await withResult();
+			for (let i = 0; i < 4; i++) await storage.addScreenshot(owner('r1', 1), image(), i);
+			const changed = { ...result('r1', 1), status: 'fail' as const, actual: 'Broken' };
+
+			expect(await storage.saveResult(changed, [image(), image()], 9)).toEqual({
+				ok: false,
+				error: 'limit'
+			});
+			expect(await storage.readAll('results')).toEqual({ ok: true, value: [result('r1', 1)] });
+			expect(await count('screenshots')).toBe(4);
+		});
+
+		it('a quota error on the second image writes nothing (NFR-026, EC-032)', async () => {
+			const storage = await open();
+			quotaOnAdd(2);
+
+			expect(await storage.saveResult(result('r1', 1), [image(), image()], 1)).toEqual({
+				ok: false,
+				error: 'quota'
+			});
+			vi.restoreAllMocks();
+			expect(await count('results')).toBe(0);
+			expect(await count('screenshots')).toBe(0);
+		});
+	});
+
+	it("deleting a run deletes its screenshots and no other run's (FR-113 AC-4, EC-034)", async () => {
+		const storage = await withResult();
+		await storage.putAll('runs', [run('r10')]);
+		await storage.putAll('results', [result('r1', 250), result('r10', 1)]);
+		await storage.addScreenshot(owner('r1', 1), image(), 1);
+		await storage.addScreenshot(owner('r1', 250), image(), 2);
+		await storage.addScreenshot(owner('r10', 1), image(), 3);
+
+		expect(await storage.deleteRun('r1')).toEqual({ ok: true, value: undefined });
+
+		const meta = await storage.readScreenshotMeta();
+		expect(meta.ok && meta.value.map((s) => s.owner)).toEqual([['result', 'r10', 1]]);
+	});
+
+	it("a failing cascade delete keeps the run's screenshots (NFR-026)", async () => {
+		const storage = await withResult();
+		await storage.addScreenshot(owner('r1', 1), image(), 1);
+		const remove = IDBObjectStore.prototype.delete;
+		vi.spyOn(IDBObjectStore.prototype, 'delete').mockImplementation(function (
+			this: IDBObjectStore,
+			...args
+		) {
+			if (this.name === 'screenshots') throw new DOMException('Disk full.', 'UnknownError');
+			return remove.apply(this, args);
+		});
+
+		expect(await storage.deleteRun('r1')).toEqual({ ok: false, error: 'failed' });
+		vi.restoreAllMocks();
+		expect(await count('screenshots')).toBe(1);
+		expect(await count('results')).toBe(1);
+	});
+
+	it('an import clears the screenshots with the results they belong to (NFR-024)', async () => {
+		const storage = await withResult();
+		await storage.addScreenshot(owner('r1', 1), image(), 1);
+
+		expect(await storage.replaceRecords(EMPTY)).toEqual({ ok: true, value: undefined });
+
+		expect(await count('screenshots')).toBe(0);
 	});
 });

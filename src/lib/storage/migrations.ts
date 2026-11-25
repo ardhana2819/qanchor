@@ -31,6 +31,13 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
 		// read and deleted with its results (NFR-024); no separate index is needed.
 		db.createObjectStore('results', { keyPath: ['runId', 'caseNumber'] });
 		db.createObjectStore('meta', { keyPath: 'key' });
+	},
+	// Screenshots of results, and of session findings in slice 2c (plan finding F-8). Adds a store
+	// only; the v2 records are untouched.
+	3: (db) => {
+		const screenshots = db.createObjectStore('screenshots', { keyPath: 'id' });
+		// The owner is an array key: one range reads or deletes a result's or a run's screenshots.
+		screenshots.createIndex('byOwner', 'owner');
 	}
 };
 
