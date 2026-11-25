@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import Badge from '#lib/ui/Badge.svelte';
 	import Button from '#lib/ui/Button.svelte';
@@ -30,7 +30,17 @@
 	import Tabs from '#lib/ui/Tabs.svelte';
 	import Textarea from '#lib/ui/Textarea.svelte';
 	import TextInput from '#lib/ui/TextInput.svelte';
-	import { formatSize, screenshotErrorText } from '#lib/core/qa/screenshots.ts';
+	import {
+		attachmentName,
+		checkCount,
+		formatSize,
+		screenshotErrorText,
+		SCREENSHOTS_MAX,
+		type ScreenshotType
+	} from '#lib/core/qa/screenshots.ts';
+	import ImageViewer from '#lib/ui/ImageViewer.svelte';
+	import ScreenshotArea, { type ScreenshotItem } from '#lib/ui/ScreenshotArea.svelte';
+	import { downloadBlob } from '#lib/ui/download.ts';
 	import { createImageJobs } from '#lib/workers/image-jobs.ts';
 
 	// A living reference for docs/design.md section 6 and the page the component E2E tests run
@@ -166,6 +176,86 @@
 			compressing = false;
 		}
 	}
+
+	// Screenshot area and image viewer (T-062, design 13.5). Sample images are drawn here, so
+	// the page needs no image files; each is shown through an object URL, as stored screenshots
+	// will be (plan finding F-13).
+	interface Shot extends ScreenshotItem {
+		blob: Blob;
+		n: number;
+	}
+
+	const urls: string[] = [];
+	let samples: Shot[] = $state.raw([]);
+	let shots: Shot[] = $state.raw([]);
+	let shotsCompressing = $state(0);
+	let shotError: string | null = $state(null);
+	let nextShot = 1;
+	let viewing: Shot | undefined = $state.raw();
+	let viewerOpen = $state(false);
+	let removing: Shot | undefined = $state.raw();
+	let removeOpen = $state(false);
+
+	function shot(blob: Blob, n: number): Shot {
+		const src = URL.createObjectURL(blob);
+		urls.push(src);
+		return { id: `shot-${n}`, src, name: `Screenshot ${n} of TC-12`, blob, n };
+	}
+
+	/** A 640 × 400 sample in one of the accent colours, numbered so the thumbnails differ. */
+	async function sample(n: number): Promise<Blob> {
+		const canvas = new OffscreenCanvas(640, 400);
+		const context = canvas.getContext('2d');
+		if (!context) throw new Error('This browser gives no 2D canvas.');
+		context.fillStyle = ['#0f766e', '#1d4ed8', '#b45309', '#7c3aed', '#be123c'][(n - 1) % 5];
+		context.fillRect(0, 0, 640, 400);
+		context.fillStyle = '#ffffff';
+		context.font = '600 96px sans-serif';
+		context.fillText(`#${n}`, 48, 140);
+		return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 });
+	}
+
+	onMount(async () => {
+		const blobs = await Promise.all([1, 2, 3, 4, 5].map(sample));
+		samples = blobs.map((blob, i) => shot(blob, i + 1));
+		shots = samples.slice(0, 2);
+		nextShot = 3;
+	});
+	onDestroy(() => urls.forEach((url) => URL.revokeObjectURL(url)));
+
+	async function addShots(files: File[]): Promise<void> {
+		shotError = null;
+		for (const file of files) {
+			const refused = checkCount(shots.length + shotsCompressing);
+			if (refused) {
+				shotError = screenshotErrorText(refused);
+				return;
+			}
+			shotsCompressing += 1;
+			try {
+				const result = await images.compress(file, file.name);
+				if (!result.ok) shotError = screenshotErrorText(result.error);
+				else {
+					const { bytes, type } = result.value;
+					shots = [...shots, shot(new Blob([bytes], { type }), nextShot++)];
+					notify.announce(`Screenshot added, ${shots.length} of ${SCREENSHOTS_MAX}.`);
+				}
+			} catch (error) {
+				shotError = error instanceof Error ? error.message : String(error);
+			} finally {
+				shotsCompressing -= 1;
+			}
+		}
+	}
+
+	function openShot(list: readonly Shot[], id: string): void {
+		viewing = list.find((item) => item.id === id);
+		viewerOpen = viewing !== undefined;
+	}
+
+	const viewingName = $derived(
+		viewing ? attachmentName(12, 'run-demo', viewing.n, viewing.blob.type as ScreenshotType) : ''
+	);
 </script>
 
 <svelte:head>
@@ -460,6 +550,100 @@
 	</div>
 </section>
 
+<section aria-labelledby="screenshots">
+	<h2 id="screenshots">Screenshots</h2>
+	<p class="summary">
+		Choose or drop images to compress them in the worker and add them; open a thumbnail to view it.
+		The other examples show each state.
+	</p>
+	<div class="shot-states">
+		<div data-testid="shots-live">
+			<h3>Interactive</h3>
+			<!-- Shown once the samples exist, so they count as already there, not as added. -->
+			{#if samples.length}
+				<ScreenshotArea
+					items={shots}
+					compressing={shotsCompressing}
+					error={shotError}
+					onfiles={addShots}
+					onopen={(id) => openShot(shots, id)}
+					onremove={(id) => {
+						removing = shots.find((item) => item.id === id);
+						removeOpen = true;
+					}}
+				/>
+			{/if}
+		</div>
+		<div data-testid="shots-empty">
+			<h3>Empty</h3>
+			<ScreenshotArea items={[]} onfiles={() => {}} onopen={() => {}} onremove={() => {}} />
+		</div>
+		<div data-testid="shots-compressing">
+			<h3>Compressing</h3>
+			<ScreenshotArea
+				items={samples.slice(0, 1)}
+				compressing={2}
+				onfiles={() => {}}
+				onopen={(id) => openShot(samples, id)}
+				onremove={() => {}}
+			/>
+		</div>
+		<div data-testid="shots-full">
+			<h3>Full</h3>
+			<ScreenshotArea
+				items={samples}
+				onfiles={() => {}}
+				onopen={(id) => openShot(samples, id)}
+				onremove={() => {}}
+			/>
+		</div>
+		<div data-testid="shots-error">
+			<h3>Error</h3>
+			<ScreenshotArea
+				items={[]}
+				error="This browser cannot open IMG_2041.heic (HEIC)."
+				onfiles={() => {}}
+				onopen={() => {}}
+				onremove={() => {}}
+			/>
+		</div>
+		<div data-testid="shots-readonly">
+			<h3>Read-only (completed run)</h3>
+			<ScreenshotArea
+				items={samples.slice(0, 2)}
+				readonly
+				onfiles={() => {}}
+				onopen={(id) => openShot(samples, id)}
+				onremove={() => {}}
+			/>
+		</div>
+	</div>
+</section>
+
+<ImageViewer
+	bind:open={viewerOpen}
+	title={viewing?.name ?? ''}
+	src={viewing?.src ?? ''}
+	fileName={viewingName}
+	size={viewing?.blob.size ?? 0}
+	ondownload={() => viewing && downloadBlob(viewingName, viewing.blob)}
+/>
+
+<Dialog bind:open={removeOpen} title="Remove this screenshot?" destructive>
+	<p>The image is deleted from this result. This cannot be undone.</p>
+	{#snippet actions()}
+		<Button onclick={() => (removeOpen = false)}>Cancel</Button>
+		<Button
+			variant="danger"
+			onclick={() => {
+				removeOpen = false;
+				shots = shots.filter((item) => item.id !== removing?.id);
+				notify.announce('Screenshot removed.');
+			}}>Remove</Button
+		>
+	{/snippet}
+</Dialog>
+
 <Dialog bind:open={detailOpen} title="Row {detail?.index ?? ''}">
 	<p class="address">{detail?.address}</p>
 	{#snippet actions()}
@@ -482,6 +666,19 @@
 </Dialog>
 
 <style>
+	.shot-states {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+		gap: var(--space-6);
+	}
+
+	.shot-states h3 {
+		margin: 0 0 var(--space-2);
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		font-weight: 500;
+	}
+
 	.page-header {
 		margin-bottom: var(--space-8);
 	}

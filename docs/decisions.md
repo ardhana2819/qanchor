@@ -534,6 +534,18 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-25: Screenshot area, thumbnail, and image viewer (T-062)
+
+* **Components** in `src/lib/ui`: `ScreenshotArea` (design 13.5), `Thumbnail`, and `ImageViewer` (design 13.6), with `image` and `download` icons. The area only shows what it is given (items, placeholders, an error); compressing, storing, and paste handling belong to the run page (T-063). `/components` shows each state and an interactive example that compresses chosen or dropped images in the existing image worker.
+* **The target's name is its visible text** [ASSUMPTION]: "Paste, drop, or choose an image", not the design's "Add screenshot: paste, drop, or choose a file", so the accessible name matches what is shown (WCAG 2.5.3, label in name). The group is labelled "Screenshots optional, up to 5".
+* **Full**: at five images, counting those still compressing, the target is replaced by "5 of 5 screenshots", and a drop on the area is ignored.
+* **Read-only** (a completed run): thumbnails open, there is no target and no remove button, and an empty area says "No screenshots." [ASSUMPTION; the design has no copy for this case].
+* **Added transition** (design 13.6): fade and scale from 0.96 over `--duration-base`, played only by thumbnails whose id was not shown when the area mounted, so opening a result with stored screenshots does not animate them. Reduced motion makes it instant through the duration tokens. A page that loads its items after mounting must mount the area once they are there; `/components` does this.
+* **Viewer**: the shared `Dialog` gets a `wide` option that sizes the dialog to its content (`width: fit-content`, at least the normal 480 px, at most the window less its margins). The image is at most 70% of the window height. The meta line shows the attachment file name (FR-122) and the size; Download saves the stored image under that name. Escape and Close return focus to the thumbnail through the dialog's existing focus return. A native modal dialog makes the page behind it inert; Tab may move to the browser's own controls, but never to the page, which is what the E2E checks.
+* **CSP** (finding F-13): `img-src` is now `'self' data: blob:`; `csp.spec.ts` checks the exact list and that `/components` loads with no violation.
+* **Test note**: Playwright's `locator.evaluateAll` inside an open modal dialog crashes the page in Playwright's Firefox (reproduced 4 of 4); `evaluate` on the same element works, so the viewer test reads its one image with `evaluate`.
+* The text test bed "Screenshot compression" on `/components` stays until T-063, because `image-worker.spec.ts` uses it.
+
 ### 2026-11-25: Backup v3 with screenshots (T-061)
 
 * **Format.** `schemaVersion` 3 adds `data.screenshots`. Each screenshot is written with its fields and the image as base64 in `data`; `size` is left out and recomputed from the decoded bytes on import, so a file cannot claim a size its image does not have.

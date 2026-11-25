@@ -25,7 +25,10 @@
 		run: 'M5 3.5l7 4.5-7 4.5z',
 		'arrow-up': 'M8 13V3M4 7l4-4 4 4',
 		'arrow-down': 'M8 3v10M4 9l4 4 4-4',
-		trash: 'M2.5 4.5h11M6.5 4.5v-2h3v2M4 4.5l.75 9h6.5l.75-9M6.75 7v4M9.25 7v4'
+		trash: 'M2.5 4.5h11M6.5 4.5v-2h3v2M4 4.5l.75 9h6.5l.75-9M6.75 7v4M9.25 7v4',
+		image:
+			'M3.5 3h9A1.5 1.5 0 0 1 14 4.5v7a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5v-7A1.5 1.5 0 0 1 3.5 3zM2.5 11l3.5-3.5 3 3 2-2 2.5 2.5M10.5 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+		download: 'M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10'
 	} as const;
 
 	export type IconName = keyof typeof PATHS;
