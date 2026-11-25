@@ -8,6 +8,13 @@
 		destructive?: boolean;
 		/** As wide as the content allows, up to the viewport less its gutters (image viewer). */
 		wide?: boolean;
+		/**
+		 * 880 px wide and at most 90% of the viewport high, the body scrolling between the title
+		 * and the actions; full-screen below 640 px (the bug report, design 13.3 P2-05, 13.8).
+		 */
+		large?: boolean;
+		/** Escape was pressed; `preventDefault()` keeps the dialog open (unsaved edits). */
+		oncancel?: (event: Event) => void;
 		children: Snippet;
 		/** Buttons, primary or destructive action last. */
 		actions: Snippet;
@@ -18,6 +25,8 @@
 		title,
 		destructive = false,
 		wide = false,
+		large = false,
+		oncancel,
 		children,
 		actions
 	}: Props = $props();
@@ -41,7 +50,15 @@
 	}
 </script>
 
-<dialog bind:this={dialog} class:destructive class:wide aria-labelledby={titleId} {onclose}>
+<dialog
+	bind:this={dialog}
+	class:destructive
+	class:wide
+	class:large
+	aria-labelledby={titleId}
+	{oncancel}
+	{onclose}
+>
 	<h2 id={titleId}>{title}</h2>
 	<div class="body">{@render children()}</div>
 	<div class="actions">{@render actions()}</div>
@@ -63,6 +80,57 @@
 		width: fit-content;
 		min-width: min(480px, calc(100vw - 2 * var(--space-4)));
 		max-width: calc(100vw - 2 * var(--space-4));
+	}
+
+	/* The body scrolls; the title and the actions stay in view. */
+	.large {
+		width: min(880px, calc(100vw - 2 * var(--space-4)));
+	}
+
+	.large[open] {
+		display: flex;
+		flex-direction: column;
+		max-height: 90vh;
+	}
+
+	.large h2 {
+		padding-bottom: var(--space-4);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.large .body {
+		min-height: 0;
+		padding-top: var(--space-4);
+		overflow: auto;
+	}
+
+	.large .actions {
+		flex-wrap: wrap;
+		align-items: center;
+	}
+
+	@media (max-width: 639px) {
+		.large {
+			width: 100vw;
+			max-width: 100vw;
+			height: 100dvh;
+			max-height: 100dvh;
+			margin: 0;
+			border: 0;
+			border-radius: 0;
+		}
+
+		.large[open] {
+			max-height: 100dvh;
+		}
+
+		.large .actions {
+			border-radius: 0;
+		}
+
+		.large .body {
+			flex: 1;
+		}
 	}
 
 	h2 {

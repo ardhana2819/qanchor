@@ -33,6 +33,7 @@
 		type CaseListFilter,
 		type ResultForm
 	} from './execution.ts';
+	import BugReportDialog from './BugReportDialog.svelte';
 	import { saveErrorText } from './present.ts';
 	import ResultPanel from './ResultPanel.svelte';
 	import { RunShots } from './shots.svelte.ts';
@@ -50,6 +51,7 @@
 	let listFilter: CaseListFilter = $state('all');
 	let heading: HTMLHeadingElement | undefined = $state();
 	let resultPanel: ResultPanel | undefined = $state();
+	let bugReport: BugReportDialog | undefined = $state();
 	let completeOpen = $state(false);
 	let shortcutsOpen = $state(false);
 	let changingStatus = $state(false);
@@ -390,12 +392,24 @@
 						{shots}
 						{result}
 						{completed}
+						onreport={() => bugReport?.show()}
 						onsave={save}
 					/>
 				</div>
 			{/key}
 		</section>
 	</div>
+{/if}
+
+{#if run && item}
+	<BugReportDialog
+		bind:this={bugReport}
+		{run}
+		{item}
+		{result}
+		shots={shots.itemsOf(run.id, item.number)}
+		preparing={!shots.isOpen(run.id, item.number)}
+	/>
 {/if}
 
 <Dialog bind:open={completeOpen} title="Complete this run?">

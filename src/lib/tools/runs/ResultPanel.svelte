@@ -36,11 +36,22 @@
 		completed: boolean;
 		/** The run page's screenshots (FR-112). */
 		shots: RunShots;
+		/** Opens the bug report of the saved failure (FR-120). */
+		onreport: () => void;
 		/** Stores the form as the case's result; false when the write failed. */
 		onsave: (form: ResultForm, how: 'status' | 'submit' | 'field') => Promise<boolean>;
 	}
 
-	let { runId, item, result, form = $bindable(), completed, shots, onsave }: Props = $props();
+	let {
+		runId,
+		item,
+		result,
+		form = $bindable(),
+		completed,
+		shots,
+		onreport,
+		onsave
+	}: Props = $props();
 
 	let panel: HTMLDivElement | undefined = $state();
 	let screenshots: ResultScreenshots | undefined = $state();
@@ -58,6 +69,8 @@
 	);
 	const stepOptions = $derived(failedStepOptions(item.steps));
 	const issueLink = $derived(saved && result ? issueHref(result.linkedIssue) : null);
+	// A report is built from the stored failure, so the form must match it (design 13.3 P2-04).
+	const canReport = $derived(form.status === 'fail' && saved && result?.status === 'fail');
 
 	/**
 	 * Picks a status. Pass is saved at once; Fail and Blocked wait for their text. `focus` moves
@@ -247,8 +260,19 @@
 				{/if}
 				{saveStatusText(form, result, completed)}
 			</p>
-			{#if needsSave}
-				<Button type="submit" variant="primary" data-testid="run-save-result">Save result</Button>
+			{#if canReport || needsSave}
+				<div class="footer-actions">
+					{#if canReport}
+						<Button onclick={onreport} data-testid="run-create-report">
+							<Icon name="bug" />Create bug report
+						</Button>
+					{/if}
+					{#if needsSave}
+						<Button type="submit" variant="primary" data-testid="run-save-result"
+							>Save result</Button
+						>
+					{/if}
+				</div>
 			{/if}
 		{/snippet}
 	</FormPanel>
@@ -281,6 +305,12 @@
 		margin: 0;
 		color: var(--color-text-subtle);
 		font-size: var(--text-xs);
+	}
+
+	.footer-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
 	}
 
 	.save-status.pending {
