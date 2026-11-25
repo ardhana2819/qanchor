@@ -6,12 +6,21 @@
 		title: string;
 		/** Destructive dialogs show the title in the danger colour (design section 6). */
 		destructive?: boolean;
+		/** As wide as the content allows, up to the viewport less its gutters (image viewer). */
+		wide?: boolean;
 		children: Snippet;
 		/** Buttons, primary or destructive action last. */
 		actions: Snippet;
 	}
 
-	let { open = $bindable(), title, destructive = false, children, actions }: Props = $props();
+	let {
+		open = $bindable(),
+		title,
+		destructive = false,
+		wide = false,
+		children,
+		actions
+	}: Props = $props();
 
 	const id = $props.id();
 	const titleId = `${id}-title`;
@@ -32,7 +41,7 @@
 	}
 </script>
 
-<dialog bind:this={dialog} class:destructive aria-labelledby={titleId} {onclose}>
+<dialog bind:this={dialog} class:destructive class:wide aria-labelledby={titleId} {onclose}>
 	<h2 id={titleId}>{title}</h2>
 	<div class="body">{@render children()}</div>
 	<div class="actions">{@render actions()}</div>
@@ -47,6 +56,13 @@
 		background: var(--color-bg);
 		box-shadow: var(--shadow-overlay);
 		color: var(--color-text);
+	}
+
+	/* Sized by its content, e.g. an image (ImageViewer). */
+	.wide {
+		width: fit-content;
+		min-width: min(480px, calc(100vw - 2 * var(--space-4)));
+		max-width: calc(100vw - 2 * var(--space-4));
 	}
 
 	h2 {
