@@ -333,6 +333,8 @@ test('keyboard only, from Create bug report to Copy report (NFR-008)', async ({ 
 	await tabTo(page, createButton(page));
 	await page.keyboard.press('Enter');
 	await expect(summary(page)).toBeFocused();
+	// WebKit puts the caret at the start of an autofocused field, the others at the end.
+	await page.keyboard.press('End');
 	await page.keyboard.type(' (again)');
 
 	await tabTo(page, page.getByTestId('bug-report-copy'));
