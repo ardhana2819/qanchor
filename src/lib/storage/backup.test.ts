@@ -4,10 +4,12 @@ import {
 	createBackup,
 	describeImportError,
 	parseBackup,
+	UPGRADES,
+	upgradeData,
 	type BackupData
 } from './backup.ts';
 import { snapshotCase } from '#lib/core/qa/run.ts';
-import type { CaseSnapshot, Run, TestCase, TestResult } from '#lib/core/qa/types.ts';
+import type { CaseSnapshot, Run, Screenshot, TestCase, TestResult } from '#lib/core/qa/types.ts';
 
 const wallet = {
 	id: 'w-1',
@@ -62,6 +64,30 @@ const result: TestResult = {
 	updatedAt: 1794500000002
 };
 
+const screenshot: Screenshot = {
+	id: 's-1',
+	owner: ['result', 'r-1', 3],
+	n: 1,
+	mediaType: 'image/webp',
+	width: 1920,
+	height: 1080,
+	size: 4,
+	createdAt: 1794500000003,
+	bytes: new Uint8Array([1, 2, 3, 250]).buffer
+};
+
+/** The same screenshot as an export writes it. */
+const fileScreenshot = {
+	id: 's-1',
+	owner: ['result', 'r-1', 3],
+	n: 1,
+	mediaType: 'image/webp',
+	width: 1920,
+	height: 1080,
+	createdAt: 1794500000003,
+	data: 'AQID+g=='
+};
+
 const data: BackupData = {
 	settings: { theme: 'dark' },
 	endpoints: [{ networkId: 'eth-sepolia', url: 'https://rpc.example.dev' }],
@@ -71,21 +97,30 @@ const data: BackupData = {
 	],
 	testCases: [testCase],
 	runs: [run],
-	results: [result]
+	results: [result],
+	screenshots: [screenshot]
 };
 
 const NOW = new Date('2026-11-13T10:00:00.000Z');
 const json = (value: unknown) => JSON.stringify(value);
 const file = (patch: Record<string, unknown> = {}) => ({ ...createBackup(data, NOW), ...patch });
-const withData = (patch: Record<string, unknown>) => file({ data: { ...data, ...patch } });
+const withData = (patch: Record<string, unknown>) =>
+	file({ data: { ...createBackup(data, NOW).data, ...patch } });
+/** What parseBackup returns for `data`. */
+const parsedFile = (d: BackupData = data) => ({
+	app: 'qanchor',
+	schemaVersion: 3,
+	exportedAt: '2026-11-13T10:00:00.000Z',
+	data: d
+});
 
 describe('createBackup', () => {
 	it('carries app, schema version, export time, and data (FR-003 AC-1)', () => {
 		expect(createBackup(data, NOW)).toEqual({
 			app: 'qanchor',
-			schemaVersion: 2,
+			schemaVersion: 3,
 			exportedAt: '2026-11-13T10:00:00.000Z',
-			data
+			data: { ...data, screenshots: [fileScreenshot] }
 		});
 		expect(backupFileName(NOW)).toBe('qanchor-backup-2026-11-13.json');
 	});
@@ -93,10 +128,7 @@ describe('createBackup', () => {
 
 describe('parseBackup', () => {
 	it('accepts its own export unchanged (round trip)', () => {
-		expect(parseBackup(json(createBackup(data, NOW)))).toEqual({
-			ok: true,
-			value: createBackup(data, NOW)
-		});
+		expect(parseBackup(json(createBackup(data, NOW)))).toEqual({ ok: true, value: parsedFile() });
 	});
 
 	it('accepts a backup with no records', () => {
@@ -107,7 +139,8 @@ describe('parseBackup', () => {
 			faucets: [],
 			testCases: [],
 			runs: [],
-			results: []
+			results: [],
+			screenshots: []
 		};
 		expect(parseBackup(json(file({ data: empty }))).ok).toBe(true);
 	});
@@ -126,8 +159,8 @@ describe('parseBackup', () => {
 		['another app', json({ version: '12.4.1', metamask: {} }), { code: 'not-qanchor' }],
 		[
 			'a newer schema (EC-020)',
-			json(file({ schemaVersion: 3 })),
-			{ code: 'newer-version', version: 3 }
+			json(file({ schemaVersion: 4 })),
+			{ code: 'newer-version', version: 4 }
 		],
 		['schema version 0', json(file({ schemaVersion: 0 })), { code: 'unsupported-version' }],
 		['schema version as text', json(file({ schemaVersion: '2' })), { code: 'unsupported-version' }],
@@ -241,10 +274,9 @@ describe('backup v2 (FR-091)', () => {
 
 	it('a v1 file is upgraded in memory with empty Phase 2 lists (AC-3, EC-037)', () => {
 		const parsed = parseBackup(json(v1()));
-		expect(parsed.ok && parsed.value).toEqual({
-			...file(),
-			data: { ...data, testCases: [], runs: [], results: [] }
-		});
+		expect(parsed.ok && parsed.value).toEqual(
+			parsedFile({ ...data, testCases: [], runs: [], results: [], screenshots: [] })
+		);
 	});
 
 	it('a v1 file ignores Phase 2 lists it should not have', () => {
@@ -399,5 +431,167 @@ describe('backup v2 (FR-091)', () => {
 		]
 	])('%s', (_, input, expected) => {
 		expect(detail(input)).toBe(expected);
+	});
+});
+
+describe('backup v3: screenshots (FR-091 AC-2, AC-5)', () => {
+	const v2 = () => {
+		const current: Record<string, unknown> = { ...createBackup(data, NOW).data };
+		delete current.screenshots;
+		return { ...file(), schemaVersion: 2, data: current };
+	};
+	const detail = (input: unknown) => {
+		const parsed = parseBackup(json(input));
+		if (parsed.ok) return null;
+		return parsed.error.code === 'invalid' ? parsed.error.detail : parsed.error;
+	};
+	const withShots = (...shots: unknown[]) => withData({ screenshots: shots });
+	const name = 'Screenshot 1 of 1 ("TC-3")';
+
+	it('writes each image as base64 with its media type, and no size', () => {
+		expect(createBackup(data, NOW).data.screenshots).toEqual([fileScreenshot]);
+	});
+
+	it('reads the image back and takes the size from the bytes, not the file', () => {
+		const parsed = parseBackup(json(withShots({ ...fileScreenshot, size: 99, extra: true })));
+		expect(parsed.ok && parsed.value.data.screenshots).toEqual([screenshot]);
+	});
+
+	it('a v2 file is upgraded in memory with no screenshots (EC-037)', () => {
+		const parsed = parseBackup(json(v2()));
+		expect(parsed.ok && parsed.value).toEqual(parsedFile({ ...data, screenshots: [] }));
+	});
+
+	it('a v2 file ignores screenshots it should not have', () => {
+		const parsed = parseBackup(json({ ...v2(), data: { ...v2().data, screenshots: 'x' } }));
+		expect(parsed.ok && parsed.value.data.screenshots).toEqual([]);
+	});
+
+	it('a v3 file needs the screenshots list', () => {
+		expect(detail(withData({ screenshots: undefined }))).toBe('The screenshots list is missing.');
+	});
+
+	it.each([
+		['not a record', 'shot', 'Screenshot 1 of 1 is not a record.'],
+		['no image data', { ...fileScreenshot, data: '' }, `${name} has no image data.`],
+		[
+			'image data with a space',
+			{ ...fileScreenshot, data: 'AQID +g==' },
+			`${name} has image data that is not valid base64.`
+		],
+		[
+			'image data with a line break',
+			{ ...fileScreenshot, data: 'AQID\n+g==' },
+			`${name} has image data that is not valid base64.`
+		],
+		[
+			'image data cut short',
+			{ ...fileScreenshot, data: 'AQID+g' },
+			`${name} has image data that is not valid base64.`
+		],
+		[
+			'image data with a character outside base64',
+			{ ...fileScreenshot, data: 'AQID-g==' },
+			`${name} has image data that is not valid base64.`
+		],
+		['image data as numbers', { ...fileScreenshot, data: [1, 2, 3] }, `${name} has no image data.`],
+		[
+			'a PNG media type',
+			{ ...fileScreenshot, mediaType: 'image/png' },
+			`${name} has a media type other than WebP or JPEG.`
+		],
+		['no owner', { ...fileScreenshot, owner: undefined }, 'Screenshot 1 of 1 has no valid owner.'],
+		[
+			'an owner of another kind',
+			{ ...fileScreenshot, owner: ['finding', 'r-1', 3] },
+			'Screenshot 1 of 1 ("TC-3") has no valid owner.'
+		],
+		[
+			'an owner with case 0',
+			{ ...fileScreenshot, owner: ['result', 'r-1', 0] },
+			'Screenshot 1 of 1 has no valid owner.'
+		],
+		['number 0', { ...fileScreenshot, n: 0 }, 'Screenshot 1 of 1 ("TC-3") has no valid n.'],
+		[
+			'width 0',
+			{ ...fileScreenshot, width: 0 },
+			'Screenshot 1 of 1 ("TC-3") has a width outside 1 to 1920 px.'
+		],
+		[
+			'height over 1,920 px',
+			{ ...fileScreenshot, height: 1921 },
+			'Screenshot 1 of 1 ("TC-3") has a height outside 1 to 1920 px.'
+		],
+		[
+			'no creation time',
+			{ ...fileScreenshot, createdAt: '2026' },
+			'Screenshot 1 of 1 ("TC-3") has no valid createdAt.'
+		],
+		[
+			'a result that is not in the file',
+			{ ...fileScreenshot, owner: ['result', 'r-1', 4] },
+			'Screenshot 1 of 1 ("TC-4") in run "Smoke v2.3.0" belongs to no result in the file.'
+		],
+		[
+			'a run that is not in the file',
+			{ ...fileScreenshot, owner: ['result', 'r-9', 3] },
+			'Screenshot 1 of 1 ("TC-3") belongs to no result in the file.'
+		]
+	])('rejects a screenshot with %s, naming it', (_, shot, expected) => {
+		expect(detail(withShots(shot))).toBe(expected);
+	});
+
+	it('accepts five screenshots of a result and refuses a sixth (FR-112 AC-6)', () => {
+		const shots = Array.from({ length: 6 }, (_, i) => ({
+			...fileScreenshot,
+			id: `s-${i}`,
+			n: i + 1
+		}));
+		expect(detail(withShots(...shots.slice(0, 5)))).toBeNull();
+		expect(detail(withShots(...shots))).toBe(
+			'Screenshot 6 of 6 ("TC-3") in run "Smoke v2.3.0" is one more than the 5 a result can have.'
+		);
+	});
+
+	it('refuses two screenshots with one id, or one number for a result', () => {
+		expect(detail(withShots(fileScreenshot, { ...fileScreenshot, n: 2 }))).toBe(
+			'Two screenshots have the id "s-1".'
+		);
+		expect(detail(withShots(fileScreenshot, { ...fileScreenshot, id: 's-2' }))).toBe(
+			'Screenshot 2 of 2 ("TC-3") in run "Smoke v2.3.0" has the same number as another screenshot.'
+		);
+	});
+
+	it('accepts the largest edge and JPEG', () => {
+		const shot = { ...fileScreenshot, mediaType: 'image/jpeg', width: 1, height: 1920 };
+		expect(detail(withShots(shot))).toBeNull();
+	});
+});
+
+describe('version steps (plan note N-1)', () => {
+	it('has one step for every version after 1', () => {
+		expect(Object.keys(UPGRADES).map(Number)).toEqual([2, 3]);
+	});
+
+	it('each step adds what its version introduced and keeps the rest', () => {
+		expect(UPGRADES[2]({ wallets: [1], testCases: 'x' })).toEqual({
+			wallets: [1],
+			testCases: [],
+			runs: [],
+			results: []
+		});
+		expect(UPGRADES[3]({ runs: [1], screenshots: 'x' })).toEqual({ runs: [1], screenshots: [] });
+	});
+
+	it('runs every step after the file version, in order', () => {
+		expect(upgradeData({ wallets: [] }, 1)).toEqual({
+			wallets: [],
+			testCases: [],
+			runs: [],
+			results: [],
+			screenshots: []
+		});
+		expect(upgradeData({ runs: [1] }, 2)).toEqual({ runs: [1], screenshots: [] });
+		expect(upgradeData({ screenshots: [1] }, 3)).toEqual({ screenshots: [1] });
 	});
 });

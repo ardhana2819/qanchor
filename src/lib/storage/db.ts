@@ -20,6 +20,7 @@ import {
 	BACKUP_STORE_NAMES,
 	DB_NAME,
 	DB_VERSION,
+	type BackupStoreName,
 	type QAnchorDB,
 	type StoreName,
 	type StoredRecords
@@ -90,10 +91,12 @@ export interface Storage {
 	deleteRun(id: string): Promise<Result<void, StorageErrorCode>>;
 	/** Every backed-up store, read in one transaction so the counts are consistent. */
 	readRecords(): Promise<Result<StoredRecords, StorageErrorCode>>;
+	/** How many records each backed-up store holds, without reading them (import dialog). */
+	countRecords(): Promise<Result<Record<BackupStoreName, number>, StorageErrorCode>>;
 	/**
 	 * Clears every store and writes the given records in one transaction (import, ADR-014), with
-	 * the key counter rebuilt from the records: on any error nothing changes (FR-003 AC-3, EC-002).
-	 * Screenshots are cleared too: they belong to the results being replaced (NFR-024).
+	 * the key counter rebuilt from the records: on any error nothing changes (FR-003 AC-3, EC-002,
+	 * EC-032).
 	 */
 	replaceRecords(records: StoredRecords): Promise<Result<void, StorageErrorCode>>;
 }
@@ -276,33 +279,49 @@ function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
 		async readRecords() {
 			try {
 				const transaction = db.transaction([...BACKUP_STORE_NAMES], 'readonly');
-				const [endpoints, wallets, faucets, testCases, runs, results] = await Promise.all([
-					transaction.objectStore('endpoints').getAll(),
-					transaction.objectStore('wallets').getAll(),
-					transaction.objectStore('faucets').getAll(),
-					transaction.objectStore('testCases').getAll(),
-					transaction.objectStore('runs').getAll(),
-					transaction.objectStore('results').getAll(),
-					transaction.done
-				]);
-				return ok({ endpoints, wallets, faucets, testCases, runs, results });
+				const [endpoints, wallets, faucets, testCases, runs, results, screenshots] =
+					await Promise.all([
+						transaction.objectStore('endpoints').getAll(),
+						transaction.objectStore('wallets').getAll(),
+						transaction.objectStore('faucets').getAll(),
+						transaction.objectStore('testCases').getAll(),
+						transaction.objectStore('runs').getAll(),
+						transaction.objectStore('results').getAll(),
+						transaction.objectStore('screenshots').getAll(),
+						transaction.done
+					]);
+				return ok({ endpoints, wallets, faucets, testCases, runs, results, screenshots });
+			} catch (error) {
+				return err(classify(error));
+			}
+		},
+
+		async countRecords() {
+			try {
+				const transaction = db.transaction([...BACKUP_STORE_NAMES], 'readonly');
+				const counts = await Promise.all(
+					BACKUP_STORE_NAMES.map((name) => transaction.objectStore(name).count())
+				);
+				return ok(
+					Object.fromEntries(BACKUP_STORE_NAMES.map((name, i) => [name, counts[i]])) as Record<
+						BackupStoreName,
+						number
+					>
+				);
 			} catch (error) {
 				return err(classify(error));
 			}
 		},
 
 		async replaceRecords(records) {
+			let imageError: unknown;
 			try {
-				const transaction = db.transaction(
-					[...BACKUP_STORE_NAMES, 'meta', 'screenshots'],
-					'readwrite'
-				);
+				const transaction = db.transaction([...BACKUP_STORE_NAMES, 'meta'], 'readwrite');
 				await commit(transaction, () => {
-					// Backup v2 carries no screenshots; backup v3 writes them here (T-061).
-					void track(transaction.objectStore('screenshots').clear());
 					for (const name of BACKUP_STORE_NAMES) {
 						const store = transaction.objectStore(name);
 						void track(store.clear());
+						if (name === 'screenshots') continue;
 						for (const record of records[name]) void track(store.put(record));
 					}
 					// The counter is not in the file: the next case continues after the highest key in
@@ -310,10 +329,17 @@ function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
 					const meta = transaction.objectStore('meta');
 					void track(meta.clear());
 					void track(meta.put({ key: 'caseCounter', value: highestCaseNumber(records) }));
+					// Each image is written once the one before it is: queued at once, copying 200
+					// images into the requests would be one long task (FR-091 AC-6). The open requests
+					// keep the transaction alive, so the import stays all or nothing.
+					putInTurn(transaction.objectStore('screenshots'), records.screenshots).catch((error) => {
+						imageError = error;
+						abortUnlessDone(transaction);
+					});
 				});
 				return ok(undefined);
 			} catch (error) {
-				return err(classify(error));
+				return err(classify(imageError ?? error));
 			}
 		}
 	};
@@ -358,6 +384,25 @@ function screenshot(
 		createdAt: now,
 		bytes: image.bytes
 	};
+}
+
+async function putInTurn(
+	store: { put(value: Screenshot): Promise<unknown> },
+	records: readonly Screenshot[]
+): Promise<void> {
+	for (const record of records) await store.put(record);
+}
+
+/**
+ * Aborts after a write that failed before it became a request (a synchronous throw, which leaves
+ * the transaction open). A request that failed has already aborted it, and aborting twice throws.
+ */
+function abortUnlessDone(transaction: Pick<IDBPTransaction, 'abort'>): void {
+	try {
+		transaction.abort();
+	} catch (error) {
+		if (!(error instanceof DOMException && error.name === 'InvalidStateError')) throw error;
+	}
 }
 
 /** A request's error also rejects transaction.done, which commit() awaits; this avoids an

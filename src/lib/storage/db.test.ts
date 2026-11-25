@@ -38,7 +38,8 @@ const EMPTY: StoredRecords = {
 	faucets: [],
 	testCases: [],
 	runs: [],
-	results: []
+	results: [],
+	screenshots: []
 };
 
 const newCase = (title: string): NewCase => ({
@@ -779,5 +780,90 @@ describe('screenshots (FR-112, plan findings F-7, F-8)', () => {
 		expect(await storage.replaceRecords(EMPTY)).toEqual({ ok: true, value: undefined });
 
 		expect(await count('screenshots')).toBe(0);
+	});
+});
+
+describe('backup v3 records (FR-091 AC-2, AC-3, EC-032)', () => {
+	const shot = (id: string, runId = 'r1') => ({
+		id,
+		owner: owner(runId, 1),
+		n: 1,
+		mediaType: 'image/webp' as const,
+		width: 10,
+		height: 10,
+		size: 3,
+		createdAt: 1,
+		bytes: new Uint8Array([1, 2, 3]).buffer
+	});
+
+	it('readRecords and replaceRecords carry screenshots with their images', async () => {
+		const storage = await open();
+		const records = {
+			...EMPTY,
+			runs: [run('r1')],
+			results: [result('r1', 1)],
+			screenshots: [shot('s1')]
+		};
+
+		expect(await storage.replaceRecords(records)).toEqual({ ok: true, value: undefined });
+
+		const read = await storage.readRecords();
+		expect(read.ok && read.value).toEqual(records);
+	});
+
+	it('countRecords counts every backed-up store without reading it', async () => {
+		const storage = await open();
+		await storage.replaceRecords({
+			...EMPTY,
+			wallets: [wallet('1'), wallet('2')],
+			runs: [run('r1')],
+			results: [result('r1', 1)],
+			screenshots: [shot('s1'), shot('s2')]
+		});
+
+		expect(await storage.countRecords()).toEqual({
+			ok: true,
+			value: {
+				endpoints: 0,
+				wallets: 2,
+				faucets: 0,
+				testCases: 0,
+				runs: 1,
+				results: 1,
+				screenshots: 2
+			}
+		});
+	});
+
+	it('an import over the quota writes nothing and keeps the old screenshots (EC-032)', async () => {
+		const storage = await open();
+		const before = {
+			...EMPTY,
+			runs: [run('r1')],
+			results: [result('r1', 1)],
+			screenshots: [shot('old')]
+		};
+		await storage.replaceRecords(before);
+		const put = IDBObjectStore.prototype.put;
+		vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (
+			this: IDBObjectStore,
+			...args
+		) {
+			if (this.name === 'screenshots' && (args[0] as { id: string }).id === 'new-2')
+				throw new DOMException('Quota exceeded.', 'QuotaExceededError');
+			return put.apply(this, args);
+		});
+
+		const replaced = await storage.replaceRecords({
+			...EMPTY,
+			runs: [run('r2')],
+			results: [result('r2', 1)],
+			screenshots: [shot('new-1', 'r2'), shot('new-2', 'r2')]
+		});
+
+		expect(replaced).toEqual({ ok: false, error: 'quota' });
+		vi.restoreAllMocks();
+		const read = await storage.readRecords();
+		expect(read.ok && read.value).toEqual(before);
 	});
 });

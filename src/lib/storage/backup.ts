@@ -1,6 +1,11 @@
 import { networkById } from '#lib/config/networks.ts';
 import { parseEndpointUrl } from '#lib/core/endpoint-url.ts';
 import { formatKey } from '#lib/core/qa/keys.ts';
+import {
+	SCREENSHOT_EDGE_MAX,
+	SCREENSHOTS_MAX,
+	type ScreenshotType
+} from '#lib/core/qa/screenshots.ts';
 import { normalizeTags } from '#lib/core/qa/tags.ts';
 import {
 	PRIORITIES,
@@ -10,6 +15,8 @@ import {
 	type ResultStatus,
 	type Run,
 	type RunStatus,
+	type Screenshot,
+	type ScreenshotOwner,
 	type Step,
 	type TestCase,
 	type TestResult
@@ -33,10 +40,10 @@ export const APP_ID = 'qanchor';
 
 /**
  * The backup format version, the file's `schemaVersion`. It follows the database schema only
- * when the backup content changes. Version 2 adds test cases, runs, and results (FR-091 AC-2);
- * a version 1 file is still accepted and upgraded in memory with those lists empty (AC-3).
+ * when the backup content changes. Version 2 adds test cases, runs, and results (FR-091 AC-2),
+ * version 3 screenshots; older files are upgraded in memory by UPGRADES (AC-3).
  */
-export const BACKUP_VERSION = 2;
+export const BACKUP_VERSION = 3;
 
 export interface BackupData {
 	settings: { theme: ThemePreference };
@@ -46,13 +53,20 @@ export interface BackupData {
 	testCases: TestCase[];
 	runs: Run[];
 	results: TestResult[];
+	screenshots: Screenshot[];
 }
 
-export interface BackupFile {
+/** A screenshot as the file carries it: the image as base64, and no size, which the bytes give. */
+export type FileScreenshot = Omit<Screenshot, 'bytes' | 'size'> & { data: string };
+
+/** What an export writes: the data with each screenshot's image as base64 (FR-091 AC-2). */
+export type FileData = Omit<BackupData, 'screenshots'> & { screenshots: FileScreenshot[] };
+
+export interface BackupFile<D = BackupData> {
 	app: typeof APP_ID;
 	schemaVersion: number;
 	exportedAt: string;
-	data: BackupData;
+	data: D;
 }
 
 export type ImportError =
@@ -62,8 +76,23 @@ export type ImportError =
 	| { code: 'unsupported-version' }
 	| { code: 'invalid'; detail: string };
 
-export function createBackup(data: BackupData, now: Date): BackupFile {
-	return { app: APP_ID, schemaVersion: BACKUP_VERSION, exportedAt: now.toISOString(), data };
+export function createBackup(data: BackupData, now: Date): BackupFile<FileData> {
+	const screenshots = data.screenshots.map((shot): FileScreenshot => ({
+		id: shot.id,
+		owner: shot.owner,
+		n: shot.n,
+		mediaType: shot.mediaType,
+		width: shot.width,
+		height: shot.height,
+		createdAt: shot.createdAt,
+		data: new Uint8Array(shot.bytes).toBase64()
+	}));
+	return {
+		app: APP_ID,
+		schemaVersion: BACKUP_VERSION,
+		exportedAt: now.toISOString(),
+		data: { ...data, screenshots }
+	};
 }
 
 export function backupFileName(now: Date): string {
@@ -419,6 +448,116 @@ function phase2Lists(data: Shape): Result<Phase2, string> {
 	return problem ? err(problem) : lists;
 }
 
+// ---- Screenshots (backup v3) ------------------------------------------------------------------
+
+const MEDIA_TYPES: readonly ScreenshotType[] = ['image/webp', 'image/jpeg'];
+
+/**
+ * Canonical base64 only: whole groups of four, with padding only at the end. `fromBase64` alone
+ * would also accept spaces and line breaks.
+ */
+const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
+function owner(record: Shape, name: string): Result<ScreenshotOwner, string> {
+	const value = record.owner;
+	const valid =
+		Array.isArray(value) &&
+		value.length === 3 &&
+		value[0] === 'result' &&
+		typeof value[1] === 'string' &&
+		value[1] !== '' &&
+		Number.isSafeInteger(value[2]) &&
+		value[2] > 0;
+	return valid ? ok(['result', value[1], value[2]]) : err(`${name} has no valid owner.`);
+}
+
+function edge(record: Shape, key: string, name: string): Result<number, string> {
+	const value = record[key];
+	return Number.isSafeInteger(value) &&
+		(value as number) >= 1 &&
+		(value as number) <= SCREENSHOT_EDGE_MAX
+		? ok(value as number)
+		: err(`${name} has a ${key} outside 1 to ${SCREENSHOT_EDGE_MAX} px.`);
+}
+
+function image(record: Shape, name: string): Result<ArrayBuffer, string> {
+	const value = record.data;
+	if (typeof value !== 'string' || value === '') return err(`${name} has no image data.`);
+	if (!BASE64.test(value)) return err(`${name} has image data that is not valid base64.`);
+	return ok(Uint8Array.fromBase64(value, { lastChunkHandling: 'strict' }).buffer);
+}
+
+const screenshotGuard: Guard<Screenshot> = (value, name) => {
+	if (!isObject(value)) return err(`${name} is not a record.`);
+	const record = fields<Omit<Screenshot, 'size'>>({
+		id: () => text(value, 'id', name),
+		owner: () => owner(value, name),
+		n: () => positiveInteger(value, 'n', name),
+		mediaType: () =>
+			MEDIA_TYPES.includes(value.mediaType as ScreenshotType)
+				? ok(value.mediaType as ScreenshotType)
+				: err(`${name} has a media type other than WebP or JPEG.`),
+		width: () => edge(value, 'width', name),
+		height: () => edge(value, 'height', name),
+		createdAt: () => time(value, 'createdAt', name),
+		bytes: () => image(value, name)
+	});
+	return record.ok ? ok({ ...record.value, size: record.value.bytes.byteLength }) : record;
+};
+
+function screenshotLabel(item: Shape): string {
+	return Array.isArray(item.owner) ? keyLabel(item.owner[2]) : '';
+}
+
+/**
+ * Checks that each screenshot belongs to a result in the file, with one id per screenshot, one
+ * number per screenshot of a result, and at most SCREENSHOTS_MAX per result (FR-091 AC-5).
+ */
+function crossCheckScreenshots(
+	screenshots: readonly Screenshot[],
+	runs: readonly Run[],
+	results: readonly TestResult[]
+): string | null {
+	const id = firstDuplicate(screenshots.map((s) => s.id));
+	if (id !== null) return `Two screenshots have the id "${id}".`;
+	const resultKeys = new Set(results.map((r) => `${r.runId}\u0000${r.caseNumber}`));
+	const runNames = new Map(runs.map((run) => [run.id, run.name]));
+	const numbers = new Map<string, Set<number>>();
+	for (const [index, shot] of screenshots.entries()) {
+		const [, runId, caseNumber] = shot.owner;
+		const run = runNames.get(runId);
+		const name = `Screenshot ${index + 1} of ${screenshots.length} ("${formatKey(caseNumber)}")${run === undefined ? '' : ` in run "${run}"`}`;
+		const key = `${runId}\u0000${caseNumber}`;
+		if (!resultKeys.has(key)) return `${name} belongs to no result in the file.`;
+		const taken = numbers.get(key) ?? new Set<number>();
+		if (taken.has(shot.n)) return `${name} has the same number as another screenshot.`;
+		if (taken.size >= SCREENSHOTS_MAX)
+			return `${name} is one more than the ${SCREENSHOTS_MAX} a result can have.`;
+		taken.add(shot.n);
+		numbers.set(key, taken);
+	}
+	return null;
+}
+
+// ---- Version steps (plan note N-1) --------------------------------------------------------------
+
+/**
+ * One data transform per version step, applied in order to a file's data before it is checked,
+ * so the guards only know the current format. A step adds what that version introduced; a
+ * list an older file should not have is replaced, not trusted.
+ */
+export const UPGRADES: Readonly<Record<number, (data: Shape) => Shape>> = {
+	2: (data) => ({ ...data, testCases: [], runs: [], results: [] }),
+	3: (data) => ({ ...data, screenshots: [] })
+};
+
+/** Brings a file's data from `version` to BACKUP_VERSION. */
+export function upgradeData(data: Shape, version: number): Shape {
+	let out = data;
+	for (let next = version + 1; next <= BACKUP_VERSION; next++) out = UPGRADES[next](out);
+	return out;
+}
+
 /** Parses and checks a whole backup before anything is written (FR-003 AC-4, EC-020). */
 export function parseBackup(json: string): Result<BackupFile, ImportError> {
 	let file: unknown;
@@ -433,27 +572,38 @@ export function parseBackup(json: string): Result<BackupFile, ImportError> {
 	if (typeof version === 'number' && Number.isInteger(version) && version > BACKUP_VERSION) {
 		return err({ code: 'newer-version', version });
 	}
-	if (version !== 1 && version !== 2) return err({ code: 'unsupported-version' });
+	if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
+		return err({ code: 'unsupported-version' });
+	}
 
 	const exportedAt = file.exportedAt;
 	if (typeof exportedAt !== 'string' || Number.isNaN(Date.parse(exportedAt))) {
 		return err({ code: 'invalid', detail: 'The export date is missing or not a date.' });
 	}
 	if (!isObject(file.data)) return err({ code: 'invalid', detail: 'The data section is missing.' });
-	const data = file.data;
+	const data = upgradeData(file.data, version);
 	if (!isObject(data.settings) || !THEMES.includes(data.settings.theme as ThemePreference)) {
 		return err({ code: 'invalid', detail: 'The theme setting is missing or not recognised.' });
 	}
 
-	const checked = fields<Omit<BackupData, 'settings' | keyof Phase2>>({
+	const checked = fields<Pick<BackupData, 'endpoints' | 'wallets' | 'faucets'>>({
 		endpoints: () => list(data.endpoints, 'Endpoint override', 'endpoints', endpointGuard),
 		wallets: () => list(data.wallets, 'Wallet', 'wallets', walletGuard),
 		faucets: () => list(data.faucets, 'Faucet link', 'faucets', faucetGuard)
 	});
 	if (!checked.ok) return err({ code: 'invalid', detail: checked.error });
-	// A version 1 file predates Phase 2: it is upgraded in memory with empty lists (FR-091 AC-3).
-	const phase2 = version === 1 ? ok({ testCases: [], runs: [], results: [] }) : phase2Lists(data);
+	const phase2 = phase2Lists(data);
 	if (!phase2.ok) return err({ code: 'invalid', detail: phase2.error });
+	const screenshots = list(
+		data.screenshots,
+		'Screenshot',
+		'screenshots',
+		screenshotGuard,
+		screenshotLabel
+	);
+	if (!screenshots.ok) return err({ code: 'invalid', detail: screenshots.error });
+	const problem = crossCheckScreenshots(screenshots.value, phase2.value.runs, phase2.value.results);
+	if (problem) return err({ code: 'invalid', detail: problem });
 
 	return ok({
 		app: APP_ID,
@@ -462,7 +612,8 @@ export function parseBackup(json: string): Result<BackupFile, ImportError> {
 		data: {
 			settings: { theme: data.settings.theme as ThemePreference },
 			...checked.value,
-			...phase2.value
+			...phase2.value,
+			screenshots: screenshots.value
 		}
 	});
 }

@@ -59,10 +59,9 @@ export type StoreName =
 
 /**
  * The stores a backup carries: every store except `meta`, whose key counter is rebuilt on import
- * from the highest case number in the file (ADR-015, plan finding F-5), and `screenshots`, which
- * backup v3 adds (T-061).
+ * from the highest case number in the file (ADR-015, plan finding F-5).
  */
-export type BackupStoreName = Exclude<StoreName, 'meta' | 'screenshots'>;
+export type BackupStoreName = Exclude<StoreName, 'meta'>;
 
 export const BACKUP_STORE_NAMES: readonly BackupStoreName[] = [
 	'endpoints',
@@ -70,7 +69,8 @@ export const BACKUP_STORE_NAMES: readonly BackupStoreName[] = [
 	'faucets',
 	'testCases',
 	'runs',
-	'results'
+	'results',
+	'screenshots'
 ];
 
 /** Every record in the backed-up stores, store by store: what a backup carries besides the theme. */
@@ -81,4 +81,5 @@ export interface StoredRecords {
 	testCases: TestCase[];
 	runs: Run[];
 	results: TestResult[];
+	screenshots: Screenshot[];
 }
