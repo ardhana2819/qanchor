@@ -1,10 +1,13 @@
 import type { StatusCounts } from '#lib/core/qa/run.ts';
+import { screenshotErrorText } from '#lib/core/qa/screenshots.ts';
 import {
 	CASES_PER_RUN_MAX,
 	type FieldError,
 	type FieldProblem,
 	type RunField
 } from '#lib/core/qa/validation.ts';
+import type { ScreenshotSaveError } from '#lib/state/runs.svelte.ts';
+import { WRITE_ERRORS } from '#lib/tools/wallets/present.ts';
 
 // Copy for the run list and New run (design 13.3 P2-03, P2-03a, 13.7).
 
@@ -58,3 +61,8 @@ export function deleteRunBody(resultCount: number): string {
 export const deleteRunTitle = (name: string) => `Delete run "${name}"?`;
 export const deletedRunText = (name: string) => `Deleted run "${name}".`;
 export const createdRunText = (name: string) => `Created run "${name}".`;
+
+/** A failed save of a result or a screenshot: a screenshot refusal has its own copy (13.7). */
+export function saveErrorText(error: ScreenshotSaveError): string {
+	return typeof error === 'string' ? WRITE_ERRORS[error] : screenshotErrorText(error);
+}

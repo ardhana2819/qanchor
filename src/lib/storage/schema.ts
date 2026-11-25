@@ -1,11 +1,11 @@
 import type { DBSchema } from 'idb';
-import type { Run, TestCase, TestResult } from '#lib/core/qa/types.ts';
+import type { Run, Screenshot, TestCase, TestResult } from '#lib/core/qa/types.ts';
 
-// IndexedDB schema v2 (docs/architecture.md section 3.1, ADR-014, ADR-015). No store and no
+// IndexedDB schema v3 (docs/architecture.md section 3.1, ADR-014, ADR-015, plan finding F-8). No store and no
 // field holds a private key or mnemonic (FR-071 AC-2, NFR-012).
 
 export const DB_NAME = 'qanchor';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 /** A user override of a network's default endpoint; defaults live in code (FR-041). */
 export interface EndpointOverride {
@@ -47,16 +47,22 @@ export interface QAnchorDB extends DBSchema {
 	runs: { key: string; value: Run };
 	results: { key: [string, number]; value: TestResult };
 	meta: { key: string; value: CaseCounter };
+	screenshots: {
+		key: string;
+		value: Screenshot;
+		indexes: { byOwner: Screenshot['owner'] };
+	};
 }
 
 export type StoreName =
-	'endpoints' | 'wallets' | 'faucets' | 'testCases' | 'runs' | 'results' | 'meta';
+	'endpoints' | 'wallets' | 'faucets' | 'testCases' | 'runs' | 'results' | 'meta' | 'screenshots';
 
 /**
  * The stores a backup carries: every store except `meta`, whose key counter is rebuilt on import
- * from the highest case number in the file (ADR-015, plan finding F-5).
+ * from the highest case number in the file (ADR-015, plan finding F-5), and `screenshots`, which
+ * backup v3 adds (T-061).
  */
-export type BackupStoreName = Exclude<StoreName, 'meta'>;
+export type BackupStoreName = Exclude<StoreName, 'meta' | 'screenshots'>;
 
 export const BACKUP_STORE_NAMES: readonly BackupStoreName[] = [
 	'endpoints',

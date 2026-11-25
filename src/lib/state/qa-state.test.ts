@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TestCase } from '#lib/core/qa/types.ts';
+import type { NewScreenshot, TestCase } from '#lib/core/qa/types.ts';
 import { CASES_MAX } from '#lib/core/qa/validation.ts';
 import type { NewCase } from '#lib/storage/db.ts';
 
@@ -222,5 +222,148 @@ describe('runs state', () => {
 		const { runs } = await fresh();
 		await runs.load();
 		expect(runs.status).toBe('unavailable');
+	});
+});
+
+describe('runs state: screenshots (FR-112, plan finding F-7)', () => {
+	const image: NewScreenshot = {
+		mediaType: 'image/webp',
+		width: 64,
+		height: 48,
+		bytes: new Uint8Array(5).buffer
+	};
+
+	async function withRun() {
+		const state = await fresh();
+		await state.runs.load();
+		const run = ok(await state.runs.create({ name: 'R', release: '', environment: '' }, []));
+		const result = {
+			runId: run.id,
+			caseNumber: 1,
+			status: 'fail' as const,
+			failedStep: 0,
+			actual: 'Broken',
+			reason: '',
+			notes: '',
+			linkedIssue: ''
+		};
+		return { ...state, run, result };
+	}
+
+	it('keeps metadata without images, also across a reload', async () => {
+		const { runs, run, result } = await withRun();
+
+		ok(await runs.saveResult(result, [image]));
+		const added = ok(await runs.addScreenshot(run.id, 1, image));
+
+		expect(added).toMatchObject({ owner: ['result', run.id, 1], n: 2, size: 5 });
+		expect(runs.screenshotsOf(run.id, 1).map((s) => s.n)).toEqual([1, 2]);
+		expect(runs.screenshots.some((s) => 'bytes' in s)).toBe(false);
+		const reloaded = (await fresh()).runs;
+		await reloaded.load();
+		expect(reloaded.screenshotsOf(run.id, 1).map((s) => s.n)).toEqual([1, 2]);
+		expect(reloaded.screenshots.some((s) => 'bytes' in s)).toBe(false);
+		const images = ok(await reloaded.images(run.id, 1));
+		expect(images.map((s) => s.bytes.byteLength)).toEqual([5, 5]);
+	});
+
+	it('removes one screenshot, and a run with all of its own', async () => {
+		const { runs, run, result } = await withRun();
+		const other = ok(await runs.create({ name: 'O', release: '', environment: '' }, []));
+		ok(await runs.saveResult(result, [image, image]));
+		ok(await runs.saveResult({ ...result, runId: other.id }, [image]));
+		const [first] = runs.screenshotsOf(run.id, 1);
+
+		ok(await runs.removeScreenshot(first.id));
+		expect(runs.screenshotCount(run.id)).toBe(1);
+
+		ok(await runs.remove(run.id));
+		expect(runs.screenshotCount(run.id)).toBe(0);
+		expect(runs.screenshotCount(other.id)).toBe(1);
+		const reloaded = (await fresh()).runs;
+		await reloaded.load();
+		expect(reloaded.screenshots.map((s) => s.owner[1])).toEqual([other.id]);
+	});
+
+	it('refuses the sixth screenshot with the limit error (FR-112 AC-6)', async () => {
+		const { runs, run, result } = await withRun();
+		ok(await runs.saveResult(result, [image, image, image, image, image]));
+
+		expect(await runs.addScreenshot(run.id, 1, image)).toEqual({
+			ok: false,
+			error: { kind: 'limit' }
+		});
+		expect(await runs.saveResult(result, [image])).toEqual({ ok: false, error: { kind: 'limit' } });
+		expect(runs.screenshotCount(run.id)).toBe(5);
+	});
+
+	it('a screenshot of an unsaved result fails as a storage error, writing nothing', async () => {
+		const { runs, run } = await withRun();
+
+		expect(await runs.addScreenshot(run.id, 1, image)).toEqual({ ok: false, error: 'failed' });
+		expect(runs.screenshots).toEqual([]);
+	});
+
+	describe('a quota error (EC-032, FR-092 AC-3)', () => {
+		function quotaOnScreenshots() {
+			const add = IDBObjectStore.prototype.add;
+			vi.spyOn(IDBObjectStore.prototype, 'add').mockImplementation(function (
+				this: IDBObjectStore,
+				...args
+			) {
+				if (this.name === 'screenshots')
+					throw new DOMException('Quota exceeded.', 'QuotaExceededError');
+				return add.apply(this, args);
+			});
+		}
+
+		afterEach(() => vi.restoreAllMocks());
+
+		it('names the storage used when the browser says', async () => {
+			const { runs, run, result } = await withRun();
+			ok(await runs.saveResult(result));
+			vi.stubGlobal('navigator', {
+				storage: { estimate: async () => ({ usage: 1.9e9, quota: 2e9 }) }
+			});
+			quotaOnScreenshots();
+
+			expect(await runs.addScreenshot(run.id, 1, image)).toEqual({
+				ok: false,
+				error: { kind: 'storage', usage: 1.9e9, quota: 2e9 }
+			});
+			expect(await runs.saveResult({ ...result, actual: 'Changed' }, [image])).toEqual({
+				ok: false,
+				error: { kind: 'storage', usage: 1.9e9, quota: 2e9 }
+			});
+			// The result text saved before stays as it was (EC-032).
+			expect(runs.results.map((r) => r.actual)).toEqual(['Broken']);
+			expect(runs.screenshots).toEqual([]);
+		});
+
+		it('still fails as a storage error where the browser gives no estimate', async () => {
+			const { runs, run, result } = await withRun();
+			ok(await runs.saveResult(result));
+			vi.stubGlobal('navigator', {});
+			quotaOnScreenshots();
+
+			expect(await runs.addScreenshot(run.id, 1, image)).toEqual({
+				ok: false,
+				error: { kind: 'storage', usage: undefined, quota: undefined }
+			});
+		});
+
+		it('on a result without screenshots keeps the plain storage error', async () => {
+			const { runs, result } = await withRun();
+			const put = IDBObjectStore.prototype.put;
+			vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (
+				this: IDBObjectStore,
+				...args
+			) {
+				if (this.name === 'results') throw new DOMException('Quota.', 'QuotaExceededError');
+				return put.apply(this, args);
+			});
+
+			expect(await runs.saveResult(result)).toEqual({ ok: false, error: 'quota' });
+		});
 	});
 });

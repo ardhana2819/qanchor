@@ -1,4 +1,5 @@
 import { formatKey } from './keys.ts';
+import type { Screenshot, ScreenshotMeta } from './types.ts';
 
 // Screenshot rules shared by the image worker, storage, and the screenshot area (FR-112, FR-122,
 // PRD 10.5, design 13.7). Sizes are decimal (1 MB = 1,000,000 bytes), as file managers show them.
@@ -131,4 +132,18 @@ export function attachmentName(
 		.slice(0, 8)
 		.toLowerCase();
 	return `${formatKey(caseNumber)}-${short}-${n}.${EXTENSIONS[type]}`;
+}
+
+/** A stored screenshot without its image, as the page keeps it in memory (NFR-004). */
+export function screenshotMeta({
+	id,
+	owner,
+	n,
+	mediaType,
+	width,
+	height,
+	size,
+	createdAt
+}: Screenshot): ScreenshotMeta {
+	return { id, owner, n, mediaType, width, height, size, createdAt };
 }

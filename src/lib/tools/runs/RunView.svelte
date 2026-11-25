@@ -33,6 +33,7 @@
 		type CaseListFilter,
 		type ResultForm
 	} from './execution.ts';
+	import { saveErrorText } from './present.ts';
 	import ResultPanel from './ResultPanel.svelte';
 
 	// Run execution (design 13.3 P2-04; FR-111, FR-113 AC-2, AC-3, AC-5). `/runs/view?id=&case=`;
@@ -129,7 +130,7 @@
 			linkedIssue: saving.linkedIssue.trim()
 		});
 		if (!written.ok) {
-			notify.showToast(WRITE_ERRORS[written.error]);
+			notify.showToast(saveErrorText(written.error));
 			return false;
 		}
 		// The form stays as typed; only the stored issue is trimmed.
