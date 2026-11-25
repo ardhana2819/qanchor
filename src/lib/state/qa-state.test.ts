@@ -226,12 +226,13 @@ describe('runs state', () => {
 });
 
 describe('runs state: screenshots (FR-112, plan finding F-7)', () => {
-	const image: NewScreenshot = {
+	const image = (): NewScreenshot => ({
+		id: crypto.randomUUID(),
 		mediaType: 'image/webp',
 		width: 64,
 		height: 48,
 		bytes: new Uint8Array(5).buffer
-	};
+	});
 
 	async function withRun() {
 		const state = await fresh();
@@ -253,8 +254,8 @@ describe('runs state: screenshots (FR-112, plan finding F-7)', () => {
 	it('keeps metadata without images, also across a reload', async () => {
 		const { runs, run, result } = await withRun();
 
-		ok(await runs.saveResult(result, [image]));
-		const added = ok(await runs.addScreenshot(run.id, 1, image));
+		ok(await runs.saveResult(result, [image()]));
+		const added = ok(await runs.addScreenshot(run.id, 1, image()));
 
 		expect(added).toMatchObject({ owner: ['result', run.id, 1], n: 2, size: 5 });
 		expect(runs.screenshotsOf(run.id, 1).map((s) => s.n)).toEqual([1, 2]);
@@ -270,8 +271,8 @@ describe('runs state: screenshots (FR-112, plan finding F-7)', () => {
 	it('removes one screenshot, and a run with all of its own', async () => {
 		const { runs, run, result } = await withRun();
 		const other = ok(await runs.create({ name: 'O', release: '', environment: '' }, []));
-		ok(await runs.saveResult(result, [image, image]));
-		ok(await runs.saveResult({ ...result, runId: other.id }, [image]));
+		ok(await runs.saveResult(result, [image(), image()]));
+		ok(await runs.saveResult({ ...result, runId: other.id }, [image()]));
 		const [first] = runs.screenshotsOf(run.id, 1);
 
 		ok(await runs.removeScreenshot(first.id));
@@ -287,20 +288,23 @@ describe('runs state: screenshots (FR-112, plan finding F-7)', () => {
 
 	it('refuses the sixth screenshot with the limit error (FR-112 AC-6)', async () => {
 		const { runs, run, result } = await withRun();
-		ok(await runs.saveResult(result, [image, image, image, image, image]));
+		ok(await runs.saveResult(result, [image(), image(), image(), image(), image()]));
 
-		expect(await runs.addScreenshot(run.id, 1, image)).toEqual({
+		expect(await runs.addScreenshot(run.id, 1, image())).toEqual({
 			ok: false,
 			error: { kind: 'limit' }
 		});
-		expect(await runs.saveResult(result, [image])).toEqual({ ok: false, error: { kind: 'limit' } });
+		expect(await runs.saveResult(result, [image()])).toEqual({
+			ok: false,
+			error: { kind: 'limit' }
+		});
 		expect(runs.screenshotCount(run.id)).toBe(5);
 	});
 
 	it('a screenshot of an unsaved result fails as a storage error, writing nothing', async () => {
 		const { runs, run } = await withRun();
 
-		expect(await runs.addScreenshot(run.id, 1, image)).toEqual({ ok: false, error: 'failed' });
+		expect(await runs.addScreenshot(run.id, 1, image())).toEqual({ ok: false, error: 'failed' });
 		expect(runs.screenshots).toEqual([]);
 	});
 
@@ -327,11 +331,11 @@ describe('runs state: screenshots (FR-112, plan finding F-7)', () => {
 			});
 			quotaOnScreenshots();
 
-			expect(await runs.addScreenshot(run.id, 1, image)).toEqual({
+			expect(await runs.addScreenshot(run.id, 1, image())).toEqual({
 				ok: false,
 				error: { kind: 'storage', usage: 1.9e9, quota: 2e9 }
 			});
-			expect(await runs.saveResult({ ...result, actual: 'Changed' }, [image])).toEqual({
+			expect(await runs.saveResult({ ...result, actual: 'Changed' }, [image()])).toEqual({
 				ok: false,
 				error: { kind: 'storage', usage: 1.9e9, quota: 2e9 }
 			});
@@ -346,7 +350,7 @@ describe('runs state: screenshots (FR-112, plan finding F-7)', () => {
 			vi.stubGlobal('navigator', {});
 			quotaOnScreenshots();
 
-			expect(await runs.addScreenshot(run.id, 1, image)).toEqual({
+			expect(await runs.addScreenshot(run.id, 1, image())).toEqual({
 				ok: false,
 				error: { kind: 'storage', usage: undefined, quota: undefined }
 			});

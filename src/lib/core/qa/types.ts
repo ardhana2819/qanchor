@@ -102,5 +102,8 @@ export interface Screenshot {
 /** A screenshot without its image: what the page keeps in memory (NFR-004). */
 export type ScreenshotMeta = Omit<Screenshot, 'bytes'>;
 
-/** What a new screenshot supplies; the id, owner, number, size, and time are set on save. */
-export type NewScreenshot = Pick<Screenshot, 'mediaType' | 'width' | 'height' | 'bytes'>;
+/**
+ * What a new screenshot supplies; the owner, number, size, and time are set on save. The id is
+ * set when the image is made, so a screenshot waiting for its result (plan finding F-7) keeps it.
+ */
+export type NewScreenshot = Pick<Screenshot, 'id' | 'mediaType' | 'width' | 'height' | 'bytes'>;
