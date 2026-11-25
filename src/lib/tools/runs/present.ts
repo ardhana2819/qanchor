@@ -51,12 +51,18 @@ function problemText(field: RunField, problem: FieldProblem): string {
 	return 'Check this field.';
 }
 
-/** The delete confirmation's body (FR-113 AC-4, design 13.7); screenshots come in slice 2b. */
-export function deleteRunBody(resultCount: number): string {
+/** The delete confirmation's body (FR-113 AC-4, design 13.7), naming the screenshots too. */
+export function deleteRunBody(resultCount: number, screenshotCount = 0): string {
 	if (resultCount === 0) return 'It has no results yet. This cannot be undone.';
-	if (resultCount === 1) return 'Its 1 result is deleted too. This cannot be undone.';
-	return `Its ${resultCount.toLocaleString('en')} results are deleted too. This cannot be undone.`;
+	const results = countWord(resultCount, 'result');
+	const what = screenshotCount
+		? `${results} and ${countWord(screenshotCount, 'screenshot')} are`
+		: `${results} ${resultCount === 1 ? 'is' : 'are'}`;
+	return `Its ${what} deleted too. This cannot be undone.`;
 }
+
+const countWord = (count: number, word: string) =>
+	`${count.toLocaleString('en')} ${word}${count === 1 ? '' : 's'}`;
 
 export const deleteRunTitle = (name: string) => `Delete run "${name}"?`;
 export const deletedRunText = (name: string) => `Deleted run "${name}".`;

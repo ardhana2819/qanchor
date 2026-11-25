@@ -161,7 +161,9 @@
 </div>
 
 <Dialog bind:open={deleteOpen} title={deleting ? deleteRunTitle(deleting.name) : ''} destructive>
-	<p data-testid="runs-delete-results">{deleting ? deleteRunBody(resultCount(deleting)) : ''}</p>
+	<p data-testid="runs-delete-results">
+		{deleting ? deleteRunBody(resultCount(deleting), runs.screenshotCount(deleting.id)) : ''}
+	</p>
 	{#snippet actions()}
 		<!-- Cancel comes first and takes focus: deleting cannot be undone. -->
 		<Button autofocus onclick={() => (deleteOpen = false)}>Cancel</Button>
