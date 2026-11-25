@@ -1,12 +1,8 @@
 <script lang="ts">
-	import {
-		backupFileName,
-		createBackup,
-		describeImportError,
-		parseBackup,
-		type BackupFile
-	} from '#lib/storage/backup.ts';
-	import type { StoredRecords } from '#lib/storage/schema.ts';
+	import { onDestroy } from 'svelte';
+	import { formatSize } from '#lib/core/qa/screenshots.ts';
+	import { backupFileName, describeImportError, type BackupFile } from '#lib/storage/backup.ts';
+	import type { BackupStoreName, StoredRecords } from '#lib/storage/schema.ts';
 	import type { StorageErrorCode } from '#lib/storage/db.ts';
 	import { endpointOverrides } from '#lib/state/endpoints.svelte.ts';
 	import { notify } from '#lib/state/notify.svelte.ts';
@@ -15,7 +11,8 @@
 	import Button from '#lib/ui/Button.svelte';
 	import Callout from '#lib/ui/Callout.svelte';
 	import Dialog from '#lib/ui/Dialog.svelte';
-	import { downloadText } from '#lib/ui/download.ts';
+	import { downloadBlob } from '#lib/ui/download.ts';
+	import { createBackupJobs } from '#lib/workers/backup-jobs.ts';
 
 	// Back up and restore (J-6, FR-003, FR-091). The confirmation compares what is stored now with what the
 	// import leaves (owner's choice after the prototype, 2026-11-13).
@@ -24,7 +21,13 @@
 	interface Pending {
 		fileName: string;
 		backup: BackupFile;
-		now: StoredRecords;
+		now: Record<BackupStoreName, number>;
+	}
+	/** A built export with screenshots, waiting for Download (FR-091 AC-4). */
+	interface Ready {
+		name: string;
+		file: Blob;
+		screenshots: number;
 	}
 
 	const WRITE_ERRORS: Record<StorageErrorCode, string> = {
@@ -34,16 +37,21 @@
 		failed: 'The data could not be written.'
 	};
 
-	let busy: 'reading' | 'writing' | null = $state(null);
+	let busy: 'preparing' | 'reading' | 'writing' | null = $state(null);
 	let outcome: Outcome | null = $state(null);
 	// Raw, not deeply reactive: the records go to IndexedDB, which cannot clone a Svelte proxy
 	// (DataCloneError). They are only replaced as a whole, never edited.
 	let pending: Pending | null = $state.raw(null);
 	let dialogOpen = $state(false);
+	let ready: Ready | null = $state.raw(null);
+	let downloadOpen = $state(false);
 	let fileInput: HTMLInputElement | undefined = $state();
 	let outcomeBox: HTMLDivElement | undefined = $state();
 
-	const ready = $derived(storage.status === 'ready');
+	const available = $derived(storage.status === 'ready');
+	// Building and reading files run in a worker, created on the first export or import (F-9).
+	const jobs = createBackupJobs();
+	onDestroy(() => jobs.dispose());
 
 	async function show(next: Outcome): Promise<void> {
 		outcome = next;
@@ -56,28 +64,59 @@
 
 	async function exportBackup(): Promise<void> {
 		outcome = null;
-		const db = await storage.connect();
-		const records = db ? await db.readRecords() : null;
-		if (!records?.ok) {
+		busy = 'preparing';
+		try {
+			const db = await storage.connect();
+			const records = db ? await db.readRecords() : null;
+			if (!records?.ok) {
+				await show({
+					kind: 'danger',
+					title: 'Export failed',
+					message: 'The stored data could not be read.'
+				});
+				return;
+			}
+			const now = new Date();
+			const screenshots = records.value.screenshots.length;
+			const file = await jobs.build(
+				{ settings: { theme: theme.preference }, ...records.value },
+				now
+			);
+			const next = { name: backupFileName(now), file, screenshots };
+			// With screenshots the file can be large, so its size is shown before it downloads.
+			if (screenshots === 0) save(next);
+			else {
+				ready = next;
+				downloadOpen = true;
+			}
+		} catch {
 			await show({
 				kind: 'danger',
 				title: 'Export failed',
-				message: 'The stored data could not be read.'
+				message: 'The backup file could not be built in this browser.'
 			});
-			return;
+		} finally {
+			busy = null;
 		}
-		const now = new Date();
-		const name = backupFileName(now);
-		const file = createBackup({ settings: { theme: theme.preference }, ...records.value }, now);
-		downloadText(name, `${JSON.stringify(file, null, 2)}\n`, 'application/json');
+	}
+
+	function save({ name, file }: Ready): void {
+		downloadBlob(name, file);
 		notify.showToast(`Exported ${name}`);
+	}
+
+	function closeDownload(confirmed: boolean): void {
+		if (!downloadOpen) return;
+		downloadOpen = false;
+		if (confirmed && ready) save(ready);
+		ready = null;
 	}
 
 	async function readFile(file: File): Promise<void> {
 		outcome = null;
 		busy = 'reading';
 		try {
-			const parsed = parseBackup(await file.text());
+			const parsed = await jobs.read(file);
 			if (!parsed.ok) {
 				await show({
 					kind: 'danger',
@@ -87,7 +126,7 @@
 				return;
 			}
 			const db = await storage.connect();
-			const now = db ? await db.readRecords() : null;
+			const now = db ? await db.countRecords() : null;
 			if (!now?.ok) {
 				await show({
 					kind: 'danger',
@@ -98,6 +137,12 @@
 			}
 			pending = { fileName: file.name, backup: parsed.value, now: now.value };
 			dialogOpen = true;
+		} catch {
+			await show({
+				kind: 'danger',
+				title: 'Import failed. Nothing was changed.',
+				message: `${file.name}: The file could not be read in this browser.`
+			});
 		} finally {
 			busy = null;
 		}
@@ -149,7 +194,7 @@
 		return `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 	}
 
-	const ROWS: { label: string; key: keyof StoredRecords; one: string; many: string }[] = [
+	const ROWS: { label: string; key: BackupStoreName; one: string; many: string }[] = [
 		{ label: 'Wallets', key: 'wallets', one: 'wallet', many: 'wallets' },
 		{
 			label: 'Endpoint overrides',
@@ -160,7 +205,8 @@
 		{ label: 'Faucet links', key: 'faucets', one: 'faucet link', many: 'faucet links' },
 		{ label: 'Test cases', key: 'testCases', one: 'test case', many: 'test cases' },
 		{ label: 'Test runs', key: 'runs', one: 'test run', many: 'test runs' },
-		{ label: 'Results', key: 'results', one: 'result', many: 'results' }
+		{ label: 'Results', key: 'results', one: 'result', many: 'results' },
+		{ label: 'Screenshots', key: 'screenshots', one: 'screenshot', many: 'screenshots' }
 	];
 
 	function summary(records: StoredRecords): string {
@@ -181,11 +227,15 @@
 	</p>
 
 	<div class="actions">
-		<Button disabled={!ready || busy !== null} onclick={exportBackup} data-testid="settings-export">
+		<Button
+			disabled={!available || busy !== null}
+			onclick={exportBackup}
+			data-testid="settings-export"
+		>
 			Export backup
 		</Button>
 		<Button
-			disabled={!ready || busy !== null}
+			disabled={!available || busy !== null}
 			onclick={() => fileInput?.click()}
 			data-testid="settings-import"
 		>
@@ -205,10 +255,12 @@
 
 	{#if storage.status === 'checking'}
 		<p class="status" data-testid="settings-status">Checking storage…</p>
-	{:else if !ready}
+	{:else if !available}
 		<p class="status" data-testid="settings-status">
 			Export and import need storage, which is unavailable in this tab.
 		</p>
+	{:else if busy === 'preparing'}
+		<p class="status" data-testid="settings-status">Preparing backup…</p>
 	{:else if busy === 'reading'}
 		<p class="status" data-testid="settings-status">Reading file…</p>
 	{:else if busy === 'writing'}
@@ -250,7 +302,7 @@
 			</thead>
 			<tbody>
 				{#each ROWS as row (row.key)}
-					{@const before = pending.now[row.key].length}
+					{@const before = pending.now[row.key]}
 					{@const after = pending.backup.data[row.key].length}
 					<tr>
 						<th scope="row">{row.label}</th>
@@ -271,6 +323,27 @@
 		<Button onclick={() => closeDialog(true)}>Cancel</Button>
 		<Button variant="danger" onclick={confirmImport} data-testid="settings-confirm-import">
 			Replace all data
+		</Button>
+	{/snippet}
+</Dialog>
+
+<Dialog
+	bind:open={() => downloadOpen, (next) => (next ? undefined : closeDownload(false))}
+	title="Download backup?"
+>
+	{#if ready}
+		<p data-testid="settings-export-size">
+			<span class="file-name">{ready.name}</span>, {formatSize(ready.file.size)}, with {count(
+				ready.screenshots,
+				'screenshot',
+				'screenshots'
+			)}.
+		</p>
+	{/if}
+	{#snippet actions()}
+		<Button onclick={() => closeDownload(false)}>Cancel</Button>
+		<Button variant="primary" onclick={() => closeDownload(true)} data-testid="settings-download">
+			Download
 		</Button>
 	{/snippet}
 </Dialog>

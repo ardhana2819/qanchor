@@ -2,6 +2,7 @@ import type { AddressRow, GenerateOptions } from '#lib/core/chains/catalog.ts';
 import type { DummyRow } from '#lib/core/dummy/rows.ts';
 import type { Settings } from '#lib/core/dummy/settings.ts';
 import type { ScreenshotError, ScreenshotType } from '#lib/core/qa/screenshots.ts';
+import type { BackupData, BackupFile, ImportError } from '#lib/storage/backup.ts';
 
 // Typed message protocol for the workers (ADR-004). Messages carry addresses only: key material
 // never leaves the worker (NFR-012).
@@ -49,4 +50,17 @@ export type ImageJobResponse =
 	| { type: 'done'; id: number; image: CompressedImage }
 	/** An expected failure: the page shows its message (design 13.7). */
 	| { type: 'refused'; id: number; error: ScreenshotError }
+	| { type: 'error'; id: number; message: string };
+
+/** Export: the records with screenshot bytes transferred; import: the chosen file (F-9). */
+export type BackupJobRequest =
+	| { type: 'export'; id: number; data: BackupData; now: number }
+	| { type: 'import'; id: number; file: Blob };
+
+export type BackupJobResponse =
+	/** The JSON file, ready to download; its size is shown first (FR-091 AC-4). */
+	| { type: 'exported'; id: number; file: Blob }
+	/** A checked backup; screenshot bytes are transferred, not copied. */
+	| { type: 'parsed'; id: number; backup: BackupFile }
+	| { type: 'refused'; id: number; error: ImportError }
 	| { type: 'error'; id: number; message: string };

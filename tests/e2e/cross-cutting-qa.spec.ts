@@ -230,7 +230,11 @@ test.describe('focus rings (NFR-008)', () => {
 test.describe('export and import of the performance data set (FR-091 AC-6, NFR-005, NFR-023)', () => {
 	test.skip(({ browserName }) => browserName !== 'chromium', 'Long Tasks API is Chromium-only.');
 
-	/** PRD 10.5: 1,000 cases and 20 runs of 100 cases; screenshots join in slice 2b. */
+	/**
+	 * PRD 10.5: 1,000 cases, 20 runs of 100 cases, and 200 screenshots, five on each of two
+	 * failed results per run. Each image is 200 KB of random bytes (a compressed 1,920 px
+	 * screenshot is about that size, and random bytes do not shrink), so the file is about 55 MB.
+	 */
 	async function seedDataSet(page: Page): Promise<void> {
 		await page.goto('/');
 		await appOpened(page);
@@ -271,6 +275,40 @@ test.describe('export and import of the performance data set (FR-091 AC-6, NFR-0
 				)
 			)
 		);
+		// Made in the page: an argument cannot carry 40 MB of ArrayBuffers.
+		await page.evaluate(
+			(owners) =>
+				new Promise<void>((resolve, reject) => {
+					const request = indexedDB.open('qanchor');
+					request.onsuccess = () => {
+						const db = request.result;
+						const tx = db.transaction('screenshots', 'readwrite');
+						owners.forEach(([runId, caseNumber], k) => {
+							const bytes = new Uint8Array(200_000);
+							for (let i = 0; i < bytes.length; i += 65_536)
+								crypto.getRandomValues(bytes.subarray(i, i + 65_536));
+							tx.objectStore('screenshots').put({
+								id: `shot-${k}`,
+								owner: ['result', runId, caseNumber],
+								n: (k % 5) + 1,
+								mediaType: 'image/webp',
+								width: 1920,
+								height: 1080,
+								size: bytes.length,
+								createdAt: k,
+								bytes: bytes.buffer
+							});
+						});
+						tx.oncomplete = () => (db.close(), resolve());
+						tx.onerror = () => reject(tx.error);
+					};
+				}),
+			runs.flatMap((run) =>
+				[run.cases[3], run.cases[8]].flatMap((c) =>
+					Array.from({ length: 5 }, () => [run.id, c.number as number] as const)
+				)
+			)
+		);
 	}
 
 	test('neither causes a main-thread task over 200 ms', async ({ page }) => {
@@ -287,9 +325,13 @@ test.describe('export and import of the performance data set (FR-091 AC-6, NFR-0
 		await openQa(page, '/settings');
 		await expect(page.getByRole('button', { name: 'Import backup…' })).toBeEnabled();
 
+		await page.getByRole('button', { name: 'Export backup' }).click();
 		const [download] = await Promise.all([
 			page.waitForEvent('download'),
-			page.getByRole('button', { name: 'Export backup' }).click()
+			page
+				.getByRole('dialog', { name: 'Download backup?' })
+				.getByRole('button', { name: 'Download' })
+				.click({ timeout: 60_000 })
 		]);
 		const path = (await download.path()) as string;
 		const file = await readFile(path);
@@ -297,6 +339,7 @@ test.describe('export and import of the performance data set (FR-091 AC-6, NFR-0
 		expect(backup.data.testCases).toHaveLength(1000);
 		expect(backup.data.runs).toHaveLength(20);
 		expect(backup.data.results).toHaveLength(2000);
+		expect(backup.data.screenshots).toHaveLength(200);
 
 		// A path, not a buffer: a 3 MB buffer is turned into a File by script in the page, a long
 		// task of Playwright's own (found by profiling in T-056).
@@ -306,8 +349,9 @@ test.describe('export and import of the performance data set (FR-091 AC-6, NFR-0
 			.getByRole('button', { name: 'Replace all data' })
 			.click();
 		await expect(page.getByText('Import complete', { exact: true }).first()).toBeVisible({
-			timeout: 30_000
+			timeout: 60_000
 		});
+		await expect(page.getByRole('main')).toContainText('2,000 results, 200 screenshots');
 
 		const longTasks = await page.evaluate(
 			() => (window as unknown as { __longTasks: number[] }).__longTasks
