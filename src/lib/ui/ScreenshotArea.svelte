@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { SCREENSHOTS_MAX } from '#lib/core/qa/screenshots.ts';
 	import Icon from './Icon.svelte';
 	import Thumbnail from './Thumbnail.svelte';
@@ -22,6 +22,10 @@
 		compressing?: number;
 		/** The reason the last image was not added (design 13.7). */
 		error?: string | null;
+		/** Follows the error, e.g. a link to Settings when storage is full. */
+		errorAction?: Snippet;
+		/** Said about an image that was added, e.g. a GIF kept its first frame (EC-030). */
+		note?: string | null;
 		/** A completed run: thumbnails open, nothing can be added or removed. */
 		readonly?: boolean;
 		onfiles: (files: File[]) => void;
@@ -33,6 +37,8 @@
 		items,
 		compressing = 0,
 		error = null,
+		errorAction,
+		note = null,
 		readonly = false,
 		onfiles,
 		onopen,
@@ -106,7 +112,12 @@
 		{/if}
 	</div>
 	{#if error}
-		<p class="error" role="alert"><Icon name="warning" size={14} />{error}</p>
+		<p class="error" role="alert">
+			<Icon name="warning" size={14} />{error}{#if errorAction}{@render errorAction()}{/if}
+		</p>
+	{/if}
+	{#if note}
+		<p class="added-note" data-testid="screenshot-note">{note}</p>
 	{/if}
 	{#if !readonly}
 		<input
@@ -191,8 +202,15 @@
 		font-size: var(--text-xs);
 	}
 
+	.added-note {
+		margin: 0;
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+	}
+
 	.error {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--space-1);
 		margin: 0;

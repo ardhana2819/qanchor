@@ -89,6 +89,16 @@ describe('delete and toast copy (design 13.7)', () => {
 		expect(deleteRunBody(1500)).toBe('Its 1,500 results are deleted too. This cannot be undone.');
 	});
 
+	it('names the screenshots deleted with the results (design 13.7, NFR-024)', () => {
+		expect(deleteRunBody(40, 6)).toBe(
+			'Its 40 results and 6 screenshots are deleted too. This cannot be undone.'
+		);
+		expect(deleteRunBody(1, 1)).toBe(
+			'Its 1 result and 1 screenshot are deleted too. This cannot be undone.'
+		);
+		expect(deleteRunBody(2, 0)).toBe('Its 2 results are deleted too. This cannot be undone.');
+	});
+
 	it('quotes the run name', () => {
 		expect(deleteRunTitle('Smoke')).toBe('Delete run "Smoke"?');
 		expect(deletedRunText('Smoke')).toBe('Deleted run "Smoke".');

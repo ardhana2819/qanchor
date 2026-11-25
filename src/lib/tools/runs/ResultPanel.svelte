@@ -12,6 +12,9 @@
 	import Select from '#lib/ui/Select.svelte';
 	import Textarea from '#lib/ui/Textarea.svelte';
 	import TextInput from '#lib/ui/TextInput.svelte';
+	import ResultScreenshots from './ResultScreenshots.svelte';
+	import { isTextField, pastedFiles, pasteAction } from './screenshots.ts';
+	import type { RunShots } from './shots.svelte.ts';
 	import {
 		failedStepOptions,
 		isSaved,
@@ -26,17 +29,21 @@
 	// a field that changes is saved when it loses focus, if the form is valid.
 
 	interface Props {
+		runId: string;
 		item: CaseSnapshot;
 		result: TestResult | undefined;
 		form: ResultForm;
 		completed: boolean;
+		/** The run page's screenshots (FR-112). */
+		shots: RunShots;
 		/** Stores the form as the case's result; false when the write failed. */
 		onsave: (form: ResultForm, how: 'status' | 'submit' | 'field') => Promise<boolean>;
 	}
 
-	let { item, result, form = $bindable(), completed, onsave }: Props = $props();
+	let { runId, item, result, form = $bindable(), completed, shots, onsave }: Props = $props();
 
 	let panel: HTMLDivElement | undefined = $state();
+	let screenshots: ResultScreenshots | undefined = $state();
 	let attempted = $state(false);
 
 	const key = $derived(formatKey(item.number));
@@ -89,6 +96,17 @@
 		await onsave(form, 'submit');
 	}
 
+	// Paste anywhere in the panel (design 13.5, EC-029): an image wins, also in a text field.
+	function onpaste(event: ClipboardEvent): void {
+		if (completed || !screenshots) return;
+		const files = pastedFiles(event.clipboardData);
+		const action = pasteAction(files, isTextField(event.target));
+		if (action === 'default') return;
+		event.preventDefault();
+		if (action === 'add') void screenshots.add(files);
+		else screenshots.refuse({ kind: 'no-image' });
+	}
+
 	// A stored result keeps up with its fields: a change is saved when the field loses focus.
 	async function fieldChanged(): Promise<void> {
 		if (completed || !result || form.status !== result.status || saved) return;
@@ -100,7 +118,7 @@
 	}
 </script>
 
-<div class="result-panel" bind:this={panel} data-testid="run-result">
+<div class="result-panel" bind:this={panel} {onpaste} data-testid="run-result">
 	<FormPanel aria-label="Result of {key}" onsubmit={submit} onchange={fieldChanged}>
 		<ResultControl
 			legend="Result of {key}"
@@ -204,6 +222,16 @@
 							/>
 						{/snippet}
 					</Field>
+				</div>
+				<!-- Shown with a status: a screenshot waits for its result's first save (F-7). -->
+				<div class="wide">
+					<ResultScreenshots
+						bind:this={screenshots}
+						{shots}
+						{runId}
+						caseNumber={item.number}
+						readonly={completed}
+					/>
 				</div>
 			</div>
 		{/if}

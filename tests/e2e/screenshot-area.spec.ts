@@ -1,7 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
-import { deflateSync } from 'node:zlib';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { hydrated } from './helpers.ts';
+import { hydrated, png } from './helpers.ts';
 
 // The screenshot area, thumbnail, and image viewer (T-062, design 13.5, 13.6, FR-112 AC-1, AC-3)
 // on /components. Storing screenshots and paste handling come with run execution (T-063).
@@ -11,38 +10,6 @@ const state = (page: Page, name: string) => page.getByTestId(`shots-${name}`);
 const viewer = (page: Page) => page.getByRole('dialog', { name: /^Screenshot \d of TC-12$/ });
 const target = (area: Locator) =>
 	area.getByRole('button', { name: 'Paste, drop, or choose an image' });
-
-/** A small gray PNG, made here so no image file is committed. */
-function png(width: number, height: number): Buffer {
-	const crc = (bytes: Buffer) => {
-		let c = ~0;
-		for (const byte of bytes) {
-			c ^= byte;
-			for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
-		}
-		return ~c >>> 0;
-	};
-	const chunk = (type: string, data: Buffer) => {
-		const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
-		const out = Buffer.alloc(body.length + 8);
-		out.writeUInt32BE(data.length, 0);
-		body.copy(out, 4);
-		out.writeUInt32BE(crc(body), body.length + 4);
-		return out;
-	};
-	const header = Buffer.alloc(13);
-	header.writeUInt32BE(width, 0);
-	header.writeUInt32BE(height, 4);
-	header[8] = 8;
-	const row = Buffer.alloc(width + 1, 128);
-	row[0] = 0;
-	return Buffer.concat([
-		Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-		chunk('IHDR', header),
-		chunk('IDAT', deflateSync(Buffer.concat(Array(height).fill(row)))),
-		chunk('IEND', Buffer.alloc(0))
-	]);
-}
 
 async function choose(page: Page, ...names: string[]): Promise<void> {
 	await live(page)

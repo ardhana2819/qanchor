@@ -374,7 +374,7 @@ function screenshot(
 	now: number
 ): Screenshot {
 	return {
-		id: crypto.randomUUID(),
+		id: image.id,
 		owner,
 		n,
 		mediaType: image.mediaType,

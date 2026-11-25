@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { MediaQuery, SvelteMap } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -35,6 +35,7 @@
 	} from './execution.ts';
 	import { saveErrorText } from './present.ts';
 	import ResultPanel from './ResultPanel.svelte';
+	import { RunShots } from './shots.svelte.ts';
 
 	// Run execution (design 13.3 P2-04; FR-111, FR-113 AC-2, AC-3, AC-5). `/runs/view?id=&case=`;
 	// the ID is read after mount (T-047), and the current case is kept in the URL.
@@ -55,6 +56,8 @@
 	let switching = $state(false);
 	const wide = new MediaQuery('min-width: 1024px');
 	let listOpen = $state(false);
+	const shots = new RunShots();
+	onDestroy(() => shots.dispose());
 
 	const id = $derived(mounted ? (page.shallow?.url ?? page.url).searchParams.get('id') : null);
 	const run = $derived(id ? runs.list.find((r) => r.id === id) : undefined);
@@ -119,20 +122,26 @@
 		if (!run || !item || saving.status === null) return false;
 		const number = item.number;
 		const status = saving.status;
-		const written = await runs.saveResult({
-			runId: run.id,
-			caseNumber: number,
-			status,
-			failedStep: saving.failedStep,
-			actual: saving.actual,
-			reason: saving.reason,
-			notes: saving.notes,
-			linkedIssue: saving.linkedIssue.trim()
-		});
+		const pending = shots.pendingOf(number);
+		const written = await runs.saveResult(
+			{
+				runId: run.id,
+				caseNumber: number,
+				status,
+				failedStep: saving.failedStep,
+				actual: saving.actual,
+				reason: saving.reason,
+				notes: saving.notes,
+				linkedIssue: saving.linkedIssue.trim()
+			},
+			pending
+		);
 		if (!written.ok) {
 			notify.showToast(saveErrorText(written.error));
 			return false;
 		}
+		const late = await shots.saved(run.id, number, pending);
+		if (late) notify.showToast(saveErrorText(late));
 		// The form stays as typed; only the stored issue is trimmed.
 		if (item?.number === number) form.linkedIssue = written.value.linkedIssue;
 		const next = countStatuses(run.id, run.cases, runs.results);
@@ -376,7 +385,9 @@
 					<ResultPanel
 						bind:this={resultPanel}
 						bind:form
+						runId={run.id}
 						{item}
+						{shots}
 						{result}
 						{completed}
 						onsave={save}

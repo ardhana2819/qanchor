@@ -546,6 +546,7 @@ describe('the key counter after an import (FR-100 AC-2, plan finding F-5)', () =
 const owner = (runId: string, caseNumber: number): ScreenshotOwner => ['result', runId, caseNumber];
 
 const image = (size = 3): NewScreenshot => ({
+	id: crypto.randomUUID(),
 	mediaType: 'image/webp',
 	width: 1920,
 	height: 1080,
@@ -605,6 +606,21 @@ describe('screenshots (FR-112, plan findings F-7, F-8)', () => {
 		});
 		const read = await storage.screenshotsOf(owner('r1', 1));
 		expect(read.ok && read.value.map((s) => new Uint8Array(s.bytes)[0])).toEqual([7]);
+	});
+
+	it('keeps the id the image was made with, and never overwrites one with the same id', async () => {
+		const storage = await withResult();
+		await storage.putAll('results', [result('r1', 2)]);
+		const first = { ...image(4), id: 'shot-1' };
+
+		const added = await storage.addScreenshot(owner('r1', 1), first, 1);
+		const again = await storage.addScreenshot(owner('r1', 2), { ...image(9), id: 'shot-1' }, 2);
+
+		expect(added.ok && added.value.id).toBe('shot-1');
+		expect(again.ok).toBe(false);
+		const read = await storage.screenshotsOf(owner('r1', 1));
+		expect(read.ok && read.value.map((s) => [s.id, s.size])).toEqual([['shot-1', 4]]);
+		expect(await storage.screenshotsOf(owner('r1', 2))).toEqual({ ok: true, value: [] });
 	});
 
 	it('refuses a screenshot of a result that is not stored, so none is an orphan', async () => {
