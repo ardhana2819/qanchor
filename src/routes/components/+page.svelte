@@ -30,6 +30,8 @@
 	import Tabs from '#lib/ui/Tabs.svelte';
 	import Textarea from '#lib/ui/Textarea.svelte';
 	import TextInput from '#lib/ui/TextInput.svelte';
+	import { formatSize, screenshotErrorText } from '#lib/core/qa/screenshots.ts';
+	import { createImageJobs } from '#lib/workers/image-jobs.ts';
 
 	// A living reference for docs/design.md section 6 and the page the component E2E tests run
 	// against (T-008). It is not listed in the navigation.
@@ -136,6 +138,34 @@
 		}, 1200);
 	}
 	onDestroy(() => clearTimeout(timer));
+
+	// The image worker's test bed until the screenshot area exists (T-059, T-062): the result is
+	// shown as text, because the CSP blocks `blob:` images until T-062.
+	const images = createImageJobs();
+	onDestroy(() => images.dispose());
+	let compressing = $state(false);
+	let compressed = $state('');
+
+	async function compressChosen(event: Event & { currentTarget: HTMLInputElement }) {
+		const file = event.currentTarget.files?.[0];
+		event.currentTarget.value = '';
+		if (!file) return;
+		compressing = true;
+		try {
+			const result = await images.compress(file, file.name);
+			if (!result.ok) compressed = screenshotErrorText(result.error);
+			else {
+				const { type, width, height, bytes, firstFrameOnly } = result.value;
+				compressed =
+					`${type} · ${width} × ${height} · ${formatSize(bytes.byteLength)}` +
+					(firstFrameOnly ? ' · first frame only' : '');
+			}
+		} catch (error) {
+			compressed = error instanceof Error ? error.message : String(error);
+		} finally {
+			compressing = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -414,6 +444,22 @@
 	</div>
 </section>
 
+<section aria-labelledby="images">
+	<h2 id="images">Screenshot compression</h2>
+	<p class="summary">
+		Runs the image worker on a chosen image: long edge up to 1,920 px, WebP or JPEG at 0.8.
+	</p>
+	<div class="stack">
+		<label class="file">
+			Image to compress
+			<input type="file" onchange={compressChosen} data-testid="image-compress-file" />
+		</label>
+		<p role="status" data-testid="image-compress-result">
+			{compressing ? 'Compressing…' : compressed}
+		</p>
+	</div>
+</section>
+
 <Dialog bind:open={detailOpen} title="Row {detail?.index ?? ''}">
 	<p class="address">{detail?.address}</p>
 	{#snippet actions()}
@@ -545,6 +591,12 @@
 		font-family: var(--font-mono);
 		font-size: var(--text-mono);
 		overflow-wrap: anywhere;
+	}
+
+	.file {
+		display: grid;
+		gap: var(--space-1);
+		max-width: 360px;
 	}
 
 	.stack {
