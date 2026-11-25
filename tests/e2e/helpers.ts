@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page, type Request } from '@playwright/test';
+import { deflateSync } from 'node:zlib';
 
 /**
  * Waits until /components has hydrated. Typing into a prerendered input before that can race
@@ -34,7 +35,8 @@ export async function scanA11y(page: Page): Promise<string[]> {
  */
 export function putRecords(
 	page: Page,
-	store: 'endpoints' | 'wallets' | 'faucets' | 'testCases' | 'runs' | 'results' | 'meta',
+	store:
+		'endpoints' | 'wallets' | 'faucets' | 'testCases' | 'runs' | 'results' | 'screenshots' | 'meta',
 	records: object[]
 ): Promise<void> {
 	return page.evaluate(
@@ -195,4 +197,46 @@ export async function controlsWithoutFocusRing(page: Page, presses = 40): Promis
 		if (ring && !ring.ok) missing.push(ring.name);
 	}
 	return missing;
+}
+
+function crc32(bytes: Uint8Array): number {
+	let crc = ~0;
+	for (const byte of bytes) {
+		crc ^= byte;
+		for (let k = 0; k < 8; k++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+	}
+	return ~crc >>> 0;
+}
+
+function chunk(type: string, data: Buffer): Buffer {
+	const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+	const length = Buffer.alloc(4);
+	length.writeUInt32BE(data.length);
+	const crc = Buffer.alloc(4);
+	crc.writeUInt32BE(crc32(body));
+	return Buffer.concat([length, body, crc]);
+}
+
+/**
+ * A PNG made in the test, so no image file is committed: 8-bit gray, or gray with alpha (left
+ * half transparent) when `alpha` is set.
+ */
+export function png(width: number, height: number, alpha = false): Buffer {
+	const channels = alpha ? 2 : 1;
+	const row = Buffer.alloc(1 + width * channels);
+	for (let x = 0; x < width; x++) {
+		row[1 + x * channels] = x % 256;
+		if (alpha) row[2 + x * channels] = x < width / 2 ? 0 : 255;
+	}
+	const header = Buffer.alloc(13);
+	header.writeUInt32BE(width, 0);
+	header.writeUInt32BE(height, 4);
+	header[8] = 8;
+	header[9] = alpha ? 4 : 0;
+	return Buffer.concat([
+		Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+		chunk('IHDR', header),
+		chunk('IDAT', deflateSync(Buffer.concat(Array(height).fill(row)), { level: 1 })),
+		chunk('IEND', Buffer.alloc(0))
+	]);
 }

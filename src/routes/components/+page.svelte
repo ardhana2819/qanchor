@@ -149,8 +149,8 @@
 	}
 	onDestroy(() => clearTimeout(timer));
 
-	// The image worker's test bed until the screenshot area exists (T-059, T-062): the result is
-	// shown as text, because the CSP blocks `blob:` images until T-062.
+	// The image worker's test bed (T-059): the result is shown as text, so `image-worker.spec.ts`
+	// can read each output and refusal in every browser.
 	const images = createImageJobs();
 	onDestroy(() => images.dispose());
 	let compressing = $state(false);
