@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DataSection from '#lib/tools/settings/DataSection.svelte';
 	import EndpointsSection from '#lib/tools/settings/EndpointsSection.svelte';
+	import StorageSection from '#lib/tools/settings/StorageSection.svelte';
 	import ThemeControl from '#lib/ui/ThemeControl.svelte';
 </script>
 
@@ -29,6 +30,7 @@
 
 <div class="section">
 	<DataSection />
+	<StorageSection />
 </div>
 
 <style>
