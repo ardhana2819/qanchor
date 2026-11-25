@@ -19,7 +19,8 @@ async function watchForProblems(page: Page): Promise<() => Promise<string[]>> {
 	};
 }
 
-for (const path of ['/', '/this-page-does-not-exist']) {
+// /components shows screenshots through blob: URLs (T-062).
+for (const path of ['/', '/this-page-does-not-exist', '/components']) {
 	test(`no CSP violations or errors on ${path}`, async ({ page }) => {
 		const problems = await watchForProblems(page);
 
@@ -55,6 +56,8 @@ test('the page carries the CSP meta tag with a restrictive script-src', async ({
 	// <style> elements stay same-origin; only style="" attributes are relaxed (ADR-007).
 	expect(directives.get('style-src')).toEqual(["'self'"]);
 	expect(directives.get('object-src')).toEqual(["'none'"]);
+	// Images: same origin, data: URLs, and the page's own object URLs for screenshots (F-13).
+	expect(directives.get('img-src')).toEqual(["'self'", 'data:', 'blob:']);
 });
 
 test('unknown URLs get the fallback page with a 404 status', async ({ page }) => {

@@ -44,7 +44,8 @@ export default defineConfig({
 					// style="" attributes only. SvelteKit's route announcer (and Svelte templates) set
 					// them; they cannot run script, and <style> elements stay limited to 'self'.
 					'style-src-attr': ['unsafe-inline'],
-					'img-src': ['self', 'data:'],
+					// blob: for stored screenshots, shown through this page's own object URLs (F-13).
+					'img-src': ['self', 'data:', 'blob:'],
 					'font-src': ['self'],
 					// Users may point lookups at any https endpoint, or a local node (FR-041).
 					'connect-src': ['self', 'https:', 'http://localhost:*'],
