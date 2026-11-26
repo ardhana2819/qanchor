@@ -34,18 +34,23 @@ function phase1Requirements(): { id: string; title: string }[] {
 }
 
 /**
- * The Phase 2 requirements of the shipped slices (PRD 10.1). FR-091 is shared with slice 2b, which
- * adds screenshots to it. Extend this list as each slice ships.
+ * The Phase 2 requirements of the shipped slices (PRD 10.1): 2a, then 2b (T-066), which also adds
+ * screenshots to FR-091. Extend this list as each slice ships.
  */
 const SHIPPED_PHASE_2 = [
 	'FR-090',
 	'FR-091',
+	'FR-092',
 	'FR-100',
 	'FR-101',
 	'FR-102',
 	'FR-110',
 	'FR-111',
+	'FR-112',
 	'FR-113',
+	'FR-120',
+	'FR-121',
+	'FR-122',
 	'FR-123'
 ];
 
