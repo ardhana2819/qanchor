@@ -534,6 +534,30 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-26: Cross-cutting checks for slice 2b (T-066)
+
+* **`tests/e2e/cross-cutting-2b.spec.ts`** (14 per browser), kept apart from the slice 2a spec, on a run with screenshots, the image viewer, the bug report, and Settings with Storage:
+  * No request in 10 s while idle (NFR-003).
+  * Every request same-origin or `blob:` while adding screenshots, viewing one, copying a report, and opening Settings (NFR-011).
+  * The image worker starts with the first image and not with the run page, read from Playwright's `page.workers()` (NFR-025).
+  * No crypto chunk (NFR-015).
+  * axe in both themes on the viewer and on Settings (NFR-009). The run panel with screenshots and the bug report are scanned in their own specs.
+  * Focus rings on the run page with screenshots and in the bug report (NFR-008).
+  * Nothing animates with reduced motion through add, view, report, and remove; no running animation while idle (NFR-006).
+  * NFR-024: after removing a screenshot, after deleting a run (the other run's screenshot stays), and after importing a backup made before any screenshot, no screenshot is left whose run or result is gone.
+* **Initial JS** stays with the CI bundle-size check (NFR-001): 49.94 KB gzip for `/` after slice 2b.
+* **Traceability**: the shipped Phase 2 list in `src/traceability.test.ts` adds FR-092, FR-112, and FR-120 to FR-122; all are named by a test. Mutation-checked by adding FR-130, which fails.
+* **Live site** (2026-11-26, build `5568acc`): journey J-8 run with Playwright's Chromium in a fresh context, so no stored data was touched:
+  * Create a tagged case, filter by the tag, New run, Select all, Create run.
+  * Fail at step 1 with the actual result, paste a screenshot, Save result.
+  * Create bug report, Jira, Copy report (`h3.` headings, `#` step, the attachment named).
+  * Download the screenshot as `TC-1-<run>-1.webp`.
+  * Linked issue `PAY-123` (saved; a key is not a link, FR-123 AC-2).
+  * Copy summary, Complete run.
+
+  No request left the origin. The script was not committed.
+* **README**: slice 2b features, persistent storage and Safari's 7-day deletion, and the local WebKit note. That note said WebKit crashed on launch on macOS 26.0.1, which is no longer true; it now names the keyboard-only tests that fail locally on macOS and pass in CI.
+
 ### 2026-11-25: Bug report dialog (T-065)
 
 * **Where**: "Create bug report" (secondary, a new `bug` icon) sits in the result panel footer, shown when the stored result is Fail and the form still matches it (design 13.3 P2-04). The report is built from the stored failure, so an unsaved Fail has none. It also shows in a completed run, because reading and copying a report writes nothing. `BugReportDialog.svelte` is rendered by the run page, which has the run's name, release, and environment.
