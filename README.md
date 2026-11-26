@@ -4,7 +4,7 @@ QA toolkit for blockchain and crypto testing: valid and invalid test addresses, 
 
 Live: https://qanchor.pages.dev
 
-Status: Phase 1 (blockchain toolkit and dummy data) is complete: all eight tools are live. Phase 2 (test cases, test runs, bug reports) is next.
+Status: Phase 1 (blockchain toolkit and dummy data) is complete: all eight tools are live. Phase 2 is under way: test cases, test runs with screenshots, and bug reports are live (slices 2a and 2b).
 
 ## Tools
 
@@ -21,15 +21,15 @@ Shipped:
 | Dummy data | `/dummy-data` | Fake Indonesian test identities: names, NIK, NPWP, +62 phones, addresses with consistent region codes, and bank accounts. Up to 10,000 rows per run, generated in a Web Worker from a seed, so the same seed gives the same rows. Presets for KYC, underage, name edge cases, invalid formats (with the reason per row), and duplicate NIK. Export as CSV, JSON, or SQL `INSERT` (PostgreSQL or MySQL quoting). |
 | Checklists | `/checklists` | Test checklists for deposit, withdraw, swap, staking, network mismatch, memo and tag (XRP, XLM, TON), and stocks: 173 one-sentence items under headings. Filter across all of them, open one on its own page, and copy it as a Markdown task list. |
 | Test cases | `/cases` | Reusable test cases kept in this browser: a title, preconditions, ordered steps (each with an optional expected result), a case-level expected result, tags, and a priority. Each gets the next key (`TC-1`, `TC-2`, …), never reused. Filter by text, tags, and priority; the filter is kept in the URL. Steps are reordered with Move up and Move down; duplicating a case opens the copy in the editor; deleting one says how many runs keep their own copy; leaving with unsaved changes asks first. |
-| Test runs | `/runs` | Runs of test cases against a release: pick cases (with the case filter; up to 500), and each run keeps its own copy of them. Mark each case Pass, Fail (with the actual result and failed step), or Blocked (with the reason), add notes and a linked issue key or URL, and move with Next and Previous or the keys P, F, B, J, K. The run list shows progress; completing a run makes it read-only until reopened, and its summary can be copied as Markdown. |
+| Test runs | `/runs` | Runs of test cases against a release: pick cases (with the case filter; up to 500), and each run keeps its own copy of them. Mark each case Pass, Fail (with the actual result and failed step), or Blocked (with the reason), add notes and a linked issue key or URL, and move with Next and Previous or the keys P, F, B, J, K. Up to 5 screenshots per result: paste, drop, or choose an image; it is compressed in a Web Worker (long edge 1,920 px, WebP or JPEG) and stored with the result, opens in a viewer, and downloads as `TC-12-<run>-1.webp`. A failed result opens a bug report pre-filled from the case and the result (summary, priority, labels, environment, steps up to the failed one, expected and actual result), editable and copied as Markdown or Jira wiki markup with its attachments named; it is not stored. The run list shows progress; completing a run makes it read-only until reopened, and its summary can be copied as Markdown. |
 
-Address and amount results can be copied or exported as CSV or JSON; dummy data also as SQL; converted values can be copied; a checklist and a run summary can be copied as Markdown. Settings and data stay in the browser (IndexedDB) and can be exported and imported as JSON. In Settings, each network's endpoint URL can be replaced with your own (https, or http://localhost for a local node) and reset to the default.
+Address and amount results can be copied or exported as CSV or JSON; dummy data also as SQL; converted values can be copied; a checklist and a run summary can be copied as Markdown. Settings and data stay in the browser (IndexedDB) and can be exported and imported as JSON, screenshots included (the size is shown before the download). Settings shows how much storage is used and can ask the browser to keep the data persistent; the browser decides (Firefox asks you, Chrome, Edge, and Safari decide on their own), and Safari may delete data of a site you have not visited for 7 days. In Settings, each network's endpoint URL can be replaced with your own (https, or http://localhost for a local node) and reset to the default.
 
 Interactive elements have accessible names, and dynamic output also carries a stable `data-testid` (`<tool>-<element>`, for example `dummy-preview-row`), so you can write your own Playwright tests against the live site.
 
 ## Roadmap
 
-* Phase 2: test cases and test runs are live (slice 2a). Next: screenshots on results, Jira-format bug reports, and persistent storage (2b); exploratory session notes, a release summary, and links from the Phase 1 tools (2c).
+* Phase 2: test cases, test runs, screenshots, bug reports, and persistent storage are live (slices 2a and 2b). Next: exploratory session notes, a release summary, and links from the Phase 1 tools (2c).
 * Phase 3: generate test cases from a PRD (PDF, DOCX, Markdown) with ambiguity questions and a traceability matrix, using your own Claude API key.
 * Phase 4: demo mode with a sample crypto PRD, usable without an API key.
 * Later, not planned: an optional backend for team sharing, sync across devices, and an RPC proxy.
@@ -54,7 +54,7 @@ Before the first E2E run, install the browsers once: `npx playwright install chr
 
 The shared UI components are shown in every state at `/components` (not linked from the navigation); open it on the preview server to review them.
 
-Known issue: Playwright 1.65's WebKit crashes on launch on macOS 26.0.1 (inside AppKit, before any page loads). Run `npx playwright test --project=chromium --project=firefox` locally; WebKit runs in CI on Linux.
+Known issue: on macOS, WebKit's Tab key skips buttons and links (the system's keyboard navigation setting), so about 19 keyboard-only tests fail locally in WebKit; they pass in CI on Linux.
 
 ## Deployment
 
