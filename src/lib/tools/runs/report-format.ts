@@ -8,7 +8,7 @@ export const REPORT_FORMAT_KEY = 'qanchor.reportFormat';
 
 export const REPORT_FORMAT_OPTIONS: readonly { value: ReportFormat; label: string }[] = [
 	{ value: 'markdown', label: 'Markdown' },
-	{ value: 'jira', label: 'Jira' }
+	{ value: 'jira', label: 'Jira wiki' }
 ];
 
 const isFormat = (value: string | null): value is ReportFormat =>
@@ -39,9 +39,15 @@ export function storeReportFormat(
 	}
 }
 
+/**
+ * Shown while Jira wiki is chosen: the Jira Cloud editor does not read wiki markup and turns a
+ * `#` step into a heading, but it formats pasted Markdown (owner check, 2026-11-26).
+ */
+export const JIRA_CLOUD_HINT = 'For Jira Cloud, use Markdown.';
+
 /** The toast after a copy (design 13.7). */
 export const copiedText = (format: ReportFormat) =>
-	format === 'markdown' ? 'Copied as Markdown' : 'Copied as Jira markup';
+	format === 'markdown' ? 'Copied as Markdown' : 'Copied as Jira wiki markup';
 
 /** The dialog's title (design 13.3 P2-05): "Bug report: TC-12". */
 export const reportTitle = (key: string) => `Bug report: ${key}`;

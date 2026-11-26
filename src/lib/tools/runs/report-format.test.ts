@@ -53,7 +53,7 @@ describe('report format (FR-121 AC-1)', () => {
 describe('copy (design 13.3 P2-05, 13.7)', () => {
 	it('names the format in the toast and the case in the title', () => {
 		expect(copiedText('markdown')).toBe('Copied as Markdown');
-		expect(copiedText('jira')).toBe('Copied as Jira markup');
+		expect(copiedText('jira')).toBe('Copied as Jira wiki markup');
 		expect(reportTitle('TC-12')).toBe('Bug report: TC-12');
 	});
 });
