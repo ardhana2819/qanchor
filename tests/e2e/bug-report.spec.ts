@@ -77,7 +77,8 @@ const discardDialog = (page: Page) =>
 	page.getByRole('dialog', { name: 'Discard your edits to this report?' });
 const summary = (page: Page) => dialog(page).getByRole('textbox', { name: 'Summary' });
 const field = (page: Page, name: string) => dialog(page).getByRole('textbox', { name });
-const format = (page: Page, name: 'Markdown' | 'Jira') => dialog(page).getByRole('radio', { name });
+const format = (page: Page, name: 'Markdown' | 'Jira wiki') =>
+	dialog(page).getByRole('radio', { name });
 const preview = (page: Page) => page.getByTestId('bug-report-preview');
 const toast = (page: Page) => page.getByTestId('app-toast');
 const copied = (page: Page) =>
@@ -205,10 +206,14 @@ test('the copy is the previewed text with the edits, in the chosen format (FR-12
 	await dialog(page).getByText('Preview the copied text').click();
 	expect(`${await preview(page).textContent()}`).toBe(text);
 
-	await format(page, 'Jira').check();
+	const hint = dialog(page).getByTestId('bug-report-jira-hint');
+	await expect(hint).toBeHidden();
+	await format(page, 'Jira wiki').check();
+	// The Jira Cloud editor does not read wiki markup (owner check, 2026-11-26).
+	await expect(hint).toHaveText('For Jira Cloud, use Markdown.');
 	await page.getByTestId('bug-report-copy').click();
 
-	await expect(toast(page)).toHaveText('Copied as Jira markup');
+	await expect(toast(page)).toHaveText('Copied as Jira wiki markup');
 	[, text] = await copied(page);
 	expect(text).toContain('*Summary:* Withdraw keeps the balance \\{at\\} 10\n');
 	expect(text).toContain('h3. Steps to reproduce\n# Open Withdraw\n# Send \\*5\\* USDT\n');
@@ -220,7 +225,7 @@ test('the format is remembered and reopening starts from the result (FR-121 AC-1
 }) => {
 	await openRun(page);
 	await openReport(page);
-	await format(page, 'Jira').check();
+	await format(page, 'Jira wiki').check();
 	await summary(page).fill('Edited');
 	await page.getByTestId('bug-report-close').click();
 	await page.getByTestId('bug-report-discard').click();
@@ -229,7 +234,7 @@ test('the format is remembered and reopening starts from the result (FR-121 AC-1
 	await page.reload();
 	await openReport(page);
 
-	await expect(format(page, 'Jira')).toBeChecked();
+	await expect(format(page, 'Jira wiki')).toBeChecked();
 	await expect(summary(page)).toHaveValue('Withdraw USDT: The balance stays at 10');
 	expect(await page.evaluate(() => localStorage.getItem('qanchor.reportFormat'))).toBe('jira');
 });
@@ -241,7 +246,7 @@ test.describe('closing (FR-120 AC-5)', () => {
 		await openRun(page);
 		await openReport(page);
 		// A format choice is not an edit of the report.
-		await format(page, 'Jira').check();
+		await format(page, 'Jira wiki').check();
 
 		await page.getByTestId('bug-report-close').click();
 

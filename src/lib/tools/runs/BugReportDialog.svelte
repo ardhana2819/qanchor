@@ -29,6 +29,7 @@
 	import { downloadBlob } from '#lib/ui/download.ts';
 	import {
 		copiedText,
+		JIRA_CLOUD_HINT,
 		readReportFormat,
 		REPORT_FORMAT_OPTIONS,
 		reportTitle,
@@ -267,6 +268,9 @@
 				value={format}
 				onchange={chooseFormat}
 			/>
+			{#if format === 'jira'}
+				<span class="hint" data-testid="bug-report-jira-hint">{JIRA_CLOUD_HINT}</span>
+			{/if}
 		</div>
 		<span class="spacer"></span>
 		<Button variant="ghost" onclick={close} data-testid="bug-report-close">Close</Button>
@@ -372,6 +376,18 @@
 		font: 400 var(--text-xs) / 1.25rem var(--font-mono);
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
+	}
+
+	.format {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2) var(--space-3);
+	}
+
+	.hint {
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
 	}
 
 	.spacer {

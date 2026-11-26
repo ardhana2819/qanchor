@@ -534,6 +534,15 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-26: Bug report formats checked in Jira Cloud (FR-121 AC-5)
+
+Owner check on their own Jira Cloud site (new editor, Chrome, macOS), build ea737cf:
+
+* **Markdown, pasted into Description: passes FR-121 AC-5.** `###` headings, `**bold**` labels, and the numbered steps render as formatting, before and after saving. Finding: Jira's Markdown paste keeps backslash escapes, so `Open MyApp*()#` shows as `Open MyApp\*()#`. The escape is correct Markdown (GitHub and other CommonMark renderers drop the backslash), so the escaping stays. Known limit: in Jira Cloud, a markup character in user text shows with a backslash before it. Not done: escaping only where a character would format (CommonMark delimiter rules); rejected by the owner for now as more complex and riskier than the gain.
+* **Jira wiki markup (`bug-report.jira.txt`), pasted into Description: not read by the Jira Cloud editor.** There is no `/markup` insert, `h3.` and every backslash escape show as typed, and the editor applies some Markdown rules to it: a `# ` step becomes a level 1 heading, `*Summary:*` becomes italic, `{{max}}` becomes code. This matches the kickoff decision (wiki markup is for Jira Server/Data Center and plain text fields), but a user on Jira Cloud would pick "Jira" by its name and get broken output.
+* **Change (owner, Option 1):** the format option is renamed "Jira wiki", the toast says "Copied as Jira wiki markup", and while Jira wiki is chosen a hint under the control says "For Jira Cloud, use Markdown." (`report-format.ts`, `BugReportDialog.svelte`).
+* **Still open:** the wiki markup escaping rules (decision of 2026-11-24, T-058) remain unverified, because the owner has no Jira Server/Data Center. The Download all check in a real Chrome (Owner actions) is still to do.
+
 ### 2026-11-26: Cross-cutting checks for slice 2b (T-066)
 
 * **`tests/e2e/cross-cutting-2b.spec.ts`** (14 per browser), kept apart from the slice 2a spec, on a run with screenshots, the image viewer, the bug report, and Settings with Storage:
