@@ -471,7 +471,7 @@ FR-130 to FR-151 belong to slice 2c. FR-121 AC-5 (Markdown pasted into Jira Clou
 * **T-058 (done):**
   * `lib/core/qa/screenshots.ts` (limits, error kinds and their copy, output size, attachment names) and `lib/core/qa/report.ts` (report builder, Steps field format, Markdown and Jira renderers), with golden files in `lib/core/qa/fixtures/`. Decisions in `docs/decisions.md` (2026-11-24, T-058).
   * [ASSUMPTION] summary limit 200 characters (the title limit); the PRD names none.
-  * Open: the Jira escaping rules are built from FR-121 AC-2, not from Atlassian's page; the owner checks `bug-report.jira.txt` in Jira (Owner actions).
+  * Open: the Jira escaping rules are built from FR-121 AC-2, not from Atlassian's page; the owner checked `bug-report.jira.txt` in Jira Cloud, which does not read wiki markup (2026-11-26); the rules stay unverified.
 
 * **T-057 (done):**
   * Every fact in PRD 10.7 except the Jira escaping rules is settled; details, numbers, and sources in `docs/decisions.md` (2026-11-24, T-057). The spike route, worker, fixtures, and spec are not merged.
@@ -588,6 +588,6 @@ FR-130 to FR-151 belong to slice 2c. FR-121 AC-5 (Markdown pasted into Jira Clou
 * Review the checklist content (T-032) at the end of Phase 1 (deferred by the owner on 2026-11-17; it merged without that review).
 * ~~Connect the GitHub repository to Cloudflare Pages (T-024).~~ Done 2026-11-16.
 * Open by hand and confirm the page shows the transaction (T-035, `docs/architecture.md` 5.1): `bscscan.com/tx/…`, `testnet.bscscan.com/tx/…`, `sepolia.basescan.org/tx/…`, `tronscan.org/#/transaction/…`. Also open `faucet.polygon.technology` and `portal.cdp.coinbase.com/onchain-tools/faucet` (5.2). Automation stops at their bot check.
-* Paste a Markdown bug report into the Jira Cloud editor once and say whether the headings and the numbered list render (FR-121 AC-5, after T-065); also paste the Jira markup golden output from T-058 (`src/lib/core/qa/fixtures/bug-report.jira.txt`) and say whether the escaped characters show as typed (T-057 could not read Atlassian's escaping rules). The results go to `docs/decisions.md`.
+* ~~Paste a Markdown bug report into the Jira Cloud editor once and say whether the headings and the numbered list render (FR-121 AC-5, after T-065); also paste the Jira markup golden output from T-058 (`src/lib/core/qa/fixtures/bug-report.jira.txt`) and say whether the escaped characters show as typed (T-057 could not read Atlassian's escaping rules). The results go to `docs/decisions.md`.~~ Done 2026-11-26: Markdown passes with backslash escapes visible; wiki markup is not read by Jira Cloud, so the option is now "Jira wiki" with a hint (`docs/decisions.md`). Wiki escaping on Jira Server/Data Center stays unverified.
 * In a real Chrome (not Playwright), open a bug report with two or more screenshots and choose Download all: say whether every file is saved and whether Chrome asks to allow automatic downloads (T-057, T-065). The result goes to `docs/decisions.md`.
 * Approve each task's merge, as agreed.
