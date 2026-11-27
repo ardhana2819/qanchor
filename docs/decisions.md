@@ -534,6 +534,18 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-27: Sessions list and Start session (T-069)
+
+* **Page** (`/sessions`, design 13.3 P2-06): the Start session form panel above the sessions table. The form needs storage, so loading and "storage unavailable" replace both; the empty state sits under the form ("No sessions yet. Start one with a charter and a timebox.") and has no button of its own, as the form is right above it.
+* **Timebox**: segmented control 30 min / 60 min / 90 min / Custom, 60 by default. Custom shows a Minutes field under the control and takes focus; it accepts digits only, so "4.5", "1e2", or an empty field fail with "Timebox from 5 to 480 minutes." (design 13.7) and focus moves to it. Charter and release are trimmed when saved.
+* **Release suggestions** come from runs and sessions together, one entry per release in its first spelling, as both are grouped into one release (FR-140, EC-031). The page loads runs only for these suggestions; it works without them.
+* **Table**: Charter (link to the session), Release ("None" when empty), Status badge, Time as "45 min of 1 h" (elapsed of the timebox), Findings by type ("2 bugs · 1 question", "No findings"). Newest first. Time is read once when the list is shown and does not tick (NFR-003); the live clock belongs to the session page (T-070).
+* **Status badges** [ASSUMPTION]: Running neutral (as an in-progress run), Paused subtle, Ended success (as a completed run). Design 13.5 names the badges but not their colours.
+* **Delete** asks first and names what goes with the session: "Its 2 findings and 1 screenshot are deleted too. This cannot be undone." Focus then moves to the table, or to the empty state after the last one.
+* **Session page in this task** [ASSUMPTION]: "starting opens the session page" needs a page, so `/sessions/view?id=` ships now with the loading, storage unavailable, and not found states and the header (charter, status, timebox, release, environment). T-070 adds the clock, Pause / Resume / End, the composer, and the findings. A URL without an ID goes to the list (as EC-028 for runs).
+* **Icons**: `session` (stopwatch) now; `release` (flag) moves to T-072, with the page that uses it, so no unused icon ships.
+* **Tests**: 9 unit tests (timebox reading, error copy, delete copy); `sessions.spec.ts` with 16 E2E tests (states, table, delete with findings and screenshots, start with 4 / 481 / empty / 4.5 refused and 5 / 480 accepted, release suggestions, navigation, keyboard only, axe in both themes). `runs.spec.ts` now expects Sessions in the QA group.
+
 ### 2026-11-27: Schema v4 and backup v4 (T-068)
 
 * **Schema v4** (migration 4, plan finding F-14): stores `sessions` (key `id`) and `findings` (key `id`, index `bySession` on `sessionId`). Adds stores only; v1 to v3 records are untouched. `ScreenshotOwner` is now `['result', runId, caseNumber]` or `['finding', sessionId, findingId]`, in the v3 `screenshots` store (F-8), so no screenshot migration.
