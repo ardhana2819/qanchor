@@ -2,15 +2,20 @@ import { describe, expect, it } from 'vitest';
 import {
 	CASES_PER_RUN_MAX,
 	caseErrors,
+	findingErrors,
 	ISSUE_MAX,
 	RELEASE_MAX,
 	resultErrors,
 	runErrors,
+	sessionErrors,
 	STEPS_MAX,
 	TEXT_MAX,
+	TIMEBOX_MAX,
+	TIMEBOX_MIN,
 	TITLE_MAX,
 	type CaseDraft,
-	type ResultDraft
+	type ResultDraft,
+	type SessionDraft
 } from './validation.ts';
 
 const valid: CaseDraft = {
@@ -220,6 +225,67 @@ describe('resultErrors (FR-111 AC-3, AC-4, AC-6)', () => {
 		expect(resultErrors({ ...blank, linkedIssue: 'a'.repeat(ISSUE_MAX) }, 0)).toEqual([]);
 		expect(fields(resultErrors({ ...blank, linkedIssue: 'a'.repeat(ISSUE_MAX + 1) }, 0))).toEqual([
 			'linkedIssue'
+		]);
+	});
+});
+
+describe('sessionErrors (FR-130 AC-1, PRD 10.5)', () => {
+	const session: SessionDraft = {
+		charter: 'Explore withdraw limits',
+		timeboxMinutes: 60,
+		release: '',
+		environment: ''
+	};
+	const fields = (draft: Partial<SessionDraft>) =>
+		sessionErrors({ ...session, ...draft }).map((e) => [e.field, e.problem.kind]);
+
+	it('accepts a charter and a timebox', () => {
+		expect(sessionErrors(session)).toEqual([]);
+	});
+
+	it('needs a charter of at most 200 characters', () => {
+		expect(fields({ charter: '  ' })).toEqual([['charter', 'required']]);
+		expect(fields({ charter: 'x'.repeat(TITLE_MAX) })).toEqual([]);
+		expect(fields({ charter: 'x'.repeat(TITLE_MAX + 1) })).toEqual([['charter', 'too-long']]);
+	});
+
+	it('takes a timebox of 5 to 480 whole minutes', () => {
+		expect(TIMEBOX_MIN).toBe(5);
+		expect(TIMEBOX_MAX).toBe(480);
+		expect(fields({ timeboxMinutes: TIMEBOX_MIN })).toEqual([]);
+		expect(fields({ timeboxMinutes: TIMEBOX_MAX })).toEqual([]);
+		for (const minutes of [TIMEBOX_MIN - 1, TIMEBOX_MAX + 1, 30.5, Number.NaN]) {
+			expect(fields({ timeboxMinutes: minutes })).toEqual([['timebox', 'out-of-range']]);
+		}
+	});
+
+	it('limits release and environment as a run does, in form order', () => {
+		expect(
+			fields({
+				charter: '',
+				timeboxMinutes: 0,
+				release: 'x'.repeat(RELEASE_MAX + 1),
+				environment: 'x'.repeat(TEXT_MAX + 1)
+			})
+		).toEqual([
+			['charter', 'required'],
+			['timebox', 'out-of-range'],
+			['release', 'too-long'],
+			['environment', 'too-long']
+		]);
+		expect(fields({ release: 'x'.repeat(RELEASE_MAX), environment: 'x'.repeat(TEXT_MAX) })).toEqual(
+			[]
+		);
+	});
+});
+
+describe('findingErrors (FR-131 AC-1, PRD 10.5)', () => {
+	it('needs text of at most 5,000 characters', () => {
+		expect(findingErrors('Fee shown as 0')).toEqual([]);
+		expect(findingErrors(' \n ')).toEqual([{ field: 'text', problem: { kind: 'required' } }]);
+		expect(findingErrors('x'.repeat(TEXT_MAX))).toEqual([]);
+		expect(findingErrors('x'.repeat(TEXT_MAX + 1))).toEqual([
+			{ field: 'text', problem: { kind: 'too-long', max: TEXT_MAX } }
 		]);
 	});
 });

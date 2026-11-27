@@ -127,11 +127,23 @@ export function attachmentName(
 	n: number,
 	type: ScreenshotType
 ): string {
-	const short = runId
+	return `${formatKey(caseNumber)}-${idShort(runId)}-${n}.${EXTENSIONS[type]}`;
+}
+
+/**
+ * The download name of the n-th screenshot of a session finding (FR-131 AC-1, FR-122 AC-1 for
+ * findings): `finding-1a2b3c4d-1.webp`, with the finding id cut as a run id is.
+ */
+export function findingAttachmentName(findingId: string, n: number, type: ScreenshotType): string {
+	return `finding-${idShort(findingId)}-${n}.${EXTENSIONS[type]}`;
+}
+
+/** An id cut to its first 8 letters and digits, lower case. */
+function idShort(id: string): string {
+	return id
 		.replace(/[^0-9a-z]/gi, '')
 		.slice(0, 8)
 		.toLowerCase();
-	return `${formatKey(caseNumber)}-${short}-${n}.${EXTENSIONS[type]}`;
 }
 
 /** A stored screenshot without its image, as the page keeps it in memory (NFR-004). */

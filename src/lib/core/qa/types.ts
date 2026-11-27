@@ -75,11 +75,64 @@ export interface TestResult {
 }
 
 /**
- * What a screenshot belongs to (plan finding F-8): a result now, a session finding in slice 2c.
+ * What a screenshot belongs to (plan finding F-8): a result now, a session finding from T-068.
  * The owner is an array key, so one key range reads or deletes one result's screenshots or a whole
  * run's.
  */
 export type ScreenshotOwner = ['result', runId: string, caseNumber: number];
+
+/** Session timebox choices before Custom, in minutes (design 13.3 P2-06). */
+export const TIMEBOX_PRESETS = [30, 60, 90] as const;
+/** The timebox a new session starts with (design J-10). */
+export const DEFAULT_TIMEBOX = 60;
+
+export type SessionStatus = 'running' | 'paused' | 'ended';
+
+/**
+ * An exploratory session (FR-130, plan finding F-14). Time is never counted while the page is
+ * open: elapsed time comes from these timestamps (finding F-15, EC-036).
+ */
+export interface Session {
+	id: string;
+	charter: string;
+	release: string;
+	environment: string;
+	timeboxMinutes: number;
+	status: SessionStatus;
+	startedAt: number;
+	/** When the running pause began; null unless paused. */
+	pausedAt: number | null;
+	/** Paused time before the current pause. */
+	pausedMs: number;
+	endedAt: number | null;
+	createdAt: number;
+	updatedAt: number;
+}
+
+export const FINDING_TYPES = ['bug', 'question', 'idea', 'note'] as const;
+export type FindingType = (typeof FINDING_TYPES)[number];
+
+export const FINDING_TYPE_LABELS: Record<FindingType, string> = {
+	bug: 'Bug',
+	question: 'Question',
+	idea: 'Idea',
+	note: 'Note'
+};
+
+/** A new finding starts as a Note (design J-10). */
+export const DEFAULT_FINDING_TYPE: FindingType = 'note';
+
+/** One finding of a session (FR-131), in its own store so two tabs keep both (EC-033). */
+export interface Finding {
+	id: string;
+	sessionId: string;
+	type: FindingType;
+	text: string;
+	/** Session time when it was added, in ms (FR-131 AC-1). */
+	at: number;
+	createdAt: number;
+	updatedAt: number;
+}
 
 export interface Screenshot {
 	id: string;

@@ -13,6 +13,9 @@ export const CASES_MAX = 5000;
 /** Not in PRD 10.5: chosen with T-048 (decisions 2026-11-20). */
 export const RELEASE_MAX = 200;
 export const ISSUE_MAX = 500;
+/** Session timebox in minutes (PRD 10.5). */
+export const TIMEBOX_MIN = 5;
+export const TIMEBOX_MAX = 480;
 
 export type FieldProblem =
 	| { kind: 'required' }
@@ -141,5 +144,35 @@ export function resultErrors(draft: ResultDraft, stepCount: number): FieldError<
 	);
 	errors.add('notes', tooLong(draft.notes, TEXT_MAX));
 	errors.add('linkedIssue', tooLong(draft.linkedIssue, ISSUE_MAX));
+	return errors.list;
+}
+
+export type SessionField = 'charter' | 'timebox' | 'release' | 'environment';
+
+export interface SessionDraft {
+	charter: string;
+	/** Whole minutes; NaN when the Custom field is empty or not a number. */
+	timeboxMinutes: number;
+	release: string;
+	environment: string;
+}
+
+/** Every problem that blocks starting or editing a session (FR-130 AC-1, PRD 10.5). */
+export function sessionErrors(draft: SessionDraft): FieldError<SessionField>[] {
+	const errors = new Errors<SessionField>();
+	errors.add('charter', requiredText(draft.charter, TITLE_MAX));
+	const minutes = draft.timeboxMinutes;
+	if (!Number.isInteger(minutes) || minutes < TIMEBOX_MIN || minutes > TIMEBOX_MAX) {
+		errors.add('timebox', { kind: 'out-of-range', min: TIMEBOX_MIN, max: TIMEBOX_MAX });
+	}
+	errors.add('release', tooLong(draft.release, RELEASE_MAX));
+	errors.add('environment', tooLong(draft.environment, TEXT_MAX));
+	return errors.list;
+}
+
+/** A finding needs its text (FR-131 AC-1, PRD 10.5). */
+export function findingErrors(text: string): FieldError<'text'>[] {
+	const errors = new Errors<'text'>();
+	errors.add('text', requiredText(text, TEXT_MAX));
 	return errors.list;
 }
