@@ -534,6 +534,14 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-27: Slice 2c plan approved
+
+* The owner approved milestone M6 (T-067 to T-075 in `docs/plan.md`) with every proposal in findings F-14 to F-19.
+* Schema v4 adds `sessions` and `findings` as separate stores; backup v4 ships in the same task (F-14).
+* Release totals and the pass rate come from the latest result per case, not from a sum over runs, so a retest counts once; "executed" is Pass, Fail, or Blocked. PRD FR-140 AC-2 is updated (F-16).
+* No prototype for P2-06 and P2-07; each PR shows screenshots in both themes instead (F-18).
+* FR-150 and FR-151 come last and may move to a later batch if the 2026-11-30 target is not met (F-19).
+
 ### 2026-11-26: Bug report formats checked in Jira Cloud (FR-121 AC-5)
 
 Owner check on their own Jira Cloud site (new editor, Chrome, macOS), build ea737cf:
