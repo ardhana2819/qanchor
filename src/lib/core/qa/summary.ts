@@ -1,6 +1,6 @@
 import { formatKey } from './keys.ts';
 import { countStatuses, countsInWords, issueHref, resultsByCase } from './run.ts';
-import type { Run, TestResult } from './types.ts';
+import type { CaseSnapshot, Run, TestResult } from './types.ts';
 
 // The run summary copied as Markdown (FR-113 AC-5), laid out as in the approved prototype.
 
@@ -49,18 +49,28 @@ export function runSummaryMarkdown(run: Run, results: readonly TestResult[]): st
 	});
 	if (open.length > 0) {
 		lines.push('', '### Failed and blocked');
-		for (const { item, result } of open) {
-			const failed = result.status === 'fail';
-			const detail = escapeInlineMarkdown(firstLine(failed ? result.actual : result.reason));
-			// A URL becomes an autolink, where escapes would show; its href has `<` and `>` encoded.
-			const href = issueHref(result.linkedIssue);
-			const issue = href ? `<${href}>` : md(result.linkedIssue);
-			lines.push(
-				`- ${formatKey(item.number)} ${md(item.title)}: ${failed ? 'Failed' : 'Blocked'}.` +
-					(detail ? ` ${detail}` : '') +
-					(issue ? ` (${issue})` : '')
-			);
-		}
+		for (const { item, result } of open) lines.push(openResultLine(item, result));
 	}
 	return `${lines.join('\n')}\n`;
+}
+
+/**
+ * A failed or blocked case as a Markdown list item: key, title, status, the first line of the
+ * actual result or reason, and the linked issue (FR-113 AC-5, FR-140 AC-4).
+ */
+export function openResultLine(
+	item: Pick<CaseSnapshot, 'number' | 'title'>,
+	result: Pick<TestResult, 'status' | 'actual' | 'reason' | 'linkedIssue'>
+): string {
+	const md = (text: string) => escapeInlineMarkdown(oneLine(text));
+	const failed = result.status === 'fail';
+	const detail = escapeInlineMarkdown(firstLine(failed ? result.actual : result.reason));
+	// A URL becomes an autolink, where escapes would show; its href has `<` and `>` encoded.
+	const href = issueHref(result.linkedIssue);
+	const issue = href ? `<${href}>` : md(result.linkedIssue);
+	return (
+		`- ${formatKey(item.number)} ${md(item.title)}: ${failed ? 'Failed' : 'Blocked'}.` +
+		(detail ? ` ${detail}` : '') +
+		(issue ? ` (${issue})` : '')
+	);
 }
