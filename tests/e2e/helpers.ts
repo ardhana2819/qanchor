@@ -36,7 +36,16 @@ export async function scanA11y(page: Page): Promise<string[]> {
 export function putRecords(
 	page: Page,
 	store:
-		'endpoints' | 'wallets' | 'faucets' | 'testCases' | 'runs' | 'results' | 'screenshots' | 'meta',
+		| 'endpoints'
+		| 'wallets'
+		| 'faucets'
+		| 'testCases'
+		| 'runs'
+		| 'results'
+		| 'sessions'
+		| 'findings'
+		| 'screenshots'
+		| 'meta',
 	records: object[]
 ): Promise<void> {
 	return page.evaluate(
@@ -120,6 +129,39 @@ export function testRun(id: string, caseNumbers: number[], fields: Record<string
 		createdAt: Date.UTC(2026, 10, 1),
 		updatedAt: Date.UTC(2026, 10, 1),
 		completedAt: null,
+		...fields
+	};
+}
+
+/** A stored session, running since 2026-11-01 unless overridden. */
+export function testSession(id: string, fields: Record<string, unknown> = {}) {
+	return {
+		id,
+		charter: `Charter ${id}`,
+		release: '',
+		environment: '',
+		timeboxMinutes: 60,
+		status: 'running',
+		startedAt: Date.UTC(2026, 10, 1),
+		pausedAt: null,
+		pausedMs: 0,
+		endedAt: null,
+		createdAt: Date.UTC(2026, 10, 1),
+		updatedAt: Date.UTC(2026, 10, 1),
+		...fields
+	};
+}
+
+/** A stored finding of a session, a note at 0 min unless overridden. */
+export function testFinding(id: string, sessionId: string, fields: Record<string, unknown> = {}) {
+	return {
+		id,
+		sessionId,
+		type: 'note',
+		text: `Finding ${id}`,
+		at: 0,
+		createdAt: Date.UTC(2026, 10, 1),
+		updatedAt: Date.UTC(2026, 10, 1),
 		...fields
 	};
 }

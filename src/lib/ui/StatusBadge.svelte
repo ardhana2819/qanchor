@@ -1,8 +1,8 @@
 <script lang="ts" module>
-	import type { ResultStatus, RunStatus } from '#lib/core/qa/types.ts';
+	import type { ResultStatus, RunStatus, SessionStatus } from '#lib/core/qa/types.ts';
 
-	/** A case's result in a run (untested has no record) or a run's own status (design 13.5). */
-	export type Status = ResultStatus | 'untested' | RunStatus;
+	/** A case's result in a run (untested has no record), a run's or a session's status (13.5). */
+	export type Status = ResultStatus | 'untested' | RunStatus | SessionStatus;
 </script>
 
 <script lang="ts">
@@ -16,7 +16,10 @@
 		blocked: ['warning', 'Blocked'],
 		untested: ['neutral', 'Untested'],
 		'in-progress': ['neutral', 'In progress'],
-		completed: ['success', 'Completed']
+		completed: ['success', 'Completed'],
+		running: ['neutral', 'Running'],
+		paused: ['subtle', 'Paused'],
+		ended: ['success', 'Ended']
 	} as const satisfies Record<Status, readonly [string, string]>;
 
 	const [variant, label] = $derived(BADGES[status]);

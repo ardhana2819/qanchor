@@ -103,6 +103,14 @@ export const tools: readonly ToolEntry[] = [
 			'Run a set of test cases against a release: Pass, Fail, or Blocked per case, with the actual result, a linked issue, and a Markdown summary.',
 		group: 'QA',
 		icon: 'run'
+	},
+	{
+		route: '/sessions',
+		name: 'Sessions',
+		description:
+			'Timeboxed exploratory sessions with a charter, and findings noted as you test: bugs, questions, ideas, and notes.',
+		group: 'QA',
+		icon: 'session'
 	}
 ];
 
