@@ -534,6 +534,15 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-27: Schema v4 and backup v4 (T-068)
+
+* **Schema v4** (migration 4, plan finding F-14): stores `sessions` (key `id`) and `findings` (key `id`, index `bySession` on `sessionId`). Adds stores only; v1 to v3 records are untouched. `ScreenshotOwner` is now `['result', runId, caseNumber]` or `['finding', sessionId, findingId]`, in the v3 `screenshots` store (F-8), so no screenshot migration.
+* **Storage methods** (`db.ts`): `saveFinding` writes a finding with the screenshots added before its first save in one transaction, as `saveResult` does (F-7), and refuses with `missing` when the session is gone (deleted in another tab); `addScreenshot` checks the owner by kind: a result by its key, a finding by its id and the session it names; `deleteFinding` and `deleteSession` delete what the record owns in the same transaction (NFR-024, NFR-026). A session's finding screenshots are one key range, `['finding', id]` to `['finding', id, []]`: a shorter array sorts first and an array after any string. Session state changes are plain `putAll` writes; the clock rules live in `session.ts` (T-067).
+* **State** (`sessions.svelte.ts`): start, edit (also when ended), pause, resume, end, save and remove findings, add and remove screenshots, delete a session. `runs.svelte.ts` now keeps only result screenshots in its list, so a finding's screenshot is never counted as a run's.
+* **Backup v4**: `schemaVersion` 4 with `sessions` and `findings`; a v3 file gets empty lists (one more data transform). Guards check the session fields with `sessionErrors`, finding text with `findingErrors`, and that the clock fields match the state (a pause time only when paused, an end time only when ended), or the session time would be wrong. Cross checks: one id per session and per finding, each finding in a session of the file, and each finding screenshot owned by a finding of the file with that session id, at most 5.
+* **Import dialog and message**: rows Sessions and Findings between Results and Screenshots; the import message lists them ("0 sessions, 0 findings").
+* **Tests**: 44 new unit tests (storage, backup guards, state); E2E: a v3 database with a result screenshot upgrades to v4 with everything kept; the existing upgrade, settings, and EC-003 checks moved to v4, with version 5 as "newer".
+
 ### 2026-11-27: QA core for slice 2c (T-067)
 
 * **Types** (`types.ts`): `Session` and `Finding` as in plan finding F-14; finding types Bug, Question, Idea, Note (Note first in the composer, design J-10); timebox presets 30, 60, 90 and default 60. `ScreenshotOwner` keeps only the result form until T-068 widens it with the storage code that reads it.

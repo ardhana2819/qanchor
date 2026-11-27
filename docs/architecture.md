@@ -135,13 +135,15 @@ Generators are stateless (PRD section 8): generated addresses, amounts, and dumm
 * An untested case has no result record. A run's progress is computed from its results, never stored.
 * A new case reads and raises `caseCounter` and writes the case in one transaction, so two tabs cannot assign the same key.
 * Deleting a run deletes its results in the same transaction (NFR-024). Deleting a test case touches no run (FR-110 AC-3).
-* Slice 2b adds schema version 3 with a `screenshots` store (finding F-6).
+* Slice 2b adds schema version 3 with a `screenshots` store (finding F-6); slice 2c adds version 4 with `sessions` and `findings` (finding F-14).
 
-**Schema version 3 (slice 2b, T-060).** Migration 3 adds one store and changes no other.
+**Schema versions 3 (slice 2b, T-060) and 4 (slice 2c, T-068).** Migration 3 adds `screenshots`, migration 4 adds `sessions` and `findings`; neither changes another store.
 
 | Store | Key | Fields | Requirement |
 | --- | --- | --- | --- |
-| `screenshots` | `id` (string, `crypto.randomUUID()`) | `id`, `owner: ['result', runId, caseNumber]` (a finding's owner in slice 2c), `n: number` (one more than the owner's highest), `mediaType: 'image/webp' \| 'image/jpeg'`, `width`, `height`, `size`, `createdAt`, `bytes: ArrayBuffer` | FR-112, FR-122 |
+| `screenshots` | `id` (string, `crypto.randomUUID()`) | `id`, `owner: ['result', runId, caseNumber] \| ['finding', sessionId, findingId]`, `n: number` (one more than the owner's highest), `mediaType: 'image/webp' \| 'image/jpeg'`, `width`, `height`, `size`, `createdAt`, `bytes: ArrayBuffer` | FR-112, FR-122 |
+| `sessions` | `id` (string) | `id`, `charter`, `release`, `environment`, `timeboxMinutes`, `status: 'running' \| 'paused' \| 'ended'`, `startedAt`, `pausedAt: number \| null`, `pausedMs`, `endedAt: number \| null`, `createdAt`, `updatedAt` | FR-130 |
+| `findings` | `id` (string) | `id`, `sessionId` (index `bySession`), `type: 'bug' \| 'question' \| 'idea' \| 'note'`, `text`, `at` (session time in ms), `createdAt`, `updatedAt` | FR-131 |
 
 * Index `byOwner` on `owner`. The per-result limit is checked in the transaction that writes, and a result's first save writes its pending screenshots with it (plan finding F-7).
 * Deleting a run deletes its screenshots with its results in one transaction; an import clears them (NFR-024). Details in `docs/decisions.md` (2026-11-25, T-060).
@@ -164,7 +166,7 @@ Generators are stateless (PRD section 8): generated addresses, amounts, and dumm
 
 From schema version 2 (v0.2), `data` also carries `testCases`, `runs`, and `results`. `meta` is not exported: on import the counter is rebuilt as the highest case number found in `testCases` and in every run's snapshots (plan finding F-5). A version 1 file is still accepted; it is upgraded in memory to version 2 with empty Phase 2 arrays before the guards run (FR-091 AC-3). The file's `schemaVersion` is `BACKUP_VERSION` in `lib/storage/backup.ts`, which is separate from the database version and changes only when the backup content changes (T-049).
 
-From backup version 3 (slice 2b, T-061), `data` also carries `screenshots`: each record's fields without `size`, and the image as canonical base64 in `data` (`{ "id", "owner", "n", "mediaType", "width", "height", "createdAt", "data" }`). Older files pass through one data transform per version step (`UPGRADES` in `backup.ts`: 2 adds empty Phase 2 lists, 3 an empty screenshot list) before the guards, which only know the current format. Building and reading the file run in `lib/workers/backup.worker.ts` (plan finding F-9); the page reads and writes IndexedDB and transfers the image bytes to and from the worker.
+From backup version 3 (slice 2b, T-061), `data` also carries `screenshots`, and from version 4 (slice 2c, T-068) `sessions` and `findings`. A screenshot is: each record's fields without `size`, and the image as canonical base64 in `data` (`{ "id", "owner", "n", "mediaType", "width", "height", "createdAt", "data" }`). Older files pass through one data transform per version step (`UPGRADES` in `backup.ts`: 2 adds empty Phase 2 lists, 3 an empty screenshot list, 4 empty session and finding lists) before the guards, which only know the current format. Building and reading the file run in `lib/workers/backup.worker.ts` (plan finding F-9); the page reads and writes IndexedDB and transfers the image bytes to and from the worker.
 
 `settings` comes from `localStorage`; the other arrays come from IndexedDB. Import validates the whole file with hand-written type guards before anything is written (ADR-008), shows counts, and on confirmation clears all stores and writes the file content in one `readwrite` transaction, then writes the theme to `localStorage` only after that transaction commits, so a failure leaves the old data intact (FR-003 AC-3, AC-4, EC-002, EC-020).
 
