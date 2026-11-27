@@ -1,7 +1,14 @@
-import { TIMEBOX_PRESETS } from '#lib/core/qa/types.ts';
+import { clockText, durationText, elapsedMs } from '#lib/core/qa/session.ts';
+import {
+	FINDING_TYPE_LABELS,
+	FINDING_TYPES,
+	TIMEBOX_PRESETS,
+	type FindingType,
+	type Session
+} from '#lib/core/qa/types.ts';
 import type { FieldError, FieldProblem, SessionField } from '#lib/core/qa/validation.ts';
 
-// Copy and form rules for the Sessions list and Start session (design 13.3 P2-06, 13.7).
+// Copy and form rules for the Sessions list and the session page (design 13.3 P2-06, 13.7).
 
 /** A preset's minutes as text, or Custom with its own minutes field. */
 export type TimeboxChoice = `${(typeof TIMEBOX_PRESETS)[number]}` | 'custom';
@@ -65,3 +72,41 @@ export function deleteSessionBody(findingCount: number, screenshotCount: number)
 
 export const deleteSessionTitle = (charter: string) => `Delete session "${charter}"?`;
 export const deletedSessionText = (charter: string) => `Deleted session "${charter}".`;
+
+/** The clock line (design 13.9 decision 2): live while running or paused, the total once ended. */
+export function clockLine(session: Session, now: number): string {
+	if (session.status === 'ended') return `Ended after ${durationText(elapsedMs(session, now))}`;
+	const text = clockText(session, now);
+	return session.status === 'paused' ? `${text} · paused` : text;
+}
+
+export const TIMEBOX_REACHED = 'Timebox reached. The session keeps running until you end it.';
+
+export const FINDING_TYPE_OPTIONS: readonly { value: FindingType; label: string }[] =
+	FINDING_TYPES.map((type) => ({ value: type, label: FINDING_TYPE_LABELS[type] }));
+
+export type FindingFilter = FindingType | 'all';
+
+/** The findings list filter (FR-131 AC-2): all, or one type. */
+export const FINDING_FILTER_OPTIONS: readonly { value: FindingFilter; label: string }[] = [
+	{ value: 'all', label: 'All' },
+	...FINDING_TYPE_OPTIONS
+];
+
+/** The finding field's error, as shown under it. */
+export function findingTextError(errors: readonly FieldError<'text'>[]): string | undefined {
+	const problem = errors[0]?.problem;
+	if (!problem) return undefined;
+	if (problem.kind === 'too-long') return `Up to ${problem.max.toLocaleString('en')} characters.`;
+	return 'Write the finding.';
+}
+
+/** "No bug findings." under a filter that matches none. */
+export const noFindingsOfType = (type: FindingType) =>
+	`No ${FINDING_TYPE_LABELS[type].toLowerCase()} findings.`;
+
+/** The finding delete confirmation's body. */
+export function deleteFindingBody(screenshotCount: number): string {
+	if (screenshotCount === 0) return 'This cannot be undone.';
+	return `Its ${countWord(screenshotCount, 'screenshot')} ${screenshotCount === 1 ? 'is' : 'are'} deleted too. This cannot be undone.`;
+}
