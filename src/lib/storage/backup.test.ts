@@ -9,7 +9,15 @@ import {
 	type BackupData
 } from './backup.ts';
 import { snapshotCase } from '#lib/core/qa/run.ts';
-import type { CaseSnapshot, Run, Screenshot, TestCase, TestResult } from '#lib/core/qa/types.ts';
+import type {
+	CaseSnapshot,
+	Finding,
+	Run,
+	Screenshot,
+	Session,
+	TestCase,
+	TestResult
+} from '#lib/core/qa/types.ts';
 
 const wallet = {
 	id: 'w-1',
@@ -76,6 +84,31 @@ const screenshot: Screenshot = {
 	bytes: new Uint8Array([1, 2, 3, 250]).buffer
 };
 
+const session: Session = {
+	id: 'ses-1',
+	charter: 'Explore withdraw limits',
+	release: 'v2.3.0',
+	environment: 'Android 14',
+	timeboxMinutes: 60,
+	status: 'ended',
+	startedAt: 1794500000000,
+	pausedAt: null,
+	pausedMs: 60000,
+	endedAt: 1794503600000,
+	createdAt: 1794500000000,
+	updatedAt: 1794503600000
+};
+
+const finding: Finding = {
+	id: 'fi-1',
+	sessionId: 'ses-1',
+	type: 'bug',
+	text: 'Max ignores the fee',
+	at: 720000,
+	createdAt: 1794500720000,
+	updatedAt: 1794500720000
+};
+
 /** The same screenshot as an export writes it. */
 const fileScreenshot = {
 	id: 's-1',
@@ -98,6 +131,8 @@ const data: BackupData = {
 	testCases: [testCase],
 	runs: [run],
 	results: [result],
+	sessions: [session],
+	findings: [finding],
 	screenshots: [screenshot]
 };
 
@@ -109,7 +144,7 @@ const withData = (patch: Record<string, unknown>) =>
 /** What parseBackup returns for `data`. */
 const parsedFile = (d: BackupData = data) => ({
 	app: 'qanchor',
-	schemaVersion: 3,
+	schemaVersion: 4,
 	exportedAt: '2026-11-13T10:00:00.000Z',
 	data: d
 });
@@ -118,7 +153,7 @@ describe('createBackup', () => {
 	it('carries app, schema version, export time, and data (FR-003 AC-1)', () => {
 		expect(createBackup(data, NOW)).toEqual({
 			app: 'qanchor',
-			schemaVersion: 3,
+			schemaVersion: 4,
 			exportedAt: '2026-11-13T10:00:00.000Z',
 			data: { ...data, screenshots: [fileScreenshot] }
 		});
@@ -140,6 +175,8 @@ describe('parseBackup', () => {
 			testCases: [],
 			runs: [],
 			results: [],
+			sessions: [],
+			findings: [],
 			screenshots: []
 		};
 		expect(parseBackup(json(file({ data: empty }))).ok).toBe(true);
@@ -159,8 +196,8 @@ describe('parseBackup', () => {
 		['another app', json({ version: '12.4.1', metamask: {} }), { code: 'not-qanchor' }],
 		[
 			'a newer schema (EC-020)',
-			json(file({ schemaVersion: 4 })),
-			{ code: 'newer-version', version: 4 }
+			json(file({ schemaVersion: 5 })),
+			{ code: 'newer-version', version: 5 }
 		],
 		['schema version 0', json(file({ schemaVersion: 0 })), { code: 'unsupported-version' }],
 		['schema version as text', json(file({ schemaVersion: '2' })), { code: 'unsupported-version' }],
@@ -275,7 +312,15 @@ describe('backup v2 (FR-091)', () => {
 	it('a v1 file is upgraded in memory with empty Phase 2 lists (AC-3, EC-037)', () => {
 		const parsed = parseBackup(json(v1()));
 		expect(parsed.ok && parsed.value).toEqual(
-			parsedFile({ ...data, testCases: [], runs: [], results: [], screenshots: [] })
+			parsedFile({
+				...data,
+				testCases: [],
+				runs: [],
+				results: [],
+				sessions: [],
+				findings: [],
+				screenshots: []
+			})
 		);
 	});
 
@@ -459,7 +504,9 @@ describe('backup v3: screenshots (FR-091 AC-2, AC-5)', () => {
 
 	it('a v2 file is upgraded in memory with no screenshots (EC-037)', () => {
 		const parsed = parseBackup(json(v2()));
-		expect(parsed.ok && parsed.value).toEqual(parsedFile({ ...data, screenshots: [] }));
+		expect(parsed.ok && parsed.value).toEqual(
+			parsedFile({ ...data, sessions: [], findings: [], screenshots: [] })
+		);
 	});
 
 	it('a v2 file ignores screenshots it should not have', () => {
@@ -503,8 +550,13 @@ describe('backup v3: screenshots (FR-091 AC-2, AC-5)', () => {
 		['no owner', { ...fileScreenshot, owner: undefined }, 'Screenshot 1 of 1 has no valid owner.'],
 		[
 			'an owner of another kind',
+			{ ...fileScreenshot, owner: ['note', 'r-1', 3] },
+			'Screenshot 1 of 1 has no valid owner.'
+		],
+		[
+			'a finding owner with a number for the finding',
 			{ ...fileScreenshot, owner: ['finding', 'r-1', 3] },
-			'Screenshot 1 of 1 ("TC-3") has no valid owner.'
+			'Screenshot 1 of 1 has no valid owner.'
 		],
 		[
 			'an owner with case 0',
@@ -568,9 +620,141 @@ describe('backup v3: screenshots (FR-091 AC-2, AC-5)', () => {
 	});
 });
 
+describe('backup v4: sessions and findings (FR-091 AC-2, AC-5)', () => {
+	const v3 = () => {
+		const current: Record<string, unknown> = { ...createBackup(data, NOW).data };
+		delete current.sessions;
+		delete current.findings;
+		return { ...file(), schemaVersion: 3, data: current };
+	};
+	const detail = (input: unknown) => {
+		const parsed = parseBackup(json(input));
+		if (parsed.ok) return null;
+		return parsed.error.code === 'invalid' ? parsed.error.detail : parsed.error;
+	};
+	const sessionName = 'Session 1 of 1 ("Explore withdraw limits")';
+	const findingShot = {
+		...fileScreenshot,
+		id: 's-9',
+		owner: ['finding', 'ses-1', 'fi-1']
+	};
+
+	it('round-trips sessions, findings, and a finding screenshot', () => {
+		const withShot: BackupData = {
+			...data,
+			screenshots: [screenshot, { ...screenshot, id: 's-9', owner: ['finding', 'ses-1', 'fi-1'] }]
+		};
+		const parsed = parseBackup(json(createBackup(withShot, NOW)));
+		expect(parsed.ok && parsed.value).toEqual(parsedFile(withShot));
+	});
+
+	it('a v3 file is upgraded in memory with no sessions or findings (EC-037)', () => {
+		const parsed = parseBackup(json(v3()));
+		expect(parsed.ok && parsed.value).toEqual(parsedFile({ ...data, sessions: [], findings: [] }));
+	});
+
+	it('a v4 file needs both lists', () => {
+		expect(detail(withData({ sessions: undefined }))).toBe('The sessions list is missing.');
+		expect(detail(withData({ findings: 'x' }))).toBe('The findings list is missing.');
+	});
+
+	it('drops unknown fields on sessions and findings', () => {
+		const parsed = parseBackup(
+			json(
+				withData({
+					sessions: [{ ...session, secret: 1 }],
+					findings: [{ ...finding, extra: true }]
+				})
+			)
+		);
+		expect(parsed.ok && [parsed.value.data.sessions, parsed.value.data.findings]).toEqual([
+			[session],
+			[finding]
+		]);
+	});
+
+	it.each([
+		['no charter', { ...session, charter: ' ' }, `Session 1 of 1 ("${' '}") has no charter.`],
+		[
+			'a timebox of 4 minutes',
+			{ ...session, timeboxMinutes: 4 },
+			`${sessionName} has a timebox in minutes outside 5 to 480.`
+		],
+		[
+			'a timebox that is not a number',
+			{ ...session, timeboxMinutes: '60' },
+			`${sessionName} has no valid timeboxMinutes.`
+		],
+		['an unknown status', { ...session, status: 'done' }, `${sessionName} has an unknown status.`],
+		[
+			'a negative paused time',
+			{ ...session, pausedMs: -1 },
+			`${sessionName} has no valid pausedMs.`
+		],
+		[
+			'an end time on a running session',
+			{ ...session, status: 'running' },
+			`${sessionName} has an end time that does not match its state.`
+		],
+		[
+			'a paused session without its pause time',
+			{ ...session, status: 'paused', endedAt: null },
+			`${sessionName} has a pause time that does not match its state.`
+		],
+		[
+			'a pause time that is not a time',
+			{ ...session, pausedAt: 'soon' },
+			`${sessionName} has no valid pausedAt.`
+		]
+	])('rejects a session with %s, naming it', (_, value, expected) => {
+		expect(detail(withData({ sessions: [value] }))).toBe(expected);
+	});
+
+	it.each([
+		['no text', { ...finding, text: '' }, 'Finding 1 of 1 has no text.'],
+		['an unknown type', { ...finding, type: 'risk' }, 'Finding 1 of 1 has an unknown type.'],
+		['a negative session time', { ...finding, at: -5 }, 'Finding 1 of 1 has no valid at.'],
+		[
+			'a session that is not in the file',
+			{ ...finding, sessionId: 'ses-9' },
+			'Finding 1 of 1 belongs to no session in the file.'
+		]
+	])('rejects a finding with %s, naming it', (_, value, expected) => {
+		expect(detail(withData({ findings: [value] }))).toBe(expected);
+	});
+
+	it('refuses two sessions or two findings with one id', () => {
+		expect(detail(withData({ sessions: [session, session] }))).toBe(
+			'Two sessions have the id "ses-1".'
+		);
+		expect(detail(withData({ findings: [finding, finding] }))).toBe(
+			'Two findings have the id "fi-1".'
+		);
+	});
+
+	it('accepts a screenshot of a finding in the file and refuses one of a missing finding', () => {
+		expect(detail(withData({ screenshots: [findingShot] }))).toBeNull();
+		expect(
+			detail(withData({ screenshots: [{ ...findingShot, owner: ['finding', 'ses-1', 'fi-9'] }] }))
+		).toBe('Screenshot 1 of 1 belongs to no finding in the file.');
+		// The finding exists, but in another session than the owner names.
+		expect(
+			detail(withData({ screenshots: [{ ...findingShot, owner: ['finding', 'ses-9', 'fi-1'] }] }))
+		).toBe('Screenshot 1 of 1 belongs to no finding in the file.');
+	});
+
+	it('refuses a sixth screenshot of a finding (FR-112 AC-6)', () => {
+		const shots = Array.from({ length: 6 }, (_, i) => ({ ...findingShot, id: `f-${i}`, n: i + 1 }));
+		expect(detail(withData({ screenshots: shots.slice(0, 5) }))).toBeNull();
+		expect(detail(withData({ screenshots: shots }))).toBe(
+			'Screenshot 6 of 6 is one more than the 5 a finding can have.'
+		);
+	});
+});
+
 describe('version steps (plan note N-1)', () => {
 	it('has one step for every version after 1', () => {
-		expect(Object.keys(UPGRADES).map(Number)).toEqual([2, 3]);
+		expect(Object.keys(UPGRADES).map(Number)).toEqual([2, 3, 4]);
 	});
 
 	it('each step adds what its version introduced and keeps the rest', () => {
@@ -581,6 +765,11 @@ describe('version steps (plan note N-1)', () => {
 			results: []
 		});
 		expect(UPGRADES[3]({ runs: [1], screenshots: 'x' })).toEqual({ runs: [1], screenshots: [] });
+		expect(UPGRADES[4]({ runs: [1], sessions: 'x' })).toEqual({
+			runs: [1],
+			sessions: [],
+			findings: []
+		});
 	});
 
 	it('runs every step after the file version, in order', () => {
@@ -589,9 +778,21 @@ describe('version steps (plan note N-1)', () => {
 			testCases: [],
 			runs: [],
 			results: [],
-			screenshots: []
+			screenshots: [],
+			sessions: [],
+			findings: []
 		});
-		expect(upgradeData({ runs: [1] }, 2)).toEqual({ runs: [1], screenshots: [] });
-		expect(upgradeData({ screenshots: [1] }, 3)).toEqual({ screenshots: [1] });
+		expect(upgradeData({ runs: [1] }, 2)).toEqual({
+			runs: [1],
+			screenshots: [],
+			sessions: [],
+			findings: []
+		});
+		expect(upgradeData({ screenshots: [1] }, 3)).toEqual({
+			screenshots: [1],
+			sessions: [],
+			findings: []
+		});
+		expect(upgradeData({ sessions: [1] }, 4)).toEqual({ sessions: [1] });
 	});
 });

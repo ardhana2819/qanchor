@@ -8,23 +8,30 @@ import {
 } from '#lib/core/qa/screenshots.ts';
 import { normalizeTags } from '#lib/core/qa/tags.ts';
 import {
+	FINDING_TYPES,
 	PRIORITIES,
 	RESULT_STATUSES,
 	type CaseSnapshot,
+	type Finding,
+	type FindingType,
 	type Priority,
 	type ResultStatus,
 	type Run,
 	type RunStatus,
 	type Screenshot,
 	type ScreenshotOwner,
+	type Session,
+	type SessionStatus,
 	type Step,
 	type TestCase,
 	type TestResult
 } from '#lib/core/qa/types.ts';
 import {
 	caseErrors,
+	findingErrors,
 	resultErrors,
 	runErrors,
+	sessionErrors,
 	type FieldError,
 	type FieldProblem
 } from '#lib/core/qa/validation.ts';
@@ -41,9 +48,10 @@ export const APP_ID = 'qanchor';
 /**
  * The backup format version, the file's `schemaVersion`. It follows the database schema only
  * when the backup content changes. Version 2 adds test cases, runs, and results (FR-091 AC-2),
- * version 3 screenshots; older files are upgraded in memory by UPGRADES (AC-3).
+ * version 3 screenshots, version 4 sessions and findings; older files are upgraded in memory by
+ * UPGRADES (AC-3).
  */
-export const BACKUP_VERSION = 3;
+export const BACKUP_VERSION = 4;
 
 export interface BackupData {
 	settings: { theme: ThemePreference };
@@ -53,6 +61,8 @@ export interface BackupData {
 	testCases: TestCase[];
 	runs: Run[];
 	results: TestResult[];
+	sessions: Session[];
+	findings: Finding[];
 	screenshots: Screenshot[];
 }
 
@@ -275,7 +285,8 @@ function fieldLabel(field: string): string {
 		actual: 'actual result',
 		failedStep: 'failed step',
 		linkedIssue: 'linked issue',
-		cases: 'case count'
+		cases: 'case count',
+		timebox: 'timebox in minutes'
 	};
 	return labels[field] ?? field;
 }
@@ -448,6 +459,97 @@ function phase2Lists(data: Shape): Result<Phase2, string> {
 	return problem ? err(problem) : lists;
 }
 
+// ---- Sessions and findings (backup v4) --------------------------------------------------------
+
+const SESSION_STATUSES: readonly SessionStatus[] = ['running', 'paused', 'ended'];
+
+function nullableTime(record: Shape, key: string, name: string): Result<number | null, string> {
+	return record[key] === null ? ok(null) : time(record, key, name);
+}
+
+function duration(record: Shape, key: string, name: string): Result<number, string> {
+	const value = record[key];
+	return typeof value === 'number' && Number.isFinite(value) && value >= 0
+		? ok(value)
+		: err(`${name} has no valid ${key}.`);
+}
+
+const sessionGuard: Guard<Session> = (value, name) => {
+	if (!isObject(value)) return err(`${name} is not a record.`);
+	const record = fields<Session>({
+		id: () => text(value, 'id', name),
+		charter: () => text(value, 'charter', name, true),
+		release: () => text(value, 'release', name, true),
+		environment: () => text(value, 'environment', name, true),
+		timeboxMinutes: () =>
+			typeof value.timeboxMinutes === 'number'
+				? ok(value.timeboxMinutes)
+				: err(`${name} has no valid timeboxMinutes.`),
+		status: () => oneOf<SessionStatus>(value, 'status', SESSION_STATUSES, name),
+		startedAt: () => time(value, 'startedAt', name),
+		pausedAt: () => nullableTime(value, 'pausedAt', name),
+		pausedMs: () => duration(value, 'pausedMs', name),
+		endedAt: () => nullableTime(value, 'endedAt', name),
+		createdAt: () => time(value, 'createdAt', name),
+		updatedAt: () => time(value, 'updatedAt', name)
+	});
+	if (!record.ok) return record;
+	const session = record.value;
+	const problem = firstError(sessionErrors(session), name);
+	if (problem) return err(problem);
+	// The clock fields must match the state, or the session time would be wrong (F-15).
+	if ((session.status === 'paused') !== (session.pausedAt !== null))
+		return err(`${name} has a pause time that does not match its state.`);
+	if ((session.status === 'ended') !== (session.endedAt !== null))
+		return err(`${name} has an end time that does not match its state.`);
+	return record;
+};
+
+const findingGuard: Guard<Finding> = (value, name) => {
+	if (!isObject(value)) return err(`${name} is not a record.`);
+	const record = fields<Finding>({
+		id: () => text(value, 'id', name),
+		sessionId: () => text(value, 'sessionId', name),
+		type: () => oneOf<FindingType>(value, 'type', FINDING_TYPES, name),
+		text: () => text(value, 'text', name, true),
+		at: () => duration(value, 'at', name),
+		createdAt: () => time(value, 'createdAt', name),
+		updatedAt: () => time(value, 'updatedAt', name)
+	});
+	if (!record.ok) return record;
+	const problem = firstError(findingErrors(record.value.text), name);
+	return problem ? err(problem) : record;
+};
+
+type Sessions = Pick<BackupData, 'sessions' | 'findings'>;
+
+/** One session per id, one finding per id, and each finding in a session of the file. */
+function crossCheckSessions({ sessions, findings }: Sessions): string | null {
+	const sessionId = firstDuplicate(sessions.map((s) => s.id));
+	if (sessionId !== null) return `Two sessions have the id "${sessionId}".`;
+	const findingId = firstDuplicate(findings.map((f) => f.id));
+	if (findingId !== null) return `Two findings have the id "${findingId}".`;
+	const ids = new Set(sessions.map((s) => s.id));
+	for (const [index, finding] of findings.entries()) {
+		if (!ids.has(finding.sessionId))
+			return `Finding ${index + 1} of ${findings.length} belongs to no session in the file.`;
+	}
+	return null;
+}
+
+function sessionLists(data: Shape): Result<Sessions, string> {
+	const lists = fields<Sessions>({
+		sessions: () =>
+			list(data.sessions, 'Session', 'sessions', sessionGuard, (item) =>
+				typeof item.charter === 'string' ? item.charter : ''
+			),
+		findings: () => list(data.findings, 'Finding', 'findings', findingGuard, () => '')
+	});
+	if (!lists.ok) return lists;
+	const problem = crossCheckSessions(lists.value);
+	return problem ? err(problem) : lists;
+}
+
 // ---- Screenshots (backup v3) ------------------------------------------------------------------
 
 const MEDIA_TYPES: readonly ScreenshotType[] = ['image/webp', 'image/jpeg'];
@@ -460,15 +562,13 @@ const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
 
 function owner(record: Shape, name: string): Result<ScreenshotOwner, string> {
 	const value = record.owner;
-	const valid =
-		Array.isArray(value) &&
-		value.length === 3 &&
-		value[0] === 'result' &&
-		typeof value[1] === 'string' &&
-		value[1] !== '' &&
-		Number.isSafeInteger(value[2]) &&
-		value[2] > 0;
-	return valid ? ok(['result', value[1], value[2]]) : err(`${name} has no valid owner.`);
+	const id = (part: unknown) => typeof part === 'string' && part !== '';
+	if (Array.isArray(value) && value.length === 3 && id(value[1])) {
+		if (value[0] === 'result' && Number.isSafeInteger(value[2]) && value[2] > 0)
+			return ok(['result', value[1], value[2]]);
+		if (value[0] === 'finding' && id(value[2])) return ok(['finding', value[1], value[2]]);
+	}
+	return err(`${name} has no valid owner.`);
 }
 
 function edge(record: Shape, key: string, name: string): Result<number, string> {
@@ -506,37 +606,50 @@ const screenshotGuard: Guard<Screenshot> = (value, name) => {
 };
 
 function screenshotLabel(item: Shape): string {
-	return Array.isArray(item.owner) ? keyLabel(item.owner[2]) : '';
+	return Array.isArray(item.owner) && item.owner[0] === 'result' ? keyLabel(item.owner[2]) : '';
 }
 
 /**
- * Checks that each screenshot belongs to a result in the file, with one id per screenshot, one
- * number per screenshot of a result, and at most SCREENSHOTS_MAX per result (FR-091 AC-5).
+ * Checks that each screenshot belongs to a result or a finding in the file, with one id per
+ * screenshot, one number per screenshot of an owner, and at most SCREENSHOTS_MAX per owner
+ * (FR-091 AC-5).
  */
 function crossCheckScreenshots(
 	screenshots: readonly Screenshot[],
-	runs: readonly Run[],
-	results: readonly TestResult[]
+	{ runs, results, findings }: Pick<BackupData, 'runs' | 'results' | 'findings'>
 ): string | null {
 	const id = firstDuplicate(screenshots.map((s) => s.id));
 	if (id !== null) return `Two screenshots have the id "${id}".`;
-	const resultKeys = new Set(results.map((r) => `${r.runId}\u0000${r.caseNumber}`));
+	const owners = new Set([
+		...results.map((r) => ownerKey(['result', r.runId, r.caseNumber])),
+		...findings.map((f) => ownerKey(['finding', f.sessionId, f.id]))
+	]);
 	const runNames = new Map(runs.map((run) => [run.id, run.name]));
 	const numbers = new Map<string, Set<number>>();
 	for (const [index, shot] of screenshots.entries()) {
-		const [, runId, caseNumber] = shot.owner;
-		const run = runNames.get(runId);
-		const name = `Screenshot ${index + 1} of ${screenshots.length} ("${formatKey(caseNumber)}")${run === undefined ? '' : ` in run "${run}"`}`;
-		const key = `${runId}\u0000${caseNumber}`;
-		if (!resultKeys.has(key)) return `${name} belongs to no result in the file.`;
+		const name = `Screenshot ${index + 1} of ${screenshots.length}${ownerLabel(shot.owner, runNames)}`;
+		const key = ownerKey(shot.owner);
+		if (!owners.has(key))
+			return `${name} belongs to no ${shot.owner[0] === 'result' ? 'result' : 'finding'} in the file.`;
 		const taken = numbers.get(key) ?? new Set<number>();
 		if (taken.has(shot.n)) return `${name} has the same number as another screenshot.`;
 		if (taken.size >= SCREENSHOTS_MAX)
-			return `${name} is one more than the ${SCREENSHOTS_MAX} a result can have.`;
+			return `${name} is one more than the ${SCREENSHOTS_MAX} a ${shot.owner[0]} can have.`;
 		taken.add(shot.n);
 		numbers.set(key, taken);
 	}
 	return null;
+}
+
+function ownerKey(owner: ScreenshotOwner): string {
+	return owner.join('\u0000');
+}
+
+/** ' ("TC-12") in run "Smoke"' for a result's screenshot; '' for a finding's. */
+function ownerLabel(owner: ScreenshotOwner, runNames: ReadonlyMap<string, string>): string {
+	if (owner[0] !== 'result') return '';
+	const run = runNames.get(owner[1]);
+	return ` ("${formatKey(owner[2])}")${run === undefined ? '' : ` in run "${run}"`}`;
 }
 
 // ---- Version steps (plan note N-1) --------------------------------------------------------------
@@ -548,7 +661,8 @@ function crossCheckScreenshots(
  */
 export const UPGRADES: Readonly<Record<number, (data: Shape) => Shape>> = {
 	2: (data) => ({ ...data, testCases: [], runs: [], results: [] }),
-	3: (data) => ({ ...data, screenshots: [] })
+	3: (data) => ({ ...data, screenshots: [] }),
+	4: (data) => ({ ...data, sessions: [], findings: [] })
 };
 
 /** Brings a file's data from `version` to BACKUP_VERSION. */
@@ -594,6 +708,8 @@ export function parseBackup(json: string): Result<BackupFile, ImportError> {
 	if (!checked.ok) return err({ code: 'invalid', detail: checked.error });
 	const phase2 = phase2Lists(data);
 	if (!phase2.ok) return err({ code: 'invalid', detail: phase2.error });
+	const sessions = sessionLists(data);
+	if (!sessions.ok) return err({ code: 'invalid', detail: sessions.error });
 	const screenshots = list(
 		data.screenshots,
 		'Screenshot',
@@ -602,7 +718,10 @@ export function parseBackup(json: string): Result<BackupFile, ImportError> {
 		screenshotLabel
 	);
 	if (!screenshots.ok) return err({ code: 'invalid', detail: screenshots.error });
-	const problem = crossCheckScreenshots(screenshots.value, phase2.value.runs, phase2.value.results);
+	const problem = crossCheckScreenshots(screenshots.value, {
+		...phase2.value,
+		...sessions.value
+	});
 	if (problem) return err({ code: 'invalid', detail: problem });
 
 	return ok({
@@ -613,6 +732,7 @@ export function parseBackup(json: string): Result<BackupFile, ImportError> {
 			settings: { theme: data.settings.theme as ThemePreference },
 			...checked.value,
 			...phase2.value,
+			...sessions.value,
 			screenshots: screenshots.value
 		}
 	});

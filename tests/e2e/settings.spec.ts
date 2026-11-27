@@ -13,6 +13,8 @@ interface Records {
 	testCases: Record<string, unknown>[];
 	runs: Record<string, unknown>[];
 	results: Record<string, unknown>[];
+	sessions: Record<string, unknown>[];
+	findings: Record<string, unknown>[];
 	/** Read back with each image's bytes as an array of numbers (see `readRecords`). */
 	screenshots: Record<string, unknown>[];
 }
@@ -24,9 +26,11 @@ const STORES = [
 	'testCases',
 	'runs',
 	'results',
+	'sessions',
+	'findings',
 	'screenshots'
 ] as const;
-const NO_QA = { testCases: [], runs: [], results: [], screenshots: [] };
+const NO_QA = { testCases: [], runs: [], results: [], sessions: [], findings: [], screenshots: [] };
 
 const testCase = {
 	id: 'c1',
@@ -93,6 +97,8 @@ const STORED: Records = {
 	testCases: [testCase],
 	runs: [run],
 	results: [result],
+	sessions: [],
+	findings: [],
 	screenshots: []
 };
 
@@ -240,7 +246,7 @@ test('Export downloads every record with the schema version and the theme (FR-00
 
 	expect(download.suggestedFilename()).toMatch(/^qanchor-backup-\d{4}-\d{2}-\d{2}\.json$/);
 	const file = JSON.parse(await readFile((await download.path())!, 'utf8'));
-	expect(file).toMatchObject({ app: 'qanchor', schemaVersion: 3 });
+	expect(file).toMatchObject({ app: 'qanchor', schemaVersion: 4 });
 	expect(Date.parse(file.exportedAt)).not.toBeNaN();
 	const records = Object.fromEntries(STORES.map((name) => [name, file.data[name]])) as Records;
 	expect(sortById(records)).toEqual(sortById(STORED));
@@ -281,7 +287,7 @@ test('import shows stored-now against after-import counts, then replaces everyth
 
 	await expect(page.getByText('Import complete', { exact: true }).first()).toBeVisible();
 	await expect(page.getByRole('main')).toContainText(
-		'Imported 3 wallets, 1 endpoint override, 0 faucet links, 0 test cases, 0 test runs, 0 results, 0 screenshots, and the theme setting.'
+		'Imported 3 wallets, 1 endpoint override, 0 faucet links, 0 test cases, 0 test runs, 0 results, 0 sessions, 0 findings, 0 screenshots, and the theme setting.'
 	);
 	expect(sortById(await readRecords(page))).toEqual(
 		sortById({
@@ -333,7 +339,7 @@ test.describe('screenshots in the backup (FR-091 AC-2, AC-4)', () => {
 
 		await expect(sizeDialog(page)).toBeVisible();
 		await expect(page.getByTestId('settings-export-size')).toHaveText(
-			/^qanchor-backup-\d{4}-\d{2}-\d{2}\.json, 672 KB, with 2 screenshots\.$/
+			/^qanchor-backup-\d{4}-\d{2}-\d{2}\.json, 673 KB, with 2 screenshots\.$/
 		);
 		await sizeDialog(page).getByRole('button', { name: 'Cancel' }).click();
 		await expect(sizeDialog(page)).toBeHidden();
@@ -390,7 +396,9 @@ test.describe('screenshots in the backup (FR-091 AC-2, AC-4)', () => {
 		await expect(rows.filter({ hasText: 'Screenshots' })).toHaveText(/Screenshots\s*0\s*2/);
 		await dialog(page).getByRole('button', { name: 'Replace all data' }).click();
 
-		await expect(page.getByRole('main')).toContainText('1 result, 2 screenshots, and the theme');
+		await expect(page.getByRole('main')).toContainText(
+			'1 result, 0 sessions, 0 findings, 2 screenshots, and the theme'
+		);
 		expect(sortById(await readRecords(page))).toEqual(sortById(before));
 	});
 
@@ -448,8 +456,8 @@ const BAD_FILES: [string, string, string][] = [
 	],
 	[
 		'qanchor-backup-2027-01-15.json',
-		JSON.stringify({ ...BACKUP, schemaVersion: 4 }),
-		'Unknown schema version 4. This backup comes from a newer version of QAnchor.'
+		JSON.stringify({ ...BACKUP, schemaVersion: 5 }),
+		'Unknown schema version 5. This backup comes from a newer version of QAnchor.'
 	],
 	[
 		'qanchor-backup-hand-edited.json',
