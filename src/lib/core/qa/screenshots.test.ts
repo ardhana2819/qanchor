@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	attachmentName,
+	findingAttachmentName,
 	checkCount,
 	checkFile,
 	checkPixels,
@@ -148,5 +149,14 @@ describe('attachmentName (FR-122 AC-1)', () => {
 
 	it('skips the dashes of a short run id', () => {
 		expect(attachmentName(3, 'run-1', 2, 'image/webp')).toBe('TC-3-run1-2.webp');
+	});
+});
+
+describe('findingAttachmentName (FR-131 AC-1, FR-122 AC-1)', () => {
+	it('is finding-<finding id short>-<n>.<ext>', () => {
+		expect(findingAttachmentName('9F8E7D6C-5b4a-4321-8abc-def012345678', 2, 'image/webp')).toBe(
+			'finding-9f8e7d6c-2.webp'
+		);
+		expect(findingAttachmentName('f-1', 1, 'image/jpeg')).toBe('finding-f1-1.jpg');
 	});
 });
