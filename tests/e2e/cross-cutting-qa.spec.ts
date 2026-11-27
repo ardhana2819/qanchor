@@ -351,7 +351,9 @@ test.describe('export and import of the performance data set (FR-091 AC-6, NFR-0
 		await expect(page.getByText('Import complete', { exact: true }).first()).toBeVisible({
 			timeout: 60_000
 		});
-		await expect(page.getByRole('main')).toContainText('2,000 results, 200 screenshots');
+		await expect(page.getByRole('main')).toContainText(
+			'2,000 results, 0 sessions, 0 findings, 200 screenshots'
+		);
 
 		const longTasks = await page.evaluate(
 			() => (window as unknown as { __longTasks: number[] }).__longTasks

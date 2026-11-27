@@ -1,11 +1,18 @@
 import type { DBSchema } from 'idb';
-import type { Run, Screenshot, TestCase, TestResult } from '#lib/core/qa/types.ts';
+import type {
+	Finding,
+	Run,
+	Screenshot,
+	Session,
+	TestCase,
+	TestResult
+} from '#lib/core/qa/types.ts';
 
-// IndexedDB schema v3 (docs/architecture.md section 3.1, ADR-014, ADR-015, plan finding F-8). No store and no
+// IndexedDB schema v4 (docs/architecture.md section 3.1, ADR-014, ADR-015, plan findings F-8, F-14). No store and no
 // field holds a private key or mnemonic (FR-071 AC-2, NFR-012).
 
 export const DB_NAME = 'qanchor';
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 /** A user override of a network's default endpoint; defaults live in code (FR-041). */
 export interface EndpointOverride {
@@ -52,10 +59,21 @@ export interface QAnchorDB extends DBSchema {
 		value: Screenshot;
 		indexes: { byOwner: Screenshot['owner'] };
 	};
+	sessions: { key: string; value: Session };
+	findings: { key: string; value: Finding; indexes: { bySession: string } };
 }
 
 export type StoreName =
-	'endpoints' | 'wallets' | 'faucets' | 'testCases' | 'runs' | 'results' | 'meta' | 'screenshots';
+	| 'endpoints'
+	| 'wallets'
+	| 'faucets'
+	| 'testCases'
+	| 'runs'
+	| 'results'
+	| 'meta'
+	| 'screenshots'
+	| 'sessions'
+	| 'findings';
 
 /**
  * The stores a backup carries: every store except `meta`, whose key counter is rebuilt on import
@@ -70,6 +88,8 @@ export const BACKUP_STORE_NAMES: readonly BackupStoreName[] = [
 	'testCases',
 	'runs',
 	'results',
+	'sessions',
+	'findings',
 	'screenshots'
 ];
 
@@ -81,5 +101,7 @@ export interface StoredRecords {
 	testCases: TestCase[];
 	runs: Run[];
 	results: TestResult[];
+	sessions: Session[];
+	findings: Finding[];
 	screenshots: Screenshot[];
 }

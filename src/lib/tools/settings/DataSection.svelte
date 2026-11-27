@@ -206,6 +206,8 @@
 		{ label: 'Test cases', key: 'testCases', one: 'test case', many: 'test cases' },
 		{ label: 'Test runs', key: 'runs', one: 'test run', many: 'test runs' },
 		{ label: 'Results', key: 'results', one: 'result', many: 'results' },
+		{ label: 'Sessions', key: 'sessions', one: 'session', many: 'sessions' },
+		{ label: 'Findings', key: 'findings', one: 'finding', many: 'findings' },
 		{ label: 'Screenshots', key: 'screenshots', one: 'screenshot', many: 'screenshots' }
 	];
 

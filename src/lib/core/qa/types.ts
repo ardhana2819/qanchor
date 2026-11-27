@@ -75,11 +75,13 @@ export interface TestResult {
 }
 
 /**
- * What a screenshot belongs to (plan finding F-8): a result now, a session finding from T-068.
- * The owner is an array key, so one key range reads or deletes one result's screenshots or a whole
- * run's.
+ * What a screenshot belongs to (plan finding F-8): a run's result, or a session's finding. The
+ * owner is an array key, so one key range reads or deletes one owner's screenshots, or a whole
+ * run's or session's.
  */
-export type ScreenshotOwner = ['result', runId: string, caseNumber: number];
+export type ScreenshotOwner = ResultOwner | FindingOwner;
+export type ResultOwner = ['result', runId: string, caseNumber: number];
+export type FindingOwner = ['finding', sessionId: string, findingId: string];
 
 /** Session timebox choices before Custom, in minutes (design 13.3 P2-06). */
 export const TIMEBOX_PRESETS = [30, 60, 90] as const;

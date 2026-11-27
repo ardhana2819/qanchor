@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { NewScreenshot, TestCase } from '#lib/core/qa/types.ts';
+import type { Finding, NewScreenshot, TestCase } from '#lib/core/qa/types.ts';
 import { CASES_MAX } from '#lib/core/qa/validation.ts';
 import type { NewCase } from '#lib/storage/db.ts';
 
@@ -13,7 +13,8 @@ async function fresh() {
 	vi.resetModules();
 	const { testCases } = await import('./test-cases.svelte.ts');
 	const { runs } = await import('./runs.svelte.ts');
-	return { testCases, runs };
+	const { sessions } = await import('./sessions.svelte.ts');
+	return { testCases, runs, sessions };
 }
 
 const fields = (title: string, tags: string[] = []): NewCase => ({
@@ -369,5 +370,91 @@ describe('runs state: screenshots (FR-112, plan finding F-7)', () => {
 
 			expect(await runs.saveResult(result)).toEqual({ ok: false, error: 'quota' });
 		});
+	});
+});
+
+describe('sessions state (FR-130, FR-131, plan finding F-14)', () => {
+	const input = {
+		charter: 'Explore limits',
+		release: 'v2.3.0',
+		environment: '',
+		timeboxMinutes: 60
+	};
+	const picture = (): NewScreenshot => ({
+		id: crypto.randomUUID(),
+		mediaType: 'image/webp',
+		width: 10,
+		height: 10,
+		bytes: new Uint8Array([1, 2, 3]).buffer
+	});
+	const note = (sessionId: string, id: string, at = 0): Finding => ({
+		id,
+		sessionId,
+		type: 'note',
+		text: `Note ${id}`,
+		at,
+		createdAt: 0,
+		updatedAt: 0
+	});
+
+	it('starts, pauses, resumes, and ends a session, keeping it across a reload', async () => {
+		vi.useFakeTimers({ toFake: ['Date'], now: 1_000_000 });
+		const { sessions } = await fresh();
+		await sessions.load();
+		const started = ok(await sessions.start(input));
+		expect(started).toMatchObject({ status: 'running', startedAt: 1_000_000, pausedMs: 0 });
+
+		vi.setSystemTime(1_060_000);
+		expect(ok(await sessions.pause(started.id)).status).toBe('paused');
+		vi.setSystemTime(1_660_000);
+		expect(ok(await sessions.resume(started.id))).toMatchObject({ pausedMs: 600_000 });
+		vi.setSystemTime(1_720_000);
+		const ended = ok(await sessions.end(started.id));
+		expect(ended).toMatchObject({ status: 'ended', endedAt: 1_720_000 });
+		// An ended session does not run again (FR-130 AC-6), but it can be edited.
+		expect(ok(await sessions.resume(started.id))).toBe(ended);
+		expect(ok(await sessions.edit(started.id, { ...input, charter: 'Renamed' })).status).toBe(
+			'ended'
+		);
+
+		const reloaded = (await fresh()).sessions;
+		await reloaded.load();
+		expect(reloaded.list.map((s) => [s.charter, s.status])).toEqual([['Renamed', 'ended']]);
+		expect(reloaded.releases).toEqual(['v2.3.0']);
+	});
+
+	it('saves findings with screenshots and removes a session with all of its own', async () => {
+		const { sessions, runs } = await fresh();
+		await Promise.all([sessions.load(), runs.load()]);
+		const a = ok(await sessions.start(input));
+		const b = ok(await sessions.start({ ...input, charter: 'Other' }));
+		ok(await sessions.saveFinding(note(a.id, 'f1'), [picture()]));
+		ok(await sessions.saveFinding(note(b.id, 'f2')));
+		ok(await sessions.addScreenshot(note(a.id, 'f1'), picture()));
+		expect(sessions.screenshotsOf(note(a.id, 'f1')).map((s) => s.n)).toEqual([1, 2]);
+		expect(sessions.findingsOf(a.id).map((f) => f.id)).toEqual(['f1']);
+
+		const reloaded = await fresh();
+		await Promise.all([reloaded.sessions.load(), reloaded.runs.load()]);
+		expect(reloaded.sessions.screenshots).toHaveLength(2);
+		// Finding screenshots are not a run's.
+		expect(reloaded.runs.screenshots).toEqual([]);
+
+		ok(await reloaded.sessions.remove(a.id));
+		expect(reloaded.sessions.list.map((s) => s.id)).toEqual([b.id]);
+		expect(reloaded.sessions.findings.map((f) => f.id)).toEqual(['f2']);
+		expect(reloaded.sessions.screenshots).toEqual([]);
+	});
+
+	it('removes a finding with its screenshots, and refuses one of a deleted session', async () => {
+		const { sessions } = await fresh();
+		await sessions.load();
+		const a = ok(await sessions.start(input));
+		ok(await sessions.saveFinding(note(a.id, 'f1'), [picture()]));
+		ok(await sessions.removeFinding(note(a.id, 'f1')));
+		expect([sessions.findings, sessions.screenshots]).toEqual([[], []]);
+
+		ok(await sessions.remove(a.id));
+		expect(await sessions.saveFinding(note(a.id, 'f3'))).toEqual({ ok: false, error: 'failed' });
 	});
 });
