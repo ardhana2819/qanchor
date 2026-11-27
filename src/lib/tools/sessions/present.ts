@@ -24,6 +24,12 @@ export function timeboxMinutes(choice: TimeboxChoice, custom: string): number {
 	return /^\d+$/.test(text) ? Number(text) : NaN;
 }
 
+/** The control's state for a stored timebox: its preset, or Custom with the minutes. */
+export function timeboxChoiceOf(minutes: number): { choice: TimeboxChoice; custom: string } {
+	const preset = TIMEBOX_OPTIONS.find((option) => option.value === `${minutes}`);
+	return preset ? { choice: preset.value, custom: '' } : { choice: 'custom', custom: `${minutes}` };
+}
+
 /** The first problem per field of the session form, as shown under it (design 13.7). */
 export function sessionErrorsByField(
 	errors: readonly FieldError<SessionField>[]
