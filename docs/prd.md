@@ -762,7 +762,7 @@ A run has: a name, an optional release, an optional environment (free text: buil
 **FR-140: Release rollup** (US-018)
 
 * AC-1: Given runs and sessions with a release, When I open Releases, Then each release is listed once (FR-110 AC-4 grouping) with its run count, session count, and latest activity.
-* AC-2: Given a release, When I open it, Then I see each run with its counts per status, the totals summed over its runs, and the sessions with their count of Bug findings.
+* AC-2: Given a release, When I open it, Then I see each run with its counts per status, the release totals taken from the latest result per case (AC-3), so a retested case counts once, and the sessions with their count of Bug findings. (Changed from "summed over its runs" with the slice 2c plan, finding F-16, 2026-11-27.)
 * AC-3: Given a case that appears in more than one run of the release, When the summary is built, Then a "Latest result per case" section shows each case once with its most recent result, so a retest that passed after a fix is not reported as an open failure. Cases are matched by key.
 * AC-4: Given failed and blocked latest results, When listed, Then each shows the case key, title, actual result or reason, and the linked issue (FR-123).
 * AC-5: Given runs and sessions with no release, When Releases loads, Then they appear under "No release" rather than being hidden.

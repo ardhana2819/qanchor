@@ -1,7 +1,7 @@
 # QAnchor: Implementation Plan
 
-* Status: Phase 1 APPROVED (owner, 2026-11-12); slice 2a (M4) APPROVED (owner, 2026-11-19); slice 2b (M5) APPROVED (owner, 2026-11-24)
-* Scope: Phase 1 (slices 1a, 1b, 1c), slice 2a, and slice 2b. Slice 2c is broken down when 2b is done; phases 3 and 4 have no FR IDs yet.
+* Status: Phase 1 APPROVED (owner, 2026-11-12); slice 2a (M4) APPROVED (owner, 2026-11-19); slice 2b (M5) APPROVED (owner, 2026-11-24); slice 2c (M6) APPROVED (owner, 2026-11-27)
+* Scope: Phase 1 (slices 1a, 1b, 1c) and Phase 2 (slices 2a, 2b, 2c). Phases 3 and 4 have no FR IDs yet.
 * Sources: `docs/prd.md` v0.3, `docs/design.md` v0.3, `docs/architecture.md` v0.1, `docs/decisions.md`
 * Date: 2026-11-12
 
@@ -23,6 +23,7 @@ How this plan is used:
 | M3 Slice 1c | Tx lookup, calldata decoder, testnet wallet tracker | Phase 1 complete |
 | M4 Slice 2a | Storage schema v2, test cases, test runs (no screenshots), QA navigation | Deployed; a run can be created and executed end to end |
 | M5 Slice 2b | Screenshots on results (schema v3, image worker), backup with screenshots, persistent storage, bug report dialog | Deployed; journey J-8 in `docs/design.md` works without the Phase 1 hooks |
+| M6 Slice 2c | Exploratory sessions (schema v4), release summary, checklist to test cases, test data in a step | **Phase 2 complete**: journeys J-10 to J-12 work on the live site |
 
 ## Task table
 
@@ -129,6 +130,22 @@ Sources: `docs/prd.md` section 10 (FR-091 screenshots, FR-092, FR-112, FR-120 to
 | T-065 | Bug report dialog (P2-05): Create bug report on a saved failure; fields pre-filled and editable; format control (Markdown or Jira), remembered (finding F-10); Preview of the exact text; Copy report with its toast; closing after an edit asks first; Attachments with file names, a download each, and Download all; full-screen below 640 px | FR-120 AC-1 to AC-6; FR-121 AC-1 to AC-3; FR-122 AC-1, AC-2; NFR-008, NFR-009 | T-058, T-063 | The copy uses the edits; reopening starts from the result again; downloads carry the FR-122 names; keyboard only from Create bug report to Copy report | E2E with a clipboard recorder and download events in three browsers, axe in both themes | Medium | done |
 | T-066 | Cross-cutting E2E for slice 2b (idle, axe, focus rings, reduced motion, request allowlist, no crypto chunk, the image worker only after the first image, initial JS); traceability list extended with FR-092, FR-112, and FR-120 to FR-122; NFR-024 blob count after every kind of delete; README; live-site check | NFR-001, NFR-003, NFR-006, NFR-008, NFR-009, NFR-011, NFR-015, NFR-024, NFR-025 | T-061, T-063 to T-065 | All specs green in three browsers; every slice 2b FR is named by a test; journey J-8 works on the live site | CI; live site after merge | Low | done |
 
+### M6 Slice 2c
+
+Sources: `docs/prd.md` section 10 (FR-130 to FR-132, FR-140, FR-141, FR-150, FR-151, FR-090 AC-1, FR-091 AC-2, NFR-024, EC-031, EC-033, EC-034, EC-036), `docs/design.md` section 13 (J-10 to J-12, P2-06, P2-07, 13.7 copy, 13.9 decision 2), findings F-14 to F-19 below. Approved by the owner on 2026-11-27, with every proposal in F-14 to F-19.
+
+| ID | Task | FR/US/NFR | Depends on | Definition of done | How to verify | Risk | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T-067 | QA core for 2c in `lib/core/qa`: session types and limits (charter 1 to 200, timebox 5 to 480 minutes, finding text up to 5,000, types Bug, Question, Idea, Note); the session clock from timestamps with pauses (finding F-15); the session Markdown; release grouping (FR-110 AC-4, "No release"), per-run counts and totals, latest result per case matched by key, pass rate over executed cases (finding F-16); the release summary Markdown; the bug report builder for a Bug finding (finding F-17) | FR-130 AC-1, AC-2, AC-5; FR-131 AC-1, AC-3; FR-132; FR-140 AC-1 to AC-5; FR-141; EC-031, EC-036 | T-048, T-058 | Every limit has a boundary test; the clock is right across a pause, a reload, and a sleep; a retest that passed hides the earlier failure; both Markdown outputs match golden files, with user text escaped as in FR-121 AC-3 | Vitest, mutation check of the clock and the latest-result rule | Medium (clock and rollup rules) | todo |
+| T-068 | Storage schema v4 and backup v4 (finding F-14): stores `sessions` and `findings` (index on `sessionId`), migration 4; methods to start, pause, resume, end, and edit a session, add, edit, and delete a finding with its screenshots (owner `['finding', sessionId, findingId]`, finding F-8), and delete a session with its findings and screenshots in one transaction; `sessions.svelte.ts`; backup `schemaVersion` 4 with sessions and findings, import of v1 to v4, guards for a finding of a missing session and a screenshot of a missing finding | FR-091 AC-2, AC-5; FR-130 AC-6; FR-131 AC-1; NFR-016, NFR-024, NFR-026; EC-033, EC-034, EC-037 | T-060, T-061, T-067 | A v3 database upgrades with every record kept; no finding or blob outlives its session; v1 to v4 files import; every new guard has a negative test | Vitest with `fake-indexeddb`; E2E: upgrade from a v3 database seeded in the browser, export and import round trip | Medium (third migration on real data) | todo |
+| T-069 | Sessions `/sessions` (P2-06 list): Start session form (charter, timebox 30 / 60 / 90 / Custom, release with suggestions from runs and sessions, environment), the sessions table (charter, release, status, time, findings by type), delete with its findings counted, loading, empty, and error states; "Sessions" in the QA sidebar group and on the index; icons `session` and `release` | FR-130 AC-1; FR-090 AC-1; US-017; NFR-008, NFR-009 | T-068 | A session cannot start without a charter or with a timebox of 4 or 481 minutes; starting opens the session page | E2E in three browsers, axe in both themes | Low | todo |
+| T-070 | Session page `/sessions/view?id=` (P2-06): header with charter, meta, and the minute clock ("23 min elapsed · 37 min left"), updated once a minute only while the page is visible; Pause, Resume, End session; the timebox callout once; finding composer (type, text, screenshot area, Add finding and Ctrl/Cmd+Enter, focus back in the field); findings list in time order with "at 12 min", type filter, edit and delete; an ended session edits charter, release, environment, and findings but cannot restart; record not found | FR-130 AC-2 to AC-6; FR-131 AC-1, AC-2, AC-4; FR-112 rules for findings; EC-033, EC-036; NFR-003, NFR-006 | T-062, T-069 | Elapsed time is right after a reload and after a paused hour (clock faked in the test); no timer runs while the page is hidden; keyboard only from the composer through three findings | E2E with Playwright's clock, keyboard only, axe in both themes; idle check with the session running | **Medium** (timers, visibility, focus) | todo |
+| T-071 | Bug report from a Bug finding and Copy session: the bug report dialog takes a finding as its source (finding F-17), with the finding's text, the session's environment, empty steps, and the finding's screenshots as attachments; Copy session with its toast | FR-131 AC-3; FR-132; FR-121; FR-122 | T-065, T-070 | The dialog's run behaviour is unchanged (bug-report.spec.ts green); the finding report and the session copy match T-067's output | E2E with the clipboard recorder and download events in three browsers | Low | todo |
+| T-072 | Releases `/releases` and `/releases/view?name=` (P2-07): the release table (release, runs, sessions, pass rate, last activity) with "No release" last; the release page with the five-figure stat row, Runs with results bars, Latest result per case (failed and blocked first, the rest in "Show 96 passed"), Sessions with finding counts; Copy summary; unknown release; "Releases" in the QA sidebar group and on the index | FR-140; FR-141; FR-090 AC-1; US-018; EC-031 | T-067, T-068 | Two spellings of one release (EC-031) show as one; a release with runs only, sessions only, or nothing executed shows no broken figure; the copy matches T-067's output | E2E in three browsers, axe in both themes | Low | todo |
+| T-073 | Checklist to test cases (FR-150): Create test cases on a checklist page, a dialog with items grouped by section (all ticked), the duplicate warning with Skip or Create anyway, one transaction for all new cases, the message with a link to `/cases` filtered by the checklist tag | FR-150; US-019; NFR-026 | T-053 | Converting twice warns with the right count; Skip creates none of the existing ones; the link filters by the checklist tag | E2E in three browsers | Low | todo |
+| T-074 | Insert test data into a step (FR-151): a button per step row, a dialog for an address (chain, type, valid or one invalid variant with its reason), an amount edge case, or one dummy-data field; the value inserted at the caret as plain text; the generator code loaded when the dialog opens; only the public address kept | FR-151; US-019; NFR-012, NFR-015 | T-053 | No generator chunk is requested before the dialog opens; the inserted text lands at the caret; no key material is kept in memory after insertion | E2E with request recording in three browsers | Medium (lazy loading the Phase 1 generators into the editor) | todo |
+| T-075 | Cross-cutting E2E for slice 2c (idle, also with a running session; axe; focus rings; reduced motion; request allowlist; no crypto chunk on Sessions and Releases; initial JS); traceability list extended with FR-130 to FR-151; NFR-024 count after session and finding deletes; README with Phase 2 complete; live-site check of J-10 to J-12 | NFR-001, NFR-003, NFR-006, NFR-008, NFR-009, NFR-011, NFR-015, NFR-024, NFR-025 | T-069 to T-074 | All specs green in three browsers; every Phase 2 FR is named by a test; J-10 to J-12 work on the live site | CI; live site after merge | Low | todo |
+
 ## Coverage check
 
 Every Phase 1 FR is covered by at least one task:
@@ -176,7 +193,20 @@ Slice 2b:
 | FR-121 | T-057, T-058, T-065 |
 | FR-122 | T-057, T-058, T-065 |
 
-FR-130 to FR-151 belong to slice 2c. FR-121 AC-5 (Markdown pasted into Jira Cloud) is checked by hand by the owner (see Owner actions).
+Slice 2c:
+
+| FR | Tasks |
+| --- | --- |
+| FR-090 AC-1 (Sessions and Releases in the sidebar) | T-069, T-072 |
+| FR-091 (sessions, findings) | T-068 |
+| FR-130 | T-067, T-068, T-069, T-070 |
+| FR-131 | T-067, T-068, T-070, T-071 |
+| FR-132 | T-067, T-071 |
+| FR-140, FR-141 | T-067, T-072 |
+| FR-150 | T-073 |
+| FR-151 | T-074 |
+
+FR-121 AC-5 (Markdown pasted into Jira Cloud) is checked by hand by the owner (see Owner actions).
 
 ## Task notes
 
@@ -416,6 +446,14 @@ FR-130 to FR-151 belong to slice 2c. FR-121 AC-5 (Markdown pasted into Jira Clou
 
 
 ## Findings while planning
+
+* **Slice 2c (2026-11-27, approved by the owner with this plan):**
+  * **F-14: sessions need schema v4.** F-8 kept screenshots free of a migration, but sessions and findings are new records. Two stores, `sessions` and `findings` (key `id`, index `sessionId`), so two tabs adding findings to one session keep both (EC-033), as results do (F-4). A session holds `charter`, `release`, `environment`, `timeboxMinutes`, `status: 'running' | 'paused' | 'ended'`, `startedAt`, `pausedAt`, `pausedMs`, `endedAt`, `createdAt`, `updatedAt`; a finding holds `sessionId`, `type`, `text`, `at` (session time in ms), `createdAt`, `updatedAt`. Backup v4 is one more data transform (empty lists), so it ships in the same task. Rejected: findings inside the session record (two tabs would overwrite each other).
+  * **F-15: the clock is computed, never counted.** Elapsed time is `(endedAt ?? pausedAt ?? now) - startedAt - pausedMs`, so a reload, a closed tab, or a sleep cannot break it (EC-036). The page re-renders on a timeout aimed at the next whole minute, only while visible, and once on `visibilitychange` (13.9 decision 2, NFR-003). A finding's "at 12 min" is the elapsed time when it was added.
+  * **F-16: releases are computed, not stored.** Releases come from the runs and sessions on each visit, grouped by the FR-110 AC-4 rule. The release page URL carries the first spelling, encoded; "No release" uses `?none`. [ASSUMPTION] Executed means Pass, Fail, or Blocked, so the pass rate is passed over executed; the totals and the pass rate come from the latest result per case (AC-3), not from the sum over runs, so a retest is not counted twice. The per-run table keeps each run's own counts. Approved by the owner; PRD FR-140 AC-2 is updated to match.
+  * **F-17: one bug report dialog for both sources.** The T-065 dialog takes a report source (a run result or a finding) instead of `run`, `item`, and `result`; the builder for a finding lives in `report.ts` beside the run builder. Rejected: a second dialog (two copies of the format, discard, and download logic).
+  * **F-18: no prototype for P2-06 and P2-07.** [PROPOSAL] They are built from the text in design 13.3 with the existing components; each PR includes screenshots in both themes for review. Why: the owner's target of 2026-11-30 for Phase 2 leaves no time for a prototype round. Risk: layout feedback comes after the code, not before.
+  * **F-19: order allows a cut.** [PROPOSAL] FR-150 and FR-151 (T-073, T-074) come last and depend on nothing else in 2c, so if time runs out they can move to a later batch without blocking sessions or releases. T-075 then names only the shipped FRs.
 
 * **Slice 2b (2026-11-24, approved by the owner with this plan):**
   * **F-7: a screenshot before its result is saved.** A tester usually picks Fail, pastes the screenshot, then writes the actual result, but the result record only exists after Save result, and FR-091 AC-5 refuses a screenshot without a result. Compressed images wait in the case's draft in memory (as the unsaved form does since T-055) and are written with the result in one transaction; on a stored result they are written at once. Rejected: allowing screenshots only after a save (breaks the usual order), and storing screenshots for an untested case (an orphan the import guard would refuse).
