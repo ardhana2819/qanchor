@@ -218,7 +218,9 @@ test.describe('Sessions list (FR-130 AC-1)', () => {
 		await expect(page.getByRole('heading', { level: 1 })).toContainText('Running');
 		await expect(page.getByTestId('session-meta')).toContainText('Timebox 45 min');
 		await expect(page.getByTestId('session-meta')).toContainText('Release v2.3.0');
-		await expect(page.getByTestId('session-environment')).toContainText('Environment: Android 14');
+		await expect(page.getByTestId('session-environment-line')).toContainText(
+			'Environment: Android 14'
+		);
 		await expect(page).toHaveTitle('Explore limits · QAnchor');
 
 		await page.goto('/sessions/view?id=nope');

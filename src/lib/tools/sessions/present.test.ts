@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { sessionErrors } from '#lib/core/qa/validation.ts';
+import type { Session } from '#lib/core/qa/types.ts';
 import {
+	clockLine,
+	deleteFindingBody,
+	FINDING_FILTER_OPTIONS,
+	FINDING_TYPE_OPTIONS,
+	findingTextError,
+	noFindingsOfType,
+	timeboxChoiceOf,
 	deletedSessionText,
 	deleteSessionBody,
 	deleteSessionTitle,
@@ -85,5 +93,77 @@ describe('delete copy', () => {
 	it('titles the dialog and the toast with the charter', () => {
 		expect(deleteSessionTitle('Explore limits')).toBe('Delete session "Explore limits"?');
 		expect(deletedSessionText('Explore limits')).toBe('Deleted session "Explore limits".');
+	});
+});
+
+const MIN = 60_000;
+const T0 = 1_800_000_000_000;
+const session = (part: Partial<Session> = {}): Session => ({
+	id: 's1',
+	charter: 'Explore',
+	release: '',
+	environment: '',
+	timeboxMinutes: 60,
+	status: 'running',
+	startedAt: T0,
+	pausedAt: null,
+	pausedMs: 0,
+	endedAt: null,
+	createdAt: T0,
+	updatedAt: T0,
+	...part
+});
+
+describe('clockLine (FR-130 AC-2, AC-6; design 13.9 decision 2)', () => {
+	it('shows elapsed and left while running, over past the timebox', () => {
+		expect(clockLine(session(), T0 + 23 * MIN + 59_999)).toBe('23 min elapsed · 37 min left');
+		expect(clockLine(session(), T0 + 65 * MIN)).toBe('65 min elapsed · 5 min over');
+	});
+
+	it('says paused, and stands still while paused', () => {
+		const paused = session({ status: 'paused', pausedAt: T0 + 10 * MIN });
+		expect(clockLine(paused, T0 + 99 * MIN)).toBe('10 min elapsed · 50 min left · paused');
+	});
+
+	it('gives the total once ended', () => {
+		const ended = session({ status: 'ended', endedAt: T0 + 65 * MIN });
+		expect(clockLine(ended, T0 + 999 * MIN)).toBe('Ended after 1 h 5 min');
+	});
+});
+
+describe('timeboxChoiceOf (FR-130 AC-6)', () => {
+	it('picks the preset, or Custom with the minutes', () => {
+		expect(timeboxChoiceOf(90)).toEqual({ choice: '90', custom: '' });
+		expect(timeboxChoiceOf(45)).toEqual({ choice: 'custom', custom: '45' });
+	});
+});
+
+describe('findings copy (FR-131)', () => {
+	it('offers the four types, and All before them in the filter', () => {
+		expect(FINDING_TYPE_OPTIONS.map((o) => o.label)).toEqual(['Bug', 'Question', 'Idea', 'Note']);
+		expect(FINDING_FILTER_OPTIONS.map((o) => o.value)).toEqual([
+			'all',
+			'bug',
+			'question',
+			'idea',
+			'note'
+		]);
+	});
+
+	it('asks for the text, and gives the length limit', () => {
+		expect(findingTextError([])).toBeUndefined();
+		expect(findingTextError([{ field: 'text', problem: { kind: 'required' } }])).toBe(
+			'Write the finding.'
+		);
+		expect(findingTextError([{ field: 'text', problem: { kind: 'too-long', max: 5000 } }])).toBe(
+			'Up to 5,000 characters.'
+		);
+	});
+
+	it('names an empty filter and the screenshots of a deleted finding', () => {
+		expect(noFindingsOfType('question')).toBe('No question findings.');
+		expect(deleteFindingBody(0)).toBe('This cannot be undone.');
+		expect(deleteFindingBody(1)).toBe('Its 1 screenshot is deleted too. This cannot be undone.');
+		expect(deleteFindingBody(3)).toBe('Its 3 screenshots are deleted too. This cannot be undone.');
 	});
 });
