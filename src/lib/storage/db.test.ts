@@ -3,7 +3,14 @@ import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDB } from 'idb';
 import { snapshotCase } from '#lib/core/qa/run.ts';
-import type { NewScreenshot, Run, ScreenshotOwner, TestResult } from '#lib/core/qa/types.ts';
+import type {
+	Finding,
+	NewScreenshot,
+	Run,
+	ScreenshotOwner,
+	Session,
+	TestResult
+} from '#lib/core/qa/types.ts';
 import { openStorage, type NewCase, type Storage } from './db.ts';
 import { runMigrations } from './migrations.ts';
 import { DB_NAME, DB_VERSION, type QAnchorDB, type StoredRecords, type Wallet } from './schema.ts';
@@ -39,6 +46,8 @@ const EMPTY: StoredRecords = {
 	testCases: [],
 	runs: [],
 	results: [],
+	sessions: [],
+	findings: [],
 	screenshots: []
 };
 
@@ -94,7 +103,7 @@ afterEach(() => {
 });
 
 describe('openStorage', () => {
-	it('creates the schema v3 stores and their indexes', async () => {
+	it('creates the schema v4 stores and their indexes', async () => {
 		await open();
 		const raw = await rawDatabase();
 
@@ -102,10 +111,12 @@ describe('openStorage', () => {
 		expect([...raw.objectStoreNames]).toEqual([
 			'endpoints',
 			'faucets',
+			'findings',
 			'meta',
 			'results',
 			'runs',
 			'screenshots',
+			'sessions',
 			'testCases',
 			'wallets'
 		]);
@@ -123,6 +134,44 @@ describe('openStorage', () => {
 		expect(screenshots.keyPath).toBe('id');
 		expect([...screenshots.indexNames]).toEqual(['byOwner']);
 		expect(screenshots.index('byOwner').keyPath).toBe('owner');
+		expect(tx.objectStore('sessions').keyPath).toBe('id');
+		const findings = tx.objectStore('findings');
+		expect(findings.keyPath).toBe('id');
+		expect([...findings.indexNames]).toEqual(['bySession']);
+		expect(findings.index('bySession').keyPath).toBe('sessionId');
+		raw.close();
+	});
+
+	it('upgrades a v3 database and keeps every record, screenshots included (NFR-016)', async () => {
+		const v3 = await openDB<QAnchorDB>(DB_NAME, 3, {
+			upgrade: (db, oldVersion, newVersion, tx) => runMigrations(db, tx, oldVersion, 3)
+		});
+		await v3.put('wallets', wallet('1'));
+		await v3.put('runs', run('r1'));
+		await v3.put('results', result('r1', 1));
+		await v3.put('screenshots', {
+			...image(),
+			id: 's1',
+			owner: ['result', 'r1', 1],
+			n: 1,
+			size: 3,
+			createdAt: 1
+		});
+		v3.close();
+
+		const storage = await open();
+
+		const read = await storage.readRecords();
+		expect(read.ok && read.value).toMatchObject({
+			wallets: [wallet('1')],
+			runs: [run('r1')],
+			results: [result('r1', 1)],
+			sessions: [],
+			findings: [],
+			screenshots: [{ id: 's1', owner: ['result', 'r1', 1] }]
+		});
+		const raw = await rawDatabase();
+		expect(raw.version).toBe(4);
 		raw.close();
 	});
 
@@ -567,7 +616,7 @@ function quotaOnAdd(nth = 1) {
 	});
 }
 
-async function count(store: 'results' | 'screenshots'): Promise<number> {
+async function count(store: 'results' | 'screenshots' | 'sessions' | 'findings'): Promise<number> {
 	const raw = await rawDatabase();
 	const n = await new Promise<number>((resolve) => {
 		const request = raw.transaction(store).objectStore(store).count();
@@ -846,6 +895,8 @@ describe('backup v3 records (FR-091 AC-2, AC-3, EC-032)', () => {
 				testCases: 0,
 				runs: 1,
 				results: 1,
+				sessions: 0,
+				findings: 0,
 				screenshots: 2
 			}
 		});
@@ -881,5 +932,209 @@ describe('backup v3 records (FR-091 AC-2, AC-3, EC-032)', () => {
 		vi.restoreAllMocks();
 		const read = await storage.readRecords();
 		expect(read.ok && read.value).toEqual(before);
+	});
+});
+
+function session(id: string): Session {
+	return {
+		id,
+		charter: `Charter ${id}`,
+		release: '',
+		environment: '',
+		timeboxMinutes: 60,
+		status: 'running',
+		startedAt: 1,
+		pausedAt: null,
+		pausedMs: 0,
+		endedAt: null,
+		createdAt: 1,
+		updatedAt: 1
+	};
+}
+
+function finding(id: string, sessionId = 's1'): Finding {
+	return {
+		id,
+		sessionId,
+		type: 'bug',
+		text: `Finding ${id}`,
+		at: 0,
+		createdAt: 1,
+		updatedAt: 1
+	};
+}
+
+const findingOwner = (sessionId: string, findingId: string): ScreenshotOwner => [
+	'finding',
+	sessionId,
+	findingId
+];
+
+describe('sessions and findings (FR-130, FR-131, plan finding F-14)', () => {
+	async function withSession() {
+		const storage = await open();
+		await storage.putAll('sessions', [session('s1')]);
+		return storage;
+	}
+
+	it('saves a finding with its pending screenshots in one transaction', async () => {
+		const storage = await withSession();
+
+		const saved = await storage.saveFinding(finding('f1'), [image(), image()], 9);
+
+		expect(saved.ok && saved.value.map((s) => [s.owner, s.n, s.createdAt])).toEqual([
+			[['finding', 's1', 'f1'], 1, 9],
+			[['finding', 's1', 'f1'], 2, 9]
+		]);
+		expect(await storage.readAll('findings')).toEqual({ ok: true, value: [finding('f1')] });
+	});
+
+	it('keeps both findings when two tabs add to one session (EC-033)', async () => {
+		const storage = await withSession();
+		await Promise.all([
+			storage.saveFinding(finding('f1'), [], 1),
+			storage.saveFinding(finding('f2'), [], 1)
+		]);
+		expect(await count('findings')).toBe(2);
+	});
+
+	it('refuses a finding of a session that is gone, so none is an orphan', async () => {
+		const storage = await open();
+
+		expect(await storage.saveFinding(finding('f1', 'gone'), [image()], 1)).toEqual({
+			ok: false,
+			error: 'missing'
+		});
+		expect(await count('findings')).toBe(0);
+		expect(await count('screenshots')).toBe(0);
+	});
+
+	it('refuses a sixth screenshot of a finding, writing nothing (FR-112 AC-6)', async () => {
+		const storage = await withSession();
+		await storage.saveFinding(finding('f1'), [image(), image(), image(), image()], 1);
+
+		expect(await storage.saveFinding(finding('f1'), [image(), image()], 2)).toEqual({
+			ok: false,
+			error: 'limit'
+		});
+		expect(await count('screenshots')).toBe(4);
+		const added = await storage.addScreenshot(findingOwner('s1', 'f1'), image(), 3);
+		expect(added.ok && added.value.n).toBe(5);
+		expect(await storage.addScreenshot(findingOwner('s1', 'f1'), image(), 4)).toEqual({
+			ok: false,
+			error: 'limit'
+		});
+	});
+
+	it('adds a screenshot only to a stored finding of that session', async () => {
+		const storage = await withSession();
+		await storage.saveFinding(finding('f1'), [], 1);
+
+		expect(await storage.addScreenshot(findingOwner('s1', 'nope'), image(), 1)).toEqual({
+			ok: false,
+			error: 'missing'
+		});
+		expect(await storage.addScreenshot(findingOwner('other', 'f1'), image(), 1)).toEqual({
+			ok: false,
+			error: 'missing'
+		});
+		const added = await storage.addScreenshot(findingOwner('s1', 'f1'), image(), 1);
+		expect(added.ok && added.value.owner).toEqual(['finding', 's1', 'f1']);
+	});
+
+	it("deletes a finding with its screenshots and no other finding's (EC-034)", async () => {
+		const storage = await withSession();
+		await storage.saveFinding(finding('f1'), [image()], 1);
+		await storage.saveFinding(finding('f2'), [image()], 1);
+
+		expect(await storage.deleteFinding(finding('f1'))).toEqual({ ok: true, value: undefined });
+
+		const meta = await storage.readScreenshotMeta();
+		expect(meta.ok && meta.value.map((s) => s.owner)).toEqual([['finding', 's1', 'f2']]);
+		expect(await count('findings')).toBe(1);
+	});
+
+	it("deletes a session with its findings and screenshots, and no other session's or run's (NFR-024)", async () => {
+		const storage = await withSession();
+		await storage.putAll('sessions', [session('s10')]);
+		await storage.putAll('runs', [run('s1')]);
+		await storage.putAll('results', [result('s1', 1)]);
+		await storage.addScreenshot(owner('s1', 1), image(), 1);
+		await storage.saveFinding(finding('f1'), [image(), image()], 1);
+		await storage.saveFinding(finding('f10', 's10'), [image()], 1);
+
+		expect(await storage.deleteSession('s1')).toEqual({ ok: true, value: undefined });
+
+		expect(await count('sessions')).toBe(1);
+		const left = await storage.readAll('findings');
+		expect(left.ok && left.value.map((f) => f.id)).toEqual(['f10']);
+		const meta = await storage.readScreenshotMeta();
+		expect(meta.ok && meta.value.map((s) => s.owner).sort()).toEqual(
+			[
+				['result', 's1', 1],
+				['finding', 's10', 'f10']
+			].sort()
+		);
+	});
+
+	it('a failing cascade delete keeps the session, its findings, and screenshots (NFR-026)', async () => {
+		const storage = await withSession();
+		await storage.saveFinding(finding('f1'), [image()], 1);
+		const remove = IDBObjectStore.prototype.delete;
+		vi.spyOn(IDBObjectStore.prototype, 'delete').mockImplementation(function (
+			this: IDBObjectStore,
+			...args
+		) {
+			if (this.name === 'screenshots') throw new DOMException('Disk full.', 'UnknownError');
+			return remove.apply(this, args);
+		});
+
+		expect(await storage.deleteSession('s1')).toEqual({ ok: false, error: 'failed' });
+		vi.restoreAllMocks();
+		expect([await count('sessions'), await count('findings'), await count('screenshots')]).toEqual([
+			1, 1, 1
+		]);
+	});
+
+	it('a quota error on a finding save writes neither the finding nor its screenshots', async () => {
+		const storage = await withSession();
+		quotaOnAdd(2);
+
+		const saved = await storage.saveFinding(finding('f1'), [image(), image()], 1);
+
+		vi.restoreAllMocks();
+		expect(saved).toEqual({ ok: false, error: 'quota' });
+		expect([await count('findings'), await count('screenshots')]).toEqual([0, 0]);
+	});
+
+	it('readRecords and replaceRecords carry sessions, findings, and their screenshots', async () => {
+		const storage = await open();
+		const records = {
+			...EMPTY,
+			sessions: [session('s1')],
+			findings: [finding('f1')],
+			screenshots: [
+				{
+					id: 'shot',
+					owner: findingOwner('s1', 'f1'),
+					n: 1,
+					mediaType: 'image/webp' as const,
+					width: 10,
+					height: 10,
+					size: 3,
+					createdAt: 1,
+					bytes: new Uint8Array([1, 2, 3]).buffer
+				}
+			]
+		};
+
+		expect(await storage.replaceRecords(records)).toEqual({ ok: true, value: undefined });
+
+		const read = await storage.readRecords();
+		expect(read.ok && read.value).toEqual(records);
+		expect(await storage.replaceRecords(EMPTY)).toEqual({ ok: true, value: undefined });
+		expect([await count('sessions'), await count('findings'), await count('screenshots')]).toEqual([
+			0, 0, 0
+		]);
 	});
 });

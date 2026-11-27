@@ -38,6 +38,14 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
 		const screenshots = db.createObjectStore('screenshots', { keyPath: 'id' });
 		// The owner is an array key: one range reads or deletes a result's or a run's screenshots.
 		screenshots.createIndex('byOwner', 'owner');
+	},
+	// Exploratory sessions and their findings (plan finding F-14). Adds stores only; finding
+	// screenshots use the v3 store with a finding owner, so the v3 records are untouched.
+	4: (db) => {
+		db.createObjectStore('sessions', { keyPath: 'id' });
+		// Findings have their own store so two tabs adding to one session keep both (EC-033).
+		const findings = db.createObjectStore('findings', { keyPath: 'id' });
+		findings.createIndex('bySession', 'sessionId');
 	}
 };
 

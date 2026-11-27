@@ -28,13 +28,15 @@ function rawOpen(page: Page, version?: number) {
 	);
 }
 
-const V3_STORES = [
+const V4_STORES = [
 	'endpoints',
 	'faucets',
+	'findings',
 	'meta',
 	'results',
 	'runs',
 	'screenshots',
+	'sessions',
 	'testCases',
 	'wallets'
 ];
@@ -61,11 +63,11 @@ function storeCounts(page: Page) {
 	);
 }
 
-test('a normal visit opens schema v3 and shows no banner', async ({ page }) => {
+test('a normal visit opens schema v4 and shows no banner', async ({ page }) => {
 	await page.goto('/');
 	await appOpened(page);
 
-	expect(await rawOpen(page)).toEqual({ version: 3, stores: V3_STORES });
+	expect(await rawOpen(page)).toEqual({ version: 4, stores: V4_STORES });
 	await expect(unavailableBanner(page)).toBeHidden();
 	await expect(outdatedBanner(page)).toBeHidden();
 });
@@ -135,7 +137,7 @@ test('a schema upgrade in another tab asks this tab to reload (EC-003)', async (
 	const other = await context.newPage();
 	await other.goto('/');
 	// The other tab only completes its upgrade if this tab closes its connection.
-	expect(await rawOpen(other, 4)).toMatchObject({ version: 4 });
+	expect(await rawOpen(other, 5)).toMatchObject({ version: 5 });
 
 	await expect(outdatedBanner(page)).toBeVisible();
 	await expect(page.getByText('Reload this tab to keep saving your changes.')).toBeVisible();
@@ -145,7 +147,7 @@ test('a schema upgrade in another tab asks this tab to reload (EC-003)', async (
 	]);
 });
 
-test('a v1 database from Phase 1 upgrades to v3 with every record kept (FR-091 AC-1)', async ({
+test('a v1 database from Phase 1 upgrades to v4 with every record kept (FR-091 AC-1)', async ({
 	page
 }) => {
 	await page.goto('/');
@@ -201,7 +203,7 @@ test('a v1 database from Phase 1 upgrades to v3 with every record kept (FR-091 A
 	await page.goto('/wallets');
 	await expect(page.getByText('QA main').first()).toBeVisible();
 
-	expect(await rawOpen(page)).toEqual({ version: 3, stores: V3_STORES });
+	expect(await rawOpen(page)).toEqual({ version: 4, stores: V4_STORES });
 	expect(await storeCounts(page)).toEqual({
 		endpoints: 1,
 		faucets: 1,
@@ -209,12 +211,14 @@ test('a v1 database from Phase 1 upgrades to v3 with every record kept (FR-091 A
 		results: 0,
 		runs: 0,
 		screenshots: 0,
+		sessions: 0,
+		findings: 0,
 		testCases: 0,
 		wallets: 1
 	});
 });
 
-test('a v2 database from slice 2a upgrades to v3 with every record kept (NFR-016)', async ({
+test('a v2 database from slice 2a upgrades to v4 with every record kept (NFR-016)', async ({
 	page
 }) => {
 	await page.goto('/');
@@ -309,7 +313,7 @@ test('a v2 database from slice 2a upgrades to v3 with every record kept (NFR-016
 	await page.goto('/runs');
 	await expect(page.getByRole('link', { name: 'Upgrade smoke' })).toBeVisible();
 
-	expect(await rawOpen(page)).toEqual({ version: 3, stores: V3_STORES });
+	expect(await rawOpen(page)).toEqual({ version: 4, stores: V4_STORES });
 	expect(await storeCounts(page)).toEqual({
 		endpoints: 1,
 		faucets: 1,
@@ -317,7 +321,104 @@ test('a v2 database from slice 2a upgrades to v3 with every record kept (NFR-016
 		results: 1,
 		runs: 1,
 		screenshots: 0,
+		sessions: 0,
+		findings: 0,
 		testCases: 1,
 		wallets: 1
+	});
+});
+
+test('a v3 database from slice 2b upgrades to v4 with its screenshots kept (NFR-016)', async ({
+	page
+}) => {
+	await page.goto('/');
+	await appOpened(page);
+	// The stores as migrations 1 to 3 left them, with a run, a result, and its screenshot.
+	const seeded = await page.evaluate(
+		() =>
+			new Promise<number>((resolve, reject) => {
+				const removal = indexedDB.deleteDatabase('qanchor');
+				removal.onerror = () => reject(removal.error);
+				removal.onsuccess = () => {
+					const request = indexedDB.open('qanchor', 3);
+					request.onupgradeneeded = () => {
+						const db = request.result;
+						db.createObjectStore('endpoints', { keyPath: 'networkId' });
+						const wallets = db.createObjectStore('wallets', { keyPath: 'id' });
+						wallets.createIndex('byNetworkAddress', ['networkId', 'address']);
+						db.createObjectStore('faucets', { keyPath: 'id' });
+						const cases = db.createObjectStore('testCases', { keyPath: 'id' });
+						cases.createIndex('byNumber', 'number', { unique: true });
+						db.createObjectStore('runs', { keyPath: 'id' });
+						db.createObjectStore('results', { keyPath: ['runId', 'caseNumber'] });
+						db.createObjectStore('meta', { keyPath: 'key' });
+						const shots = db.createObjectStore('screenshots', { keyPath: 'id' });
+						shots.createIndex('byOwner', 'owner');
+						const tx = request.transaction!;
+						const snapshot = {
+							id: 'c1',
+							number: 1,
+							title: 'Withdraw works',
+							preconditions: '',
+							steps: [{ action: 'Open Withdraw', expected: 'It opens' }],
+							expected: '',
+							tags: [],
+							priority: 'medium'
+						};
+						tx.objectStore('runs').put({
+							id: 'run-3',
+							name: 'Slice 2b run',
+							release: '',
+							environment: '',
+							status: 'in-progress',
+							cases: [snapshot],
+							createdAt: 1,
+							updatedAt: 1,
+							completedAt: null
+						});
+						tx.objectStore('results').put({
+							runId: 'run-3',
+							caseNumber: 1,
+							status: 'fail',
+							failedStep: 1,
+							actual: 'Blank page',
+							reason: '',
+							notes: '',
+							linkedIssue: '',
+							updatedAt: 1
+						});
+						tx.objectStore('screenshots').put({
+							id: 'shot-1',
+							owner: ['result', 'run-3', 1],
+							n: 1,
+							mediaType: 'image/webp',
+							width: 1,
+							height: 1,
+							size: 3,
+							createdAt: 1,
+							bytes: new Uint8Array([1, 2, 3]).buffer
+						});
+					};
+					request.onsuccess = () => {
+						const version = request.result.version;
+						request.result.close();
+						resolve(version);
+					};
+					request.onerror = () => reject(request.error);
+				};
+			})
+	);
+	expect(seeded).toBe(3);
+
+	await page.goto('/runs');
+	await expect(page.getByRole('link', { name: 'Slice 2b run' })).toBeVisible();
+
+	expect(await rawOpen(page)).toEqual({ version: 4, stores: V4_STORES });
+	expect(await storeCounts(page)).toMatchObject({
+		runs: 1,
+		results: 1,
+		screenshots: 1,
+		sessions: 0,
+		findings: 0
 	});
 });

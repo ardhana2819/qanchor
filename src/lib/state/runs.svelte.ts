@@ -51,7 +51,8 @@ class Runs {
 		}
 		this.list = newestFirst(runs.value);
 		this.results = results.value;
-		this.screenshots = screenshots.value;
+		// Finding screenshots belong to sessions (sessions.svelte.ts).
+		this.screenshots = screenshots.value.filter((item) => item.owner[0] === 'result');
 		this.status = 'ready';
 	}
 
@@ -194,7 +195,7 @@ function owner(runId: string, caseNumber: number): ScreenshotOwner {
 	return ['result', runId, caseNumber];
 }
 
-function sameOwner(a: ScreenshotOwner, b: ScreenshotOwner): boolean {
+export function sameOwner(a: ScreenshotOwner, b: ScreenshotOwner): boolean {
 	return a.length === b.length && a.every((part, i) => part === b[i]);
 }
 
@@ -202,11 +203,11 @@ function sameOwner(a: ScreenshotOwner, b: ScreenshotOwner): boolean {
  * A refusal outside the screenshot copy: the result is gone (its run was deleted in another tab),
  * or the limit on a save without new screenshots, which cannot happen; both read as a failed save.
  */
-function storageError(code: ScreenshotWriteError): StorageErrorCode {
+export function storageError(code: ScreenshotWriteError): StorageErrorCode {
 	return code === 'limit' || code === 'missing' ? 'failed' : code;
 }
 
-async function screenshotError(code: ScreenshotWriteError): Promise<ScreenshotSaveError> {
+export async function screenshotError(code: ScreenshotWriteError): Promise<ScreenshotSaveError> {
 	if (code === 'limit') return { kind: 'limit' };
 	if (code === 'quota') return { kind: 'storage', ...(await storageUse()) };
 	return storageError(code);

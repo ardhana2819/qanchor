@@ -7,6 +7,7 @@ import {
 } from 'idb';
 import { checkCount, screenshotMeta, SCREENSHOTS_MAX } from '#lib/core/qa/screenshots.ts';
 import type {
+	Finding,
 	NewScreenshot,
 	Screenshot,
 	ScreenshotMeta,
@@ -38,8 +39,8 @@ export type StorageErrorCode = 'unavailable' | 'quota' | 'closed' | 'failed';
 /**
  * Why a screenshot was not written, besides a storage error:
  * - limit: the result would have more than SCREENSHOTS_MAX (FR-112 AC-6).
- * - missing: the result is gone (its run was deleted in another tab), so the screenshot would
- *   have no owner (FR-091 AC-5, NFR-024).
+ * - missing: the owner is gone (its run or session was deleted in another tab), so the record
+ *   would have no owner (FR-091 AC-5, NFR-024).
  */
 export type ScreenshotWriteError = StorageErrorCode | 'limit' | 'missing';
 
@@ -74,7 +75,25 @@ export interface Storage {
 		pending: readonly NewScreenshot[],
 		now: number
 	): Promise<Result<Screenshot[], Exclude<ScreenshotWriteError, 'missing'>>>;
-	/** Adds a screenshot to a stored result, the limit checked in the same transaction. */
+	/**
+	 * Saves a finding with the screenshots added before it was first saved, as saveResult does for a
+	 * result (FR-131 AC-1, plan finding F-14). Refused with 'missing' when the session is gone.
+	 */
+	saveFinding(
+		finding: Finding,
+		pending: readonly NewScreenshot[],
+		now: number
+	): Promise<Result<Screenshot[], ScreenshotWriteError>>;
+	/** Deletes a finding with its screenshots in one transaction (EC-034, NFR-024). */
+	deleteFinding(
+		finding: Pick<Finding, 'id' | 'sessionId'>
+	): Promise<Result<void, StorageErrorCode>>;
+	/**
+	 * Deletes a session with every finding and screenshot it owns in one transaction (NFR-024,
+	 * NFR-026).
+	 */
+	deleteSession(id: string): Promise<Result<void, StorageErrorCode>>;
+	/** Adds a screenshot to a stored result or finding, the limit checked in the same transaction. */
 	addScreenshot(
 		owner: ScreenshotOwner,
 		image: NewScreenshot,
@@ -216,21 +235,86 @@ function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
 
 		async addScreenshot(owner, image, now) {
 			try {
-				const transaction = db.transaction(['results', 'screenshots'], 'readwrite');
+				const ownerStore = owner[0] === 'result' ? 'results' : 'findings';
+				const transaction = db.transaction([ownerStore, 'screenshots'], 'readwrite');
 				transaction.done.catch(() => {});
 				const screenshots = transaction.objectStore('screenshots');
-				const [, runId, caseNumber] = owner;
-				const [result, existing] = await Promise.all([
-					transaction.objectStore('results').getKey([runId, caseNumber]),
+				const [found, existing] = await Promise.all([
+					ownerExists(transaction, owner),
 					screenshots.index('byOwner').getAll(IDBKeyRange.only(owner))
 				]);
-				if (result === undefined || checkCount(existing.length)) {
+				if (!found || checkCount(existing.length)) {
 					transaction.abort();
-					return err(result === undefined ? 'missing' : 'limit');
+					return err(found ? 'limit' : 'missing');
 				}
 				const record = screenshot(owner, image, nextNumber(existing), now);
 				await commit(transaction, () => void track(screenshots.add(record)));
 				return ok(record);
+			} catch (error) {
+				return err(classify(error));
+			}
+		},
+
+		async saveFinding(finding, pending, now) {
+			try {
+				const transaction = db.transaction(['sessions', 'findings', 'screenshots'], 'readwrite');
+				transaction.done.catch(() => {});
+				const screenshots = transaction.objectStore('screenshots');
+				const owner: ScreenshotOwner = ['finding', finding.sessionId, finding.id];
+				const [session, existing] = await Promise.all([
+					transaction.objectStore('sessions').getKey(finding.sessionId),
+					pending.length ? screenshots.index('byOwner').getAll(IDBKeyRange.only(owner)) : []
+				]);
+				if (session === undefined || existing.length + pending.length > SCREENSHOTS_MAX) {
+					transaction.abort();
+					return err(session === undefined ? 'missing' : 'limit');
+				}
+				const first = nextNumber(existing);
+				const records = pending.map((image, i) => screenshot(owner, image, first + i, now));
+				await commit(transaction, () => {
+					void track(transaction.objectStore('findings').put(finding));
+					for (const record of records) void track(screenshots.add(record));
+				});
+				return ok(records);
+			} catch (error) {
+				return err(classify(error));
+			}
+		},
+
+		async deleteFinding({ id, sessionId }) {
+			try {
+				const transaction = db.transaction(['findings', 'screenshots'], 'readwrite');
+				transaction.done.catch(() => {});
+				const screenshots = transaction.objectStore('screenshots');
+				const ids = await screenshots
+					.index('byOwner')
+					.getAllKeys(IDBKeyRange.only(['finding', sessionId, id]));
+				await commit(transaction, () => {
+					void track(transaction.objectStore('findings').delete(id));
+					for (const key of ids) void track(screenshots.delete(key));
+				});
+				return ok(undefined);
+			} catch (error) {
+				return err(classify(error));
+			}
+		},
+
+		async deleteSession(id) {
+			try {
+				const transaction = db.transaction(['sessions', 'findings', 'screenshots'], 'readwrite');
+				transaction.done.catch(() => {});
+				const findings = transaction.objectStore('findings');
+				const screenshots = transaction.objectStore('screenshots');
+				const [findingIds, screenshotIds] = await Promise.all([
+					findings.index('bySession').getAllKeys(IDBKeyRange.only(id)),
+					screenshots.index('byOwner').getAllKeys(screenshotsOfSession(id))
+				]);
+				await commit(transaction, () => {
+					void track(transaction.objectStore('sessions').delete(id));
+					for (const key of findingIds) void track(findings.delete(key));
+					for (const key of screenshotIds) void track(screenshots.delete(key));
+				});
+				return ok(undefined);
 			} catch (error) {
 				return err(classify(error));
 			}
@@ -279,18 +363,39 @@ function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
 		async readRecords() {
 			try {
 				const transaction = db.transaction([...BACKUP_STORE_NAMES], 'readonly');
-				const [endpoints, wallets, faucets, testCases, runs, results, screenshots] =
-					await Promise.all([
-						transaction.objectStore('endpoints').getAll(),
-						transaction.objectStore('wallets').getAll(),
-						transaction.objectStore('faucets').getAll(),
-						transaction.objectStore('testCases').getAll(),
-						transaction.objectStore('runs').getAll(),
-						transaction.objectStore('results').getAll(),
-						transaction.objectStore('screenshots').getAll(),
-						transaction.done
-					]);
-				return ok({ endpoints, wallets, faucets, testCases, runs, results, screenshots });
+				const [
+					endpoints,
+					wallets,
+					faucets,
+					testCases,
+					runs,
+					results,
+					sessions,
+					findings,
+					screenshots
+				] = await Promise.all([
+					transaction.objectStore('endpoints').getAll(),
+					transaction.objectStore('wallets').getAll(),
+					transaction.objectStore('faucets').getAll(),
+					transaction.objectStore('testCases').getAll(),
+					transaction.objectStore('runs').getAll(),
+					transaction.objectStore('results').getAll(),
+					transaction.objectStore('sessions').getAll(),
+					transaction.objectStore('findings').getAll(),
+					transaction.objectStore('screenshots').getAll(),
+					transaction.done
+				]);
+				return ok({
+					endpoints,
+					wallets,
+					faucets,
+					testCases,
+					runs,
+					results,
+					sessions,
+					findings,
+					screenshots
+				});
 			} catch (error) {
 				return err(classify(error));
 			}
@@ -360,6 +465,26 @@ function resultsOf(runId: string): IDBKeyRange {
 /** Every screenshot key of one run's results: owners are ['result', runId, caseNumber]. */
 function screenshotsOfRun(runId: string): IDBKeyRange {
 	return IDBKeyRange.bound(['result', runId, -Infinity], ['result', runId, Infinity]);
+}
+
+/** Every screenshot key of one session's findings: owners are ['finding', sessionId, findingId]. */
+function screenshotsOfSession(sessionId: string): IDBKeyRange {
+	// A shorter array sorts before a longer one with the same start, and any array after a string.
+	return IDBKeyRange.bound(['finding', sessionId], ['finding', sessionId, []]);
+}
+
+/** Whether a screenshot's owner is stored: the result, or the finding of that session. */
+async function ownerExists(
+	transaction: IDBPTransaction<QAnchorDB, ('results' | 'findings' | 'screenshots')[], 'readwrite'>,
+	owner: ScreenshotOwner
+): Promise<boolean> {
+	if (owner[0] === 'result') {
+		const [, runId, caseNumber] = owner;
+		return (await transaction.objectStore('results').getKey([runId, caseNumber])) !== undefined;
+	}
+	const [, sessionId, findingId] = owner;
+	const finding = await transaction.objectStore('findings').get(findingId);
+	return finding?.sessionId === sessionId;
 }
 
 /** One more than the owner's highest number, so the others keep their file names (FR-122). */
