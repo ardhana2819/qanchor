@@ -41,6 +41,20 @@ class TestCases {
 		return created;
 	}
 
+	/**
+	 * Saves new cases with consecutive keys in one transaction (FR-150, NFR-026). Refused as a
+	 * whole when they would take the database past the most cases allowed.
+	 */
+	async createMany(fields: readonly NewCase[]): Promise<Result<TestCase[], CaseSaveError>> {
+		if (this.list.length + fields.length > CASES_MAX) return err('limit');
+		const db = await storage.connect();
+		if (!db) return err('unavailable');
+		const created = await db.createCases(fields, Date.now());
+		if (!created.ok) return created;
+		this.list = byKey([...this.list, ...created.value]);
+		return created;
+	}
+
 	/** Replaces the fields of a stored case; its key and creation time never change. */
 	async update(id: string, fields: NewCase): Promise<Result<TestCase, CaseSaveError>> {
 		const existing = this.list.find((c) => c.id === id);
