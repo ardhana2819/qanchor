@@ -4,6 +4,7 @@ import {
 	png,
 	putRecords,
 	readStore,
+	savedNames,
 	scanA11y,
 	seedCases,
 	testCase,
@@ -70,29 +71,6 @@ function paste(
 		},
 		{ files, text }
 	);
-}
-
-/**
- * The name a click saves a file under. Firefox saves a WebP file, then opens it in a new tab
- * instead of reporting a download (its default for images it can show).
- */
-async function savedName(page: Page, button: Locator): Promise<string> {
-	const [name] = await Promise.all([
-		Promise.race([
-			page.waitForEvent('download').then((download) => download.suggestedFilename()),
-			page
-				.context()
-				.waitForEvent('page')
-				.then(async (tab) => {
-					const opened = decodeURIComponent(new URL(tab.url()).pathname.split('/').pop() ?? '');
-					await tab.close();
-					return opened;
-				})
-		]),
-		// Not click(): it waits for the navigation Firefox's new tab starts.
-		button.dispatchEvent('click')
-	]);
-	return name;
 }
 
 /** Every thumbnail's image has loaded (and the CSP allowed its blob: URL). */
@@ -296,9 +274,10 @@ test.describe('viewer and removal', () => {
 		await area(page).getByRole('button', { name: 'Open Screenshot 1 of TC-1' }).click();
 		const viewer = page.getByRole('dialog', { name: 'Screenshot 1 of TC-1' });
 
-		expect(await savedName(page, viewer.getByRole('button', { name: 'Download' }))).toMatch(
-			/^TC-1-run1-1\.(webp|jpg)$/
-		);
+		// savedNames takes off the `-1` Firefox adds when an earlier test of this worker saved the
+		// same name (bug-report.spec.ts does).
+		const [name] = await savedNames(page, viewer.getByRole('button', { name: 'Download' }), 1);
+		expect(name).toMatch(/^TC-1-run1-1\.(webp|jpg)$/);
 	});
 
 	test('removing asks first and deletes the stored image (FR-112 AC-4, EC-034)', async ({
