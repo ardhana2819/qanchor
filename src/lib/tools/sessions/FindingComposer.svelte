@@ -116,7 +116,16 @@
 			<div bind:this={field}>
 				<Field label="Finding" hint="Ctrl or Cmd + Enter adds it." {error}>
 					{#snippet children(control)}
-						<Textarea {...control} rows={3} grow bind:value={text} data-testid="finding-text" />
+						<!-- The page opens ready for the first finding (design J-10 step 2). On a client-side
+						navigation SvelteKit moves focus to the [autofocus] element instead of the body. -->
+						<Textarea
+							{...control}
+							rows={3}
+							grow
+							autofocus
+							bind:value={text}
+							data-testid="finding-text"
+						/>
 					{/snippet}
 				</Field>
 			</div>

@@ -309,6 +309,8 @@ test.describe('Start session (FR-130 AC-1)', () => {
 		await expect(page).toHaveURL(/\/sessions\/view\?id=[0-9a-f-]{36}$/);
 		await expect(page.getByTestId('session-charter-heading')).toHaveText('Explore withdraw limits');
 		await expect(page.getByTestId('session-meta')).toContainText('Timebox 45 min');
+		// Ready for the first finding (design J-10 step 2).
+		await expect(page.getByRole('textbox', { name: 'Finding', exact: true })).toBeFocused();
 
 		const [stored] = await readStore<StoredSession>(page, 'sessions');
 		expect(stored).toMatchObject({
