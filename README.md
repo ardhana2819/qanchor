@@ -56,7 +56,7 @@ Before the first E2E run, install the browsers once: `npx playwright install chr
 
 The shared UI components are shown in every state at `/components` (not linked from the navigation); open it on the preview server to review them.
 
-Known issue: on macOS, WebKit's Tab key skips buttons and links (the system's keyboard navigation setting), so about 19 keyboard-only tests fail locally in WebKit; they pass in CI on Linux.
+Known issue: on macOS, WebKit's Tab key skips buttons and links (the system's keyboard navigation setting), so about 20 keyboard-only tests fail locally in WebKit; they pass in CI on Linux. Turning on System Settings > Keyboard > Keyboard navigation makes them pass locally too.
 
 ## Deployment
 
@@ -69,3 +69,4 @@ Cloudflare Pages Git integration, project `qanchor`: every push to `main` deploy
 * [Architecture](docs/architecture.md)
 * [Implementation plan](docs/plan.md)
 * [Decision log](docs/decisions.md)
+* [Handover notes](docs/handover.md)

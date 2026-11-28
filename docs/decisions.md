@@ -535,6 +535,13 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-29: E2E check before handover
+
+* The last 20 CI runs on `main` and PRs had two flaky groups, both Firefox only and both passing on the retry: the axe crashes on the slice 2c pages (fixed in PR 95, see T-023) and the Download test in `run-screenshots.spec.ts` (5 of 20 runs).
+* Download cause: Firefox saves a download as `name-1.webp` when an earlier test in the same worker saved `name.webp`, and `bug-report.spec.ts` saves the same file name. Reproduced locally every time with both specs in one Firefox worker. The test now reads the name through the shared `savedNames()` helper, which already strips that suffix; 9 of 9 passed with `--repeat-each=3 --workers=1`.
+* Local WebKit on macOS: about 20 keyboard-only tests fail because Tab skips buttons and links unless System Settings > Keyboard > Keyboard navigation is on. Not a product bug; CI on Linux is unaffected. README updated.
+* Handover notes in `docs/handover.md`.
+
 ### 2026-11-28: Focus in the finding field when a session opens
 
 * Found in the T-075 live-site check: after Start session, focus was not in the finding field, although design J-10 step 2 says it is. No test covered it.
