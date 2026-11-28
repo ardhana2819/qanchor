@@ -167,7 +167,12 @@
 		<EmptyState>
 			No test cases yet. Write one, or create them from a checklist.
 			{#snippet action()}
-				<Button variant="primary" href={resolve('/cases/new')}>New test case</Button>
+				<span class="empty-actions">
+					<Button variant="primary" href={resolve('/cases/new')}>New test case</Button>
+					<Button href={resolve('/checklists')} data-testid="cases-empty-checklists">
+						Checklists
+					</Button>
+				</span>
 			{/snippet}
 		</EmptyState>
 	</div>
@@ -326,5 +331,12 @@
 	.actions {
 		display: flex;
 		gap: var(--space-1);
+	}
+
+	.empty-actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: var(--space-2);
 	}
 </style>
