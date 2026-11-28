@@ -8,6 +8,7 @@
 	import Badge from '#lib/ui/Badge.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import Field from '#lib/ui/Field.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
 	import SegmentedControl from '#lib/ui/SegmentedControl.svelte';
 	import Textarea from '#lib/ui/Textarea.svelte';
 	import { saveErrorText } from '#lib/tools/runs/present.ts';
@@ -26,9 +27,11 @@
 		/** Added during this visit: plays the enter animation (design 13.6). */
 		fresh: boolean;
 		ondelete: (finding: Finding) => void;
+		/** Opens the bug report of a Bug finding (FR-131 AC-3). */
+		onreport: (finding: Finding) => void;
 	}
 
-	let { finding, shots, fresh, ondelete }: Props = $props();
+	let { finding, shots, fresh, ondelete, onreport }: Props = $props();
 
 	const BADGES = {
 		bug: { variant: 'danger', icon: 'bug' },
@@ -102,6 +105,13 @@
 		<Badge variant={badge.variant} icon={badge.icon}>{FINDING_TYPE_LABELS[finding.type]}</Badge>
 		{#if !editing}
 			<span class="actions">
+				{#if finding.type === 'bug'}
+					<Button size="sm" onclick={() => onreport(finding)} data-testid="finding-create-report">
+						<Icon name="bug" />Create bug report<span class="visually-hidden">
+							of the finding {findingTime(finding)}</span
+						>
+					</Button>
+				{/if}
 				<Button size="sm" variant="ghost" onclick={edit} data-testid="finding-edit">
 					Edit<span class="visually-hidden"> the finding {findingTime(finding)}</span>
 				</Button>

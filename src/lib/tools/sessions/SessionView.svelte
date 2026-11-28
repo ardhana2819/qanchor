@@ -9,11 +9,15 @@
 		durationText,
 		elapsedMs,
 		findingCountsText,
+		findingTime,
 		msUntilNextMinute,
+		buildFindingReport,
+		sessionMarkdown,
 		sortFindings,
 		timeboxReached
 	} from '#lib/core/qa/session.ts';
 	import type { Finding } from '#lib/core/qa/types.ts';
+	import { clipboard } from '#lib/state/clipboard.svelte.ts';
 	import { notify } from '#lib/state/notify.svelte.ts';
 	import { runs } from '#lib/state/runs.svelte.ts';
 	import { sessions } from '#lib/state/sessions.svelte.ts';
@@ -21,10 +25,13 @@
 	import Callout from '#lib/ui/Callout.svelte';
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
 	import PageState from '#lib/ui/PageState.svelte';
 	import SegmentedControl from '#lib/ui/SegmentedControl.svelte';
 	import StatusBadge from '#lib/ui/StatusBadge.svelte';
 	import { WRITE_ERRORS } from '#lib/tools/wallets/present.ts';
+	import BugReportDialog from '#lib/tools/runs/BugReportDialog.svelte';
+	import { reportTitle } from '#lib/tools/runs/report-format.ts';
 	import EditSessionDialog from './EditSessionDialog.svelte';
 	import { FindingShots } from './finding-shots.svelte.ts';
 	import FindingComposer from './FindingComposer.svelte';
@@ -52,6 +59,9 @@
 	let removing = $state(false);
 	let editDialog: EditSessionDialog | undefined = $state();
 	let header: HTMLElement | undefined = $state();
+	let bugReport: BugReportDialog | undefined = $state();
+	/** The Bug finding whose report is open (FR-131 AC-3). */
+	let reporting: Finding | null = $state.raw(null);
 	/** Findings added during this visit, which play the enter animation. */
 	const fresh = new SvelteSet<string>();
 	/** Whether the timebox was already reached when the page opened: its callout then stays still. */
@@ -169,6 +179,22 @@
 		document.getElementById('findings-heading')?.focus();
 	}
 
+	/** Copies the session as Markdown (FR-132). */
+	function copySession(): void {
+		if (!session) return;
+		void clipboard.copy(
+			sessionMarkdown(session, sessions.findingsOf(session.id), Date.now()),
+			'Copied session'
+		);
+	}
+
+	/** Opens the bug report of a Bug finding, built from it each time (FR-131 AC-3, F-17). */
+	async function report(finding: Finding): Promise<void> {
+		reporting = finding;
+		await tick();
+		bugReport?.show();
+	}
+
 	function added(finding: Finding): void {
 		fresh.add(finding.id);
 		// A new finding of another type than the filter would be hidden: show all.
@@ -215,6 +241,9 @@
 			<p class="clock" data-testid="session-clock">{clockLine(session, now)}</p>
 		</div>
 		<div class="header-actions">
+			<Button onclick={copySession} data-testid="session-copy">
+				<Icon name="copy" />Copy session
+			</Button>
 			<Button onclick={() => editDialog?.show()} data-testid="session-edit">Edit details</Button>
 			{#if session.status === 'running'}
 				<Button
@@ -272,13 +301,34 @@
 		{:else}
 			<ul class="findings" data-testid="session-findings">
 				{#each shown as finding (finding.id)}
-					<FindingItem {finding} {shots} fresh={fresh.has(finding.id)} ondelete={confirmDelete} />
+					<FindingItem
+						{finding}
+						{shots}
+						fresh={fresh.has(finding.id)}
+						ondelete={confirmDelete}
+						onreport={report}
+					/>
 				{/each}
 			</ul>
 		{/if}
 	</section>
 
 	<EditSessionDialog bind:this={editDialog} {session} />
+
+	{#if reporting}
+		{@const finding = reporting}
+		{@const target = { ...finding, saved: true }}
+		<BugReportDialog
+			bind:this={bugReport}
+			source={{
+				title: reportTitle(`finding ${findingTime(finding)}`),
+				noun: 'finding',
+				build: () => buildFindingReport(session, finding)
+			}}
+			shots={shots.itemsOf(target)}
+			preparing={!shots.loaded}
+		/>
+	{/if}
 
 	<Dialog bind:open={endOpen} title="End this session?">
 		<p data-testid="session-end-body">
