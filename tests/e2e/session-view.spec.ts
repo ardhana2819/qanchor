@@ -260,6 +260,8 @@ test.describe('findings (FR-131)', () => {
 			'No findings yet. Note what you observe as you go.'
 		);
 		await expect(composerType(page, 'Note')).toBeChecked();
+		// Opening a session is ready for the first finding (design J-10 step 2).
+		await expect(text(page)).toBeFocused();
 		await page.getByTestId('finding-add').click();
 		await expect(composer(page).getByText('Write the finding.')).toBeVisible();
 		await expect(text(page)).toBeFocused();
