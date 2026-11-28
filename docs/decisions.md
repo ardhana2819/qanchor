@@ -534,6 +534,17 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-28: Releases (T-072)
+
+* **Pages** (design 13.3 P2-07): `/releases` lists every release used by a run or a session, latest activity first, "No release" last (FR-140 AC-1, AC-5). `/releases/view?name=<first spelling>` opens one; any spelling finds it (EC-031); "No release" is `?none` (plan finding F-16). A URL with neither goes to the list (EC-028); an unknown release shows "No run or session uses the release "<name>"." with a link back.
+* **List columns**: Release (link), Runs, Sessions, Pass rate, Last activity. The pass rate is over the latest result per case, as on the release page, and "n/a" when nothing is executed. Times are read once and do not tick.
+* **Release page**: the name with "2 runs · 1 session", Copy summary (primary), then the five figures (Executed of the cases, Pass rate with "from 2 of 4 executed" or "No case executed yet", Failed, Blocked, Untested) over the latest result per case. Runs: name (link), status, results bar with the counts in words, each run with its own counts. Latest result per case: failed and blocked in a table (key, title, status, first line of the actual result or reason, linked issue as a link when it is a URL); the rest in a disclosure "Show 96 passed" / "Show 2 passed and 1 untested". Sessions: charter (link), status, time, findings by type.
+* **Sections that do not apply** [ASSUMPTION]: a release without runs shows "No run uses this release." and no Latest result section; without sessions, "No session uses this release."; with nothing failed or blocked, "No case failed or is blocked." The figures then read 0 and n/a, never NaN.
+* **Copy summary** (FR-141): T-067's `releaseSummaryMarkdown`, toast "Copied release summary".
+* **Navigation** (FR-090 AC-1): "Releases" after Sessions in the QA group and on the index, with the `release` (flag) icon.
+* **Sidebar tab stop** (found by `shell.spec.ts` in Firefox): with Releases the sidebar overflows a 720 px window, and Firefox then makes the scrolling sidebar a tab stop of its own before the first link. The sidebar now has `tabindex="-1"`: everything in it is a link or control, and focusing one scrolls it into view.
+* **Tests**: 10 unit tests (URL query, copy); `releases.spec.ts` with 14 E2E tests (navigation, empty, EC-031 grouping and order, totals from the latest result, open cases and the disclosure, sessions, the copied Markdown against T-067, sessions only, nothing executed, "No release", unknown release, missing name, axe in both themes with the disclosure open).
+
 ### 2026-11-27: Bug report from a finding and Copy session (T-071)
 
 * **One dialog, two sources** (plan finding F-17): `BugReportDialog` now takes a `ReportSource` (title, the noun used in its copy, and `build()`), not a run, case, and result. The run page passes a source that builds from a failed result as before; the session page passes one that builds from a finding with T-067's `buildFindingReport`. `bug-report.spec.ts` is unchanged and green, so the run behaviour stays the same.

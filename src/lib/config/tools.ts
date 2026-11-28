@@ -111,6 +111,14 @@ export const tools: readonly ToolEntry[] = [
 			'Timeboxed exploratory sessions with a charter, and findings noted as you test: bugs, questions, ideas, and notes.',
 		group: 'QA',
 		icon: 'session'
+	},
+	{
+		route: '/releases',
+		name: 'Releases',
+		description:
+			'Runs and sessions rolled up per release: pass rate over the latest result per case, open failures, and a Markdown summary.',
+		group: 'QA',
+		icon: 'release'
 	}
 ];
 

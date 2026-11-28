@@ -188,7 +188,12 @@ test.describe('Test runs list (FR-113)', () => {
 	}) => {
 		await page.goto('/');
 		const qa = page.getByRole('navigation', { name: 'Main' }).getByRole('region', { name: 'QA' });
-		await expect(qa.getByRole('link')).toHaveText(['Test cases', 'Test runs', 'Sessions']);
+		await expect(qa.getByRole('link')).toHaveText([
+			'Test cases',
+			'Test runs',
+			'Sessions',
+			'Releases'
+		]);
 		await expect(page.getByRole('main').getByRole('link', { name: 'Test runs' })).toBeVisible();
 		await qa.getByRole('link', { name: 'Test runs' }).click();
 		await expect(page).toHaveURL(/\/runs$/);
