@@ -4,7 +4,7 @@ QA toolkit for blockchain and crypto testing: valid and invalid test addresses, 
 
 Live: https://qanchor.pages.dev
 
-Status: Phase 1 (blockchain toolkit and dummy data) is complete: all eight tools are live. Phase 2 is under way: test cases, test runs with screenshots, and bug reports are live (slices 2a and 2b).
+Status: Phase 1 (blockchain toolkit and dummy data) is complete: all eight tools are live. Phase 2 (QA workspace) is complete: test cases, test runs with screenshots, bug reports, exploratory sessions, release summaries, checklist to test cases, and test data in steps are live.
 
 ## Tools
 
@@ -31,7 +31,7 @@ Interactive elements have accessible names, and dynamic output also carries a st
 
 ## Roadmap
 
-* Phase 2: test cases, test runs, screenshots, bug reports, and persistent storage are live (slices 2a and 2b). Next: exploratory session notes, a release summary, and links from the Phase 1 tools (2c).
+* Phase 2 (complete): test cases, test runs, screenshots, bug reports, persistent storage, exploratory sessions, release summaries, checklist to test cases, and test data in steps.
 * Phase 3: generate test cases from a PRD (PDF, DOCX, Markdown) with ambiguity questions and a traceability matrix, using your own Claude API key.
 * Phase 4: demo mode with a sample crypto PRD, usable without an API key.
 * Later, not planned: an optional backend for team sharing, sync across devices, and an RPC proxy.

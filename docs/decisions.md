@@ -534,6 +534,24 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-28: Cross-cutting checks for slice 2c (T-075)
+
+* **`tests/e2e/cross-cutting-2c.spec.ts`** (11 per browser), kept apart from the 2a and 2b specs, on two sessions with a finding and a run in one release:
+  * No request in 10 s while idle on a running session with its clock, and on the release page (NFR-003).
+  * Every request same-origin or `blob:` through a finding with a screenshot, Copy session, the releases list and page with Copy summary, Create test cases on a checklist, and Insert test data (NFR-011).
+  * No crypto chunk on `/sessions`, a session, `/releases`, and a release (NFR-015, NFR-025). The checklist dialog and the Insert test data dialog are checked for lazy loading in their own specs.
+  * axe in both themes on the sessions and releases lists with records (NFR-009). The session page, the release page, and both 2c dialogs are scanned in their own specs.
+  * Focus rings on a running session and on the release page (NFR-008).
+  * Nothing animates with reduced motion through adding a finding, the release disclosure, and the Insert test data dialog. No animation keeps running on a running session (NFR-006).
+  * NFR-024 for finding screenshots: after deleting a finding (the other finding's screenshot stays), after deleting a session (the other session's screenshot stays), and after importing a backup made before any screenshot, no screenshot is left whose session or finding is gone.
+* **Initial JS** stays with the CI bundle-size check (NFR-001): 50.73 KB gzip for `/` after slice 2c.
+* **Traceability**: every Phase 2 requirement (FR-090 to FR-151, 21 in all) is now checked in `src/traceability.test.ts`, so the shipped list is gone. Mutation-checked by hiding FR-151 in its two test files, which fails.
+* **Live site** (2026-11-28, build `1e61abc`): journeys J-10 to J-12 were run with Playwright's Chromium in a fresh context, so no stored data was touched. No request left the origin.
+  * J-12: Deposit, Create test cases with two items unticked ("Created 25 test cases."), View them (`/cases?tag=deposit`), New run of the 25 with release `v-live`, one Pass.
+  * J-10: Start session with release `v-live` ("0 min elapsed · 60 min left"), a Bug finding added with Ctrl+Enter (focus back in the field), Copy session, End session ("Ended after 0 min").
+  * J-11: Releases lists `v-live`; Copy summary gives "## Release: v-live" with the pass rate over the latest result per case.
+* **Found on the live site**: after Start session, focus is not in the finding field, although design J-10 step 2 says it is. No test covered it. Recorded for the owner, not changed in this test-only task.
+
 ### 2026-11-28: Insert test data into a step (T-074)
 
 * **Button** (FR-151 AC-1; design 13.3 P2-02): each step row has an icon button "Insert test data into step 3" before Move up, Move down, and Remove. It opens a dialog titled "Insert test data" that names the target: "Into step 3, Expected result, at the cursor."
