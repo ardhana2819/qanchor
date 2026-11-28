@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 // Completion checks: every shipped functional requirement is named by at least one unit or E2E
 // test, so a requirement cannot ship, or stay shipped, without one. Phase 1 (T-046) reads
-// docs/prd.md section 5.2, retired requirements skipped; Phase 2 (T-056) reads section 10.3 and
-// checks the slices shipped so far. Whether each test passes is CI's job.
+// docs/prd.md section 5.2, retired requirements skipped; Phase 2 (T-056, completed in T-075 when
+// slice 2c shipped) reads section 10.3. Whether each test passes is CI's job.
 
 const root = join(import.meta.dirname, '..');
 
@@ -32,27 +32,6 @@ function phase1Requirements(): { id: string; title: string }[] {
 		'## 6. Non-functional requirements'
 	).filter(({ title }) => !/^retired/i.test(title));
 }
-
-/**
- * The Phase 2 requirements of the shipped slices (PRD 10.1): 2a, then 2b (T-066), which also adds
- * screenshots to FR-091. Extend this list as each slice ships.
- */
-const SHIPPED_PHASE_2 = [
-	'FR-090',
-	'FR-091',
-	'FR-092',
-	'FR-100',
-	'FR-101',
-	'FR-102',
-	'FR-110',
-	'FR-111',
-	'FR-112',
-	'FR-113',
-	'FR-120',
-	'FR-121',
-	'FR-122',
-	'FR-123'
-];
 
 function phase2Requirements(): { id: string; title: string }[] {
 	return requirementsBetween(
@@ -88,16 +67,14 @@ describe('Phase 1 traceability', () => {
 
 describe('Phase 2 traceability', () => {
 	const requirements = phase2Requirements();
-	const shipped = requirements.filter(({ id }) => SHIPPED_PHASE_2.includes(id));
 
 	it('reads the requirement list from the PRD', () => {
 		expect(requirements.length).toBe(21);
 		expect(requirements[0]).toEqual({ id: 'FR-090', title: 'QA navigation and record routes' });
-		// Every shipped ID is a Phase 2 requirement, so a typo cannot hide one.
-		expect(shipped.map((r) => r.id)).toEqual(SHIPPED_PHASE_2);
+		expect(requirements.at(-1)?.id).toBe('FR-151');
 	});
 
-	it('names every shipped Phase 2 functional requirement in at least one test', () => {
-		expect(untested(shipped)).toEqual([]);
+	it('names every Phase 2 functional requirement in at least one test', () => {
+		expect(untested(requirements)).toEqual([]);
 	});
 });
