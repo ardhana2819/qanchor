@@ -65,6 +65,14 @@ export interface Storage {
 	 */
 	createCase(fields: NewCase, now: number): Promise<Result<TestCase, StorageErrorCode>>;
 	/**
+	 * Saves new test cases with consecutive keys in one transaction, as createCase does for one
+	 * (FR-150, NFR-026): either every case is saved or none is.
+	 */
+	createCases(
+		fields: readonly NewCase[],
+		now: number
+	): Promise<Result<TestCase[], StorageErrorCode>>;
+	/**
 	 * Saves a result with the screenshots added before it was first saved (plan finding F-7), in
 	 * one transaction: the result's screenshot count, the limit check, and the writes happen
 	 * together, so a second tab cannot take the last place in between. Stored screenshots stay
@@ -153,7 +161,34 @@ export async function openStorage(
 }
 
 function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
+	const createCases: Storage['createCases'] = async (fields, now) => {
+		if (fields.length === 0) return ok([]);
+		try {
+			const transaction = db.transaction(['testCases', 'meta'], 'readwrite');
+			// If the read below fails, commit() never awaits done; its rejection is the same error.
+			transaction.done.catch(() => {});
+			const meta = transaction.objectStore('meta');
+			const counter = (await meta.get('caseCounter'))?.value ?? 0;
+			const records: TestCase[] = fields.map((item, i) => ({
+				...item,
+				id: crypto.randomUUID(),
+				number: counter + i + 1,
+				createdAt: now,
+				updatedAt: now
+			}));
+			await commit(transaction, () => {
+				void track(meta.put({ key: 'caseCounter', value: counter + records.length }));
+				// add, not put: a key already taken fails the unique index and rolls back the counter.
+				for (const record of records) void track(transaction.objectStore('testCases').add(record));
+			});
+			return ok(records);
+		} catch (error) {
+			return err(classify(error));
+		}
+	};
+
 	return {
+		createCases,
 		async readAll(store) {
 			try {
 				return ok(await db.getAll(store));
@@ -184,28 +219,8 @@ function wrap(db: IDBPDatabase<QAnchorDB>): Storage {
 		},
 
 		async createCase(fields, now) {
-			try {
-				const transaction = db.transaction(['testCases', 'meta'], 'readwrite');
-				// If the read below fails, commit() never awaits done; its rejection is the same error.
-				transaction.done.catch(() => {});
-				const meta = transaction.objectStore('meta');
-				const counter = await meta.get('caseCounter');
-				const record: TestCase = {
-					...fields,
-					id: crypto.randomUUID(),
-					number: (counter?.value ?? 0) + 1,
-					createdAt: now,
-					updatedAt: now
-				};
-				await commit(transaction, () => {
-					void track(meta.put({ key: 'caseCounter', value: record.number }));
-					// add, not put: a key already taken fails the unique index and rolls back the counter.
-					void track(transaction.objectStore('testCases').add(record));
-				});
-				return ok(record);
-			} catch (error) {
-				return err(classify(error));
-			}
+			const created = await createCases([fields], now);
+			return created.ok ? ok(created.value[0]) : created;
 		},
 
 		async saveResult(result, pending, now) {

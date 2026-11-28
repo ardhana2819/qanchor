@@ -437,6 +437,39 @@ describe('test cases (FR-100 AC-2, ADR-015)', () => {
 		expect(await numbers(storage)).toEqual([1]);
 	});
 
+	it('creates many cases with consecutive keys in one transaction (FR-150)', async () => {
+		const storage = await open();
+		await storage.createCase(newCase('A'), 1);
+
+		const created = await storage.createCases([newCase('B'), newCase('C'), newCase('D')], 5);
+
+		expect(created.ok && created.value.map((c) => [c.title, c.number, c.createdAt])).toEqual([
+			['B', 2, 5],
+			['C', 3, 5],
+			['D', 4, 5]
+		]);
+		expect(await numbers(storage)).toEqual([1, 2, 3, 4]);
+		expect(await storage.readAll('meta')).toEqual({
+			ok: true,
+			value: [{ key: 'caseCounter', value: 4 }]
+		});
+		expect(await storage.createCases([], 6)).toEqual({ ok: true, value: [] });
+	});
+
+	it('a failure in a batch saves none of its cases nor the counter (NFR-026)', async () => {
+		const storage = await open();
+		// Key 2 is taken, so the second case of the batch fails the unique index.
+		await storage.putAll('testCases', [
+			{ ...newCase('Old'), id: 'x', number: 2, createdAt: 1, updatedAt: 1 }
+		]);
+
+		const created = await storage.createCases([newCase('A'), newCase('B'), newCase('C')], 1);
+
+		expect(created).toEqual({ ok: false, error: 'failed' });
+		expect(await numbers(storage)).toEqual([2]);
+		expect(await storage.readAll('meta')).toEqual({ ok: true, value: [] });
+	});
+
 	it('a quota error saves neither the case nor the counter (NFR-026)', async () => {
 		const storage = await open();
 		vi.spyOn(IDBObjectStore.prototype, 'add').mockImplementation(() => {
