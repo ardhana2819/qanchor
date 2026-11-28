@@ -535,6 +535,12 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-28: Focus in the finding field when a session opens
+
+* Found in the T-075 live-site check: after Start session, focus was not in the finding field, although design J-10 step 2 says it is. No test covered it.
+* Fix: the finding textarea has `autofocus`. Svelte focuses it when the composer mounts, and after a client-side navigation SvelteKit moves focus to the `[autofocus]` element instead of the body. It applies whenever a session page opens, also from the list or a link, and to an ended session, which still takes findings (FR-131 AC-1).
+* Regression: `sessions.spec.ts` (after Start session) and `session-view.spec.ts` (opening a session) expect the field focused; both failed without the fix.
+
 ### 2026-11-28: Cross-cutting checks for slice 2c (T-075)
 
 * **`tests/e2e/cross-cutting-2c.spec.ts`** (11 per browser), kept apart from the 2a and 2b specs, on two sessions with a finding and a run in one release:
