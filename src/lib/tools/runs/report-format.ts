@@ -1,4 +1,4 @@
-import { REPORT_FORMATS, type ReportFormat } from '#lib/core/qa/report.ts';
+import { REPORT_FORMATS, type BugReport, type ReportFormat } from '#lib/core/qa/report.ts';
 
 // The bug report's format control (design 13.3 P2-05; FR-121 AC-1). The last choice is a
 // preference of this browser, like a collapsed panel, so it lives in localStorage and is not
@@ -51,3 +51,13 @@ export const copiedText = (format: ReportFormat) =>
 
 /** The dialog's title (design 13.3 P2-05): "Bug report: TC-12". */
 export const reportTitle = (key: string) => `Bug report: ${key}`;
+
+/** What a bug report is built from: a saved failure, or a Bug finding (plan finding F-17). */
+export interface ReportSource {
+	/** The dialog title, e.g. "Bug report: TC-12". */
+	title: string;
+	/** Names the source in the dialog's copy: "No screenshots on this result." */
+	noun: 'result' | 'finding';
+	/** The report as built now; null when there is nothing to report (no saved failure). */
+	build: () => BugReport | null;
+}

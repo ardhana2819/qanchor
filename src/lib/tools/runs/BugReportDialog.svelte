@@ -1,21 +1,12 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { formatKey } from '#lib/core/qa/keys.ts';
 	import {
-		buildBugReport,
 		renderReport,
 		SUMMARY_MAX,
 		type BugReport,
 		type ReportFormat
 	} from '#lib/core/qa/report.ts';
-	import {
-		PRIORITIES,
-		PRIORITY_LABELS,
-		type CaseSnapshot,
-		type Priority,
-		type Run,
-		type TestResult
-	} from '#lib/core/qa/types.ts';
+	import { PRIORITIES, PRIORITY_LABELS, type Priority } from '#lib/core/qa/types.ts';
 	import { clipboard } from '#lib/state/clipboard.svelte.ts';
 	import Button from '#lib/ui/Button.svelte';
 	import Dialog from '#lib/ui/Dialog.svelte';
@@ -32,26 +23,25 @@
 		JIRA_CLOUD_HINT,
 		readReportFormat,
 		REPORT_FORMAT_OPTIONS,
-		reportTitle,
-		storeReportFormat
+		storeReportFormat,
+		type ReportSource
 	} from './report-format.ts';
 	import type { ShotItem } from './shots.svelte.ts';
 
-	// The bug report of a saved failure (design 13.3 P2-05; FR-120 to FR-122). It is built from
-	// the result each time it opens and never stored, so closing after an edit asks first
-	// (FR-120 AC-5). The copy is the text the preview shows.
+	// The bug report of a saved failure or of a Bug finding (design 13.3 P2-05; FR-120 to FR-122,
+	// FR-131 AC-3, plan finding F-17). It is built from its source each time it opens and never
+	// stored, so closing after an edit asks first (FR-120 AC-5). The copy is the text the
+	// preview shows.
 
 	interface Props {
-		run: Run;
-		item: CaseSnapshot;
-		result: TestResult | undefined;
-		/** The case's screenshots, in order; their file names are the attachments (FR-122). */
+		source: ReportSource;
+		/** The source's screenshots, in order; their file names are the attachments (FR-122). */
 		shots: ShotItem[];
 		/** The screenshots are still being read. */
 		preparing: boolean;
 	}
 
-	let { run, item, result, shots, preparing }: Props = $props();
+	let { source, shots, preparing }: Props = $props();
 
 	/**
 	 * Safari keeps only the last of several downloads started in one go, and Chrome may drop some,
@@ -82,7 +72,6 @@
 	let format: ReportFormat = $state('markdown');
 	let downloading = $state(false);
 
-	const key = $derived(formatKey(item.number));
 	const edited = $derived(open && JSON.stringify(report) !== built);
 	const text = $derived(
 		renderReport(
@@ -106,10 +95,11 @@
 		};
 	}
 
-	/** Opens the report built from the saved failure (FR-120 AC-1 to AC-4, AC-6). */
+	/** Opens the report built from its source (FR-120 AC-1 to AC-4, AC-6; FR-131 AC-3). */
 	export function show(): void {
-		if (result?.status !== 'fail') return;
-		report = buildBugReport(run, item, result);
+		const fresh = source.build();
+		if (!fresh) return;
+		report = fresh;
 		built = JSON.stringify(report);
 		format = readReportFormat();
 		discardOpen = false;
@@ -155,7 +145,7 @@
 	}
 </script>
 
-<Dialog bind:open title={reportTitle(key)} large {oncancel}>
+<Dialog bind:open title={source.title} large {oncancel}>
 	<div class="report" data-testid="bug-report">
 		<div class="fields">
 			<div class="wide">
@@ -217,7 +207,7 @@
 			{#if preparing}
 				<p class="muted">Preparing screenshots…</p>
 			{:else if shots.length === 0}
-				<p class="muted">No screenshots on this result.</p>
+				<p class="muted">No screenshots on this {source.noun}.</p>
 			{:else}
 				<ul>
 					{#each shots as shot (shot.id)}
@@ -281,7 +271,7 @@
 </Dialog>
 
 <Dialog bind:open={discardOpen} title="Discard your edits to this report?" destructive>
-	<p>The report is not saved. Generating it again starts from the result.</p>
+	<p>The report is not saved. Generating it again starts from the {source.noun}.</p>
 	{#snippet actions()}
 		<Button autofocus onclick={() => (discardOpen = false)}>Keep editing</Button>
 		<Button variant="danger" onclick={discard} data-testid="bug-report-discard">Discard</Button>

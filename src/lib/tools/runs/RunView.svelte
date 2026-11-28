@@ -5,6 +5,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { formatKey } from '#lib/core/qa/keys.ts';
+	import { buildBugReport } from '#lib/core/qa/report.ts';
 	import { countStatuses, countsInWords, resultsByCase } from '#lib/core/qa/run.ts';
 	import { runSummaryMarkdown } from '#lib/core/qa/summary.ts';
 	import type { CaseSnapshot, ResultStatus, Run } from '#lib/core/qa/types.ts';
@@ -34,6 +35,7 @@
 		type ResultForm
 	} from './execution.ts';
 	import BugReportDialog from './BugReportDialog.svelte';
+	import { reportTitle } from './report-format.ts';
 	import { saveErrorText } from './present.ts';
 	import ResultPanel from './ResultPanel.svelte';
 	import { RunShots } from './shots.svelte.ts';
@@ -404,9 +406,11 @@
 {#if run && item}
 	<BugReportDialog
 		bind:this={bugReport}
-		{run}
-		{item}
-		{result}
+		source={{
+			title: reportTitle(formatKey(item.number)),
+			noun: 'result',
+			build: () => (result?.status === 'fail' ? buildBugReport(run, item, result) : null)
+		}}
 		shots={shots.itemsOf(run.id, item.number)}
 		preparing={!shots.isOpen(run.id, item.number)}
 	/>
