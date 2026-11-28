@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, type Component } from 'svelte';
 	import type { CaseField } from '#lib/core/qa/validation.ts';
 	import { STEPS_MAX } from '#lib/core/qa/validation.ts';
 	import { notify } from '#lib/state/notify.svelte.ts';
@@ -9,6 +9,7 @@
 	import IconButton from '#lib/ui/IconButton.svelte';
 	import Textarea from '#lib/ui/Textarea.svelte';
 	import { moveStep, neighbourAfterRemove, newStep, type DraftStep } from './draft.ts';
+	import { defaultCaret, insertedText, spliceText, type Caret } from './test-data.ts';
 
 	interface Props {
 		steps: DraftStep[];
@@ -20,6 +21,65 @@
 
 	let list: HTMLOListElement | undefined = $state();
 	let addBox: HTMLDivElement | undefined = $state();
+
+	type InsertDialog = Component<
+		{ oninsert: (text: string) => void },
+		{ show: (step: number, field: Caret['field']) => void }
+	>;
+
+	// Insert test data (FR-151): the dialog and the generators load on first use (AC-3, NFR-015).
+	let InsertData: InsertDialog | null = $state.raw(null);
+	let insertDialog: { show: (step: number, field: Caret['field']) => void } | undefined = $state();
+	let opening = $state(false);
+	/** The field each step was last focused in and its selection, kept when focus leaves it. */
+	const carets: Record<number, Caret> = {};
+	/** The step the dialog was opened for. */
+	let inserting: { key: number; caret: Caret } | null = null;
+
+	function rememberCaret(key: number, event: FocusEvent): void {
+		const field = event.target;
+		if (!(field instanceof HTMLTextAreaElement)) return;
+		const name = field.closest('[data-field]')?.getAttribute('data-field');
+		const which = name?.endsWith('.expected') ? 'expected' : 'action';
+		carets[key] = { field: which, start: field.selectionStart, end: field.selectionEnd };
+	}
+
+	async function openInsert(index: number): Promise<void> {
+		if (opening) return;
+		const step = steps[index];
+		inserting = { key: step.key, caret: carets[step.key] ?? defaultCaret(step.action) };
+		if (!InsertData) {
+			opening = true;
+			try {
+				InsertData = (await import('./InsertTestDataDialog.svelte')).default as InsertDialog;
+			} finally {
+				opening = false;
+			}
+			await tick();
+		}
+		insertDialog?.show(index + 1, inserting.caret.field);
+	}
+
+	/** Puts the text in place of the remembered selection and the caret after it (AC-2). */
+	async function insert(text: string): Promise<void> {
+		if (!inserting) return;
+		const { key, caret } = inserting;
+		inserting = null;
+		const index = steps.findIndex((s) => s.key === key);
+		if (index < 0) return;
+		const step = steps[index];
+		const next = spliceText(step[caret.field], caret, text);
+		step[caret.field] = next.value;
+		carets[key] = { field: caret.field, start: next.caret, end: next.caret };
+		notify.announce(insertedText(index + 1));
+		// After the dialog has closed and handed focus back to the button.
+		await tick();
+		const field = list?.querySelector<HTMLTextAreaElement>(
+			`[data-step="${key}"] [data-field$=".${caret.field}"] textarea`
+		);
+		field?.focus();
+		field?.setSelectionRange(next.caret, next.caret);
+	}
 
 	/** Focus inside one step: its action field, or one of its buttons. */
 	function focusStep(key: number, target: 'action' | 'up' | 'down'): void {
@@ -74,7 +134,12 @@
 		<ol bind:this={list}>
 			{#each steps as step, index (step.key)}
 				<li data-step={step.key} data-testid="case-editor-step">
-					<div class="step" role="group" aria-label="Step {index + 1}">
+					<div
+						class="step"
+						role="group"
+						aria-label="Step {index + 1}"
+						onfocusout={(event) => rememberCaret(step.key, event)}
+					>
 						<span class="number" aria-hidden="true">{index + 1}</span>
 						<div data-field="steps.{index}.action">
 							<Field label="Action" error={errors.get(`steps.${index}.action`)}>
@@ -106,6 +171,14 @@
 							</Field>
 						</div>
 						<div class="buttons">
+							<!-- Not `loading`: a disabled button drops focus, which the dialog returns to on close. -->
+							<IconButton
+								label="Insert test data into step {index + 1}"
+								onclick={() => openInsert(index)}
+								data-testid="case-editor-step-insert"
+							>
+								<Icon name="insert" />
+							</IconButton>
 							<IconButton
 								label="Move step {index + 1} up"
 								disabled={index === 0}
@@ -140,6 +213,10 @@
 		{/if}
 	</div>
 </fieldset>
+
+{#if InsertData}
+	<InsertData bind:this={insertDialog} oninsert={insert} />
+{/if}
 
 <style>
 	fieldset {
