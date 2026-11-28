@@ -41,7 +41,9 @@
 <a class="skip-link" href="#main">Skip to content</a>
 
 <div class="shell">
-	<div class="sidebar">
+	<!-- Firefox makes a scrolling box a tab stop of its own once the sidebar overflows a short
+	     window; every item in it is a link or control, which scrolls it into view on focus. -->
+	<div class="sidebar" tabindex="-1">
 		<nav aria-label="Main">
 			<a class="brand" href={resolve('/')}>
 				<svg class="brand-mark" viewBox="0 0 16 16" aria-hidden="true">
