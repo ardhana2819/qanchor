@@ -282,3 +282,32 @@ export function png(width: number, height: number, alpha = false): Buffer {
 		chunk('IEND', Buffer.alloc(0))
 	]);
 }
+
+/**
+ * The names `count` downloads are saved under. Firefox saves a WebP file, then opens it in a new
+ * tab instead of reporting a download (its default for images it can show).
+ */
+export async function savedNames(page: Page, button: Locator, count: number): Promise<string[]> {
+	const names: string[] = [];
+	const onDownload = (download: { suggestedFilename(): string }) =>
+		names.push(download.suggestedFilename());
+	// Once Firefox opened such a tab, Playwright's Firefox stalls on the page, so each test
+	// downloads once, last. The context closes the tabs after the test.
+	// The tab shows the saved file, which Firefox renames `TC-1-run1-2-1.webp` when an earlier
+	// test of this worker saved `TC-1-run1-2.webp` (also `finding-…`); only that added `-<k>`
+	// is taken off.
+	const onTab = (tab: Page) => {
+		const saved = decodeURIComponent(new URL(tab.url()).pathname.split('/').pop() ?? '');
+		names.push(saved.replace(/^((?:TC-\d+|finding)-[0-9a-z]+-\d+)-\d+(\.\w+)$/, '$1$2'));
+	};
+	page.on('download', onDownload);
+	page.context().on('page', onTab);
+	// Not click(), which waits for the navigation Firefox's new tab starts, nor dispatchEvent(),
+	// which crashes Playwright's Firefox inside this dialog.
+	await button.focus();
+	await page.keyboard.press('Enter');
+	await expect.poll(() => names.length).toBe(count);
+	page.off('download', onDownload);
+	page.context().off('page', onTab);
+	return names.sort();
+}

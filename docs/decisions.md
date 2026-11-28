@@ -534,6 +534,14 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-27: Bug report from a finding and Copy session (T-071)
+
+* **One dialog, two sources** (plan finding F-17): `BugReportDialog` now takes a `ReportSource` (title, the noun used in its copy, and `build()`), not a run, case, and result. The run page passes a source that builds from a failed result as before; the session page passes one that builds from a finding with T-067's `buildFindingReport`. `bug-report.spec.ts` is unchanged and green, so the run behaviour stays the same.
+* **Create bug report** (FR-131 AC-3): a button on Bug findings only, named "Create bug report of the finding at 12 min" for screen readers. The dialog is titled "Bug report: finding at 12 min" and opens with the finding's first line as the summary, its full text as the actual result, the session's environment, empty steps and expected result, and the session's charter, release, and time in the notes. It is built again from the finding each time it opens, so an edit is picked up. Escape returns focus to the button.
+* **Attachments** (FR-121, FR-122): the finding's screenshots, named `finding-<first 8 letters and digits of its id>-<n>.webp|jpg`; Download all works as for a result.
+* **Copy session** (FR-132): a button in the session header, before Edit details, on running, paused, and ended sessions alike. It copies T-067's `sessionMarkdown` (findings grouped by type) with the toast "Copied session".
+* **Tests**: no new unit tests (the text is T-067's, already tested); `finding-report.spec.ts` with 7 E2E tests (Bug findings only, the fields and the copied Markdown, a rebuilt report after an edit, attachments and Download all, Copy session, axe in both themes). `savedNames` moved to `helpers.ts` and accepts finding attachment names.
+
 ### 2026-11-27: Session page (T-070)
 
 * **Clock** (FR-130 AC-2, AC-3, F-15): the page keeps one `now`, moved by a single `setTimeout` that waits until the shown minute changes (`msUntilNextMinute`), only while the session runs and the page is visible. On `visibilitychange` the timer is cleared when hidden and `now` catches up at once when shown. A paused or ended session sets no timer. E2E checks the wait (45 s at 23 min 15 s), that no timer is set while hidden, and the catch-up.
