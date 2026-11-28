@@ -534,6 +534,19 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-28: Insert test data into a step (T-074)
+
+* **Button** (FR-151 AC-1; design 13.3 P2-02): each step row has an icon button "Insert test data into step 3" before Move up, Move down, and Remove. It opens a dialog titled "Insert test data" that names the target: "Into step 3, Expected result, at the cursor."
+* **Which field and where** (AC-2): when focus leaves a step's Action or Expected result, the editor keeps that field and its selection. The value replaces the selection (or goes at the caret); a step not focused yet gets it at the end of its Action. After Insert, focus returns to the field with the caret after the inserted text, and "Test data inserted into step 3." is announced. A selection outside the current text is clamped to it.
+* **Dialog**: Address / Amount / Dummy data, and the choices are kept between openings.
+  * Address: Chain, then Type and Network for Bitcoin, then Sample: Valid or one invalid variant that applies to the target, as in FR-011 AC-4. [ASSUMPTION] The valid-but-risky samples (zero address, all-lowercase, off-curve) are not offered, as the AC names valid or invalid only. An invalid sample is inserted as `<address> (<reason>)`; the empty-string sample as `(<reason>)`.
+  * Amount: a token preset (decimals, as on Amount edge cases) and one case from `generateAmountCases`, labelled by category and purpose; the literal input is inserted.
+  * Dummy data: one field of one generated person with the default settings (adults, 08… phone, 15-digit NPWP) and a fresh seed; the bank field is the bank name and the account number.
+  * "Inserted as" previews the exact text, with spaces and zero-width characters made visible in the address or amount, as in the generator's table. Generate another (address and dummy data) draws a new value.
+* **Loading and key material** (AC-3, AC-4; NFR-012, NFR-015): the dialog is imported when first opened (2.2 KB gzip), so the editor carries no generator code; the amount cases come with the dialog. Addresses and people come from the Phase 1 workers, which start with the first value and return only the public address. Closing the dialog, by Insert, Cancel, or Escape, terminates both workers, and so does leaving the editor. The seed is drawn with `crypto.getRandomValues`, so the dialog does not load the hashing code of `randomSeed`.
+* **Test IDs**: `case-editor-step-insert` and `case-editor-insert-*` (target, chain, sample, preset, amount, field, preview, another, confirm), added to `test-ids.spec.ts`.
+* **Tests**: 12 unit tests (splice at caret and over a selection, clamping, default caret, address and dummy text, seed, copy); `insert-test-data.spec.ts` with 9 E2E tests (valid address at the caret, invalid sample with its reason into Expected result, replacing a selection with an amount, kept choices on the next step, a dummy NIK with Generate another, Escape and Cancel, no generator code or worker before the dialog opens, workers stopped on close and only the address stored, axe in both themes).
+
 ### 2026-11-28: Checklist to test cases (T-073)
 
 * **Create test cases** (FR-150 AC-1; design 13.3 S-07): a button beside Copy as Markdown on each checklist page opens a dialog with every item ticked, one group per section, a "24 of 31 selected" count, and Select all / Select none. The dialog and the test case store are loaded on first use, so the checklist page itself carries no QA code (NFR-025, checked in E2E).

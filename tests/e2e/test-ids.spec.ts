@@ -336,6 +336,21 @@ test('test case editor', async ({ page }) => {
 	await each(page, 'case-editor-step', 1);
 	await each(page, 'case-editor-step-action', 1);
 	await each(page, 'case-editor-step-expected', 1);
+	await each(page, 'case-editor-step-insert', 1);
+	await page.getByTestId('case-editor-step-insert').click();
+	await once(page, [
+		'case-editor-insert-target',
+		'case-editor-insert-chain',
+		'case-editor-insert-sample',
+		'case-editor-insert-preview',
+		'case-editor-insert-another',
+		'case-editor-insert-confirm'
+	]);
+	await page.getByRole('radio', { name: 'Amount' }).check();
+	await once(page, ['case-editor-insert-preset', 'case-editor-insert-amount']);
+	await page.getByRole('radio', { name: 'Dummy data' }).check();
+	await once(page, ['case-editor-insert-field']);
+	await page.keyboard.press('Escape');
 
 	await page.getByTestId('case-editor-title').fill('Changed');
 	await once(page, ['case-editor-status']);
