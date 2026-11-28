@@ -260,11 +260,12 @@ test.describe('Sessions list (FR-130 AC-1)', () => {
 			await open(page);
 			await timebox(page, 'Custom').check();
 			await start(page).click();
-			await expect(page.getByText('Enter a charter.')).toBeVisible();
+			// toHaveCount, not toBeVisible, before a scan: see scanA11y.
+			await expect(page.getByText('Enter a charter.')).toHaveCount(1);
 			expect(await scanA11y(page)).toEqual([]);
 
 			await page.goto('/sessions/view?id=a');
-			await expect(page.getByTestId('session-meta')).toBeVisible();
+			await expect(page.getByTestId('session-meta')).toHaveCount(1);
 			expect(await scanA11y(page)).toEqual([]);
 		});
 	}

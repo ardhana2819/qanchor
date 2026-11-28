@@ -109,7 +109,8 @@ async function seed(page: Page, data: ReleaseData = DATA): Promise<void> {
 
 async function openRelease(page: Page, query: string): Promise<void> {
 	await page.goto(`/releases/view?${query}`);
-	await expect(page.getByTestId('release-heading')).toBeVisible();
+	// toHaveCount, not toBeVisible, as the page is often scanned next: see scanA11y.
+	await expect(page.getByTestId('release-heading')).toHaveCount(1);
 }
 
 test.describe('Releases list (FR-140 AC-1, AC-5)', () => {
