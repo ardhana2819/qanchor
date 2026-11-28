@@ -534,6 +534,17 @@ Checked with a throwaway route and worker on the built site (`vite preview`), in
 * Change: with the enter animation too, `DataTable` creates rows 50 per frame, and a new result set starts again from the first step. The 12 staggered rows and the one-block animation of the rest are unchanged. Rows added to that block in later frames appear without animating, below the 640 px scroll box.
 * Measured with tracing on, as in CI: the longest task fell from about 200 ms to 99 ms at 4x and 117 ms at 5x throttling.
 
+### 2026-11-28: Checklist to test cases (T-073)
+
+* **Create test cases** (FR-150 AC-1; design 13.3 S-07): a button beside Copy as Markdown on each checklist page opens a dialog with every item ticked, one group per section, a "24 of 31 selected" count, and Select all / Select none. The dialog and the test case store are loaded on first use, so the checklist page itself carries no QA code (NFR-025, checked in E2E).
+* **The case** (FR-150 AC-2): the item text is the title and the case-level expected result; tags are the checklist slug and the section heading as a tag; Medium priority; no steps or preconditions. Every built-in item passes the case validation (unit test).
+* **Section tag** [ASSUMPTION]: the heading lowercased, each run of characters a tag cannot hold turned into one `-`, no `-` at either end, cut to 32 characters: "Allowance (on-chain swaps)" becomes `allowance-on-chain-swaps`. When it equals the slug, the case has one tag.
+* **Duplicates** (FR-150 AC-3): an item exists when a stored case has the checklist's tag and the same title, compared trimmed and ignoring case. The warning callout ("6 of these items already exist as test cases with the tag deposit.") holds Skip existing (default) / Create anyway; the button counts what will be created ("Create 2 test cases"). With nothing to create it is disabled with the reason ("Select at least one item." / "Every selected item already exists as a test case.").
+* **One transaction** (NFR-026): `createCases` in storage takes the key counter once and adds every case with consecutive keys; a failure saves none of them and leaves the counter as it was (unit tests with fake-indexeddb). `createCase` now calls it with one case. The 5,000 limit is checked for the whole batch: "Only 10 more test cases fit: …".
+* **After creating** (FR-150 AC-4): the dialog closes, focus returns to Create test cases, and a status line under the toolbar reads "Created 18 test cases." with "View them", which opens `/cases?tag=deposit`. The open button does not show a loading state while the dialog code loads, since a disabled button loses focus.
+* **Test cases empty state** (design 13.7): now also links to Checklists.
+* **Tests**: 14 unit tests (items, section tag, case fields, duplicates, copy) and 2 storage tests; `checklist-cases.spec.ts` with 7 E2E tests (all ticked by section, Select none, Escape and focus, stored fields and keys, the filtered link, the duplicate warning with Skip and Create anyway, lazy loading, the empty-state link, axe in both themes).
+
 ### 2026-11-28: Releases (T-072)
 
 * **Pages** (design 13.3 P2-07): `/releases` lists every release used by a run or a session, latest activity first, "No release" last (FR-140 AC-1, AC-5). `/releases/view?name=<first spelling>` opens one; any spelling finds it (EC-031); "No release" is `?none` (plan finding F-16). A URL with neither goes to the list (EC-028); an unknown release shows "No run or session uses the release "<name>"." with a link back.
