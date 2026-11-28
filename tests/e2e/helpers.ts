@@ -21,7 +21,11 @@ export async function appOpened(page: Page): Promise<void> {
 		.toContain('qanchor');
 }
 
-/** WCAG 2.1 AA scan of the whole page; returns "rule: first target" per violation (NFR-009). */
+/**
+ * WCAG 2.1 AA scan of the whole page; returns "rule: first target" per violation (NFR-009).
+ * Wait for the page with `toHaveCount`, not `toBeVisible` or `toBeEnabled`: a scan after those
+ * crashes Playwright's Firefox now and then (decisions 2026-11-14, T-023, measured again on 2026-11-28).
+ */
 export async function scanA11y(page: Page): Promise<string[]> {
 	const results = await new AxeBuilder({ page })
 		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])

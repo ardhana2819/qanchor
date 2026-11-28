@@ -64,7 +64,8 @@ async function openSession(
 	if (findings.length > 0) await putRecords(page, 'findings', findings);
 	if (screenshots.length > 0) await putRecords(page, 'screenshots', screenshots);
 	await page.goto('/sessions/view?id=s1');
-	await expect(page.getByTestId('session-charter-heading')).toBeVisible();
+	// toHaveCount, not toBeVisible, as the page is often scanned next: see scanA11y.
+	await expect(page.getByTestId('session-charter-heading')).toHaveCount(1);
 }
 
 /** Fakes the page's clock at NOW, standing still until a test moves it. */
@@ -433,7 +434,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 				testFinding('f4', 's1', { type: 'note', text: 'Memo', at: 5 * MIN })
 			]
 		});
-		await expect(page.getByTestId('session-timebox')).toBeVisible();
+		await expect(page.getByTestId('session-timebox')).toHaveCount(1);
 		await page.getByTestId('finding-add').click();
 		await page.getByRole('button', { name: 'Edit the finding at 2 min' }).click();
 		expect(await scanA11y(page)).toEqual([]);
